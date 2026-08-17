@@ -5,7 +5,7 @@
 <title>deadtime — sponsor a developer's status line</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.04); --panel-2:rgba(255,255,255,0.06); --border:rgba(255,255,255,0.08);
@@ -39,11 +39,12 @@
   .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 10px var(--green); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
 
-  h1 { font-size:clamp(30px,5.5vw,42px); font-weight:800; letter-spacing:-0.03em; line-height:1.15; margin-bottom:18px;
-       background:linear-gradient(120deg,#fff 20%,var(--violet) 45%,var(--rose) 65%,var(--gold) 90%);
-       background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-       animation:shimmer 6s linear infinite; }
-  @keyframes shimmer { to { background-position:200% center; } }
+  h1 { font-family:'Fraunces',serif; font-size:clamp(32px,6vw,48px); font-weight:600; font-optical-sizing:auto;
+       letter-spacing:-0.02em; line-height:1.1; margin-bottom:18px;
+       background:linear-gradient(100deg,#a855f7 0%,#3b82f6 16%,#14c9a5 32%,#f2b134 48%,#f0654a 64%,#ec4899 80%,#a855f7 100%);
+       background-size:140% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+       animation:shimmer 7s linear infinite; }
+  @keyframes shimmer { to { background-position:140% center; } }
   .sub { color:var(--muted); font-size:16px; line-height:1.65; margin-bottom:40px; max-width:520px; }
 
   .stats { display:flex; gap:32px; margin-bottom:40px; flex-wrap:wrap; }
