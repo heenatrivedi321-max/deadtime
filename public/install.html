@@ -88,11 +88,11 @@
   .install-box { background:rgba(0,0,0,.55); backdrop-filter:blur(16px); border:1px solid var(--border);
                  border-radius:14px; padding:5px; margin-bottom:16px; display:flex; align-items:center;
                  box-shadow:0 30px 80px -30px rgba(0,0,0,.8); position:relative; }
-  .install-box::before { content:''; position:absolute; inset:-1px; border-radius:14px; padding:1px;
-    background:linear-gradient(120deg,var(--gold),var(--rose),var(--violet),var(--teal),var(--gold));
+  .install-box::before { content:''; position:absolute; inset:-1.5px; border-radius:14px; padding:1.5px;
+    background:linear-gradient(120deg,#f2b134,#f0654a,#ec4899,#a855f7,#3b82f6,#14c9a5,#f2b134);
     background-size:300% auto; animation:shimmer 8s linear infinite;
     -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.5; pointer-events:none; }
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.85; pointer-events:none; }
   .install-box code { flex:1; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:#a8f0c6;
                        padding:15px 16px; overflow-x:auto; white-space:nowrap; }
   #copyBtn { background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--text);
