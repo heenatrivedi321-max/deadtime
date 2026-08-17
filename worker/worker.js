@@ -48,6 +48,7 @@ function defaultState() {
     current_line: null,
     line_started: 0,
     billed_current: false,
+    payout_email: null,
   };
 }
 
@@ -106,6 +107,37 @@ async function handleEarnings(env, installId) {
     sponsor_ratio: sponsorRatio(state),
     gross_revenue: revenue,
     user_earnings: revenue * USER_SHARE,
+    payout_email: state.payout_email || null,
+  });
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PAYOUT_THRESHOLD_USD = 25;
+
+async function handleRegisterPayout(request, env) {
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { id, email } = data;
+  if (!id || !email) return json({ error: "missing id or email" }, 400);
+  if (!EMAIL_RE.test(email)) return json({ error: "invalid email" }, 400);
+
+  const key = `install:${id}`;
+  const raw = await env.INSTALLS.get(key);
+  const state = raw ? JSON.parse(raw) : defaultState();
+  state.payout_email = email;
+  await env.INSTALLS.put(key, JSON.stringify(state));
+
+  const revenue = state.sponsor_calls * (CPM / 1000);
+  const earnings = revenue * USER_SHARE;
+  return json({
+    ok: true,
+    email,
+    current_earnings: earnings,
+    payout_threshold: PAYOUT_THRESHOLD_USD,
   });
 }
 
@@ -187,12 +219,19 @@ export default {
       return handleNetworkStats(env);
     }
 
+    if (request.method === "POST" && url.pathname === "/register-payout") {
+      return handleRegisterPayout(request, env);
+    }
+
     // Anything else falls through to the static site (install.html,
-    // advertiser.html) served from the same Worker via assets.
-    // Root has no index.html -- rewrite it to install.html explicitly.
+    // advertiser.html, claim.html) served from the same Worker via assets.
+    // Root and /claim have no matching filename -- rewrite explicitly.
     if (request.method === "GET") {
       if (url.pathname === "/") {
         return env.ASSETS.fetch(new Request(new URL("/install.html", url), request));
+      }
+      if (url.pathname === "/claim") {
+        return env.ASSETS.fetch(new Request(new URL("/claim.html", url), request));
       }
       return env.ASSETS.fetch(request);
     }

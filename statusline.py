@@ -53,7 +53,36 @@ def fetch_line(install_id: str, event_name: str) -> str:
         return FALLBACK_LINE
 
 
+def fetch_earnings(install_id: str) -> dict | None:
+    url = f"{SERVER_URL}/earnings?id={install_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": "deadtime-client/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=5, context=SSL_CONTEXT) as resp:
+            return json.loads(resp.read())
+    except Exception:
+        return None
+
+
+def print_claim_info():
+    install_id = get_install_id()
+    earnings = fetch_earnings(install_id)
+    claim_url = f"{SERVER_URL}/claim?id={install_id}"
+
+    print("meanwhile -- your account")
+    print(f"  ID:      {install_id}")
+    if earnings:
+        print(f"  earned:  ${earnings['user_earnings']:.2f}")
+        print(f"  shown:   {earnings['total_calls']} lines ({earnings['sponsor_calls']} sponsored)")
+    else:
+        print("  earned:  (couldn't reach server -- check your connection)")
+    print()
+    print(f"  register a payout email: {claim_url}")
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--claim":
+        print_claim_info()
+        return
     event_name = read_event_name()
     install_id = get_install_id()
     print(fetch_line(install_id, event_name))
