@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>deadtime — get paid while your agent thinks</title>
+<title>Meanwhile — get paid while your agent thinks</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" href="logo-192.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -16,16 +20,12 @@
   body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
          -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh; cursor:default; }
 
-  /* ---- aurora background ---- */
-  .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
-  .blob { position:absolute; border-radius:50%; filter:blur(90px); opacity:.35; mix-blend-mode:screen; }
-  .b1 { width:520px; height:520px; background:var(--gold); top:-160px; left:-120px; animation:float1 22s ease-in-out infinite; }
-  .b2 { width:460px; height:460px; background:var(--violet); top:20%; right:-140px; animation:float2 26s ease-in-out infinite; }
-  .b3 { width:420px; height:420px; background:var(--teal); bottom:-140px; left:20%; animation:float3 30s ease-in-out infinite; }
-  .b4 { width:360px; height:360px; background:var(--rose); bottom:10%; right:15%; animation:float1 24s ease-in-out infinite reverse; }
-  @keyframes float1 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(60px,80px) scale(1.15); } }
-  @keyframes float2 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-70px,50px) scale(.9); } }
-  @keyframes float3 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(50px,-60px) scale(1.1); } }
+  /* ---- cinematic hero video background ---- */
+  .hero-video { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .hero-video video { position:absolute; top:50%; left:50%; min-width:100%; min-height:100%;
+                       width:auto; height:auto; transform:translate(-50%,-50%); object-fit:cover; opacity:.55; }
+  .hero-video::after { content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(7,7,10,.35) 0%, rgba(7,7,10,.75) 55%, var(--bg) 100%); }
   .grain { position:fixed; inset:0; z-index:1; pointer-events:none; opacity:.04;
            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
@@ -135,7 +135,11 @@
 </style>
 </head>
 <body>
-<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+<div class="hero-video">
+  <video autoplay muted loop playsinline>
+    <source src="hero.mp4" type="video/mp4">
+  </video>
+</div>
 <canvas id="particles"></canvas>
 <div id="spotlight"></div>
 <div class="grain"></div>
