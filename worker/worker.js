@@ -24,9 +24,9 @@ const TIPS = [
   "Fact: most bugs hide in the code you were most confident about",
 ];
 
-const SPONSORS = [
-  "(sponsored) deadtime -- get paid while your agent thinks -> deadtime.dev",
-];
+const HOUSE_SPONSOR = "(sponsored) deadtime -- get paid while your agent thinks -> deadtime.dev";
+const IMPRESSIONS_PER_BLOCK = 1000;
+const USD_PER_BLOCK = 2.0;
 
 const FILL_CEILING = 0.40;
 const BILLABLE_THRESHOLD = 10;
@@ -49,6 +49,7 @@ function defaultState() {
     line_started: 0,
     billed_current: false,
     payout_email: null,
+    current_campaign_id: null,
   };
 }
 
@@ -57,13 +58,57 @@ function sponsorRatio(state) {
   return state.sponsor_calls / state.total_calls;
 }
 
-function pickLine(state) {
-  const ratio = sponsorRatio(state);
-  const showSponsor = SPONSORS.length && ratio < FILL_CEILING && Math.random() < FILL_CEILING;
-  if (showSponsor) {
-    return { kind: "sponsor", line: SPONSORS[Math.floor(Math.random() * SPONSORS.length)] };
+function formatCampaignLine(campaign) {
+  return `(sponsored) ${campaign.line} -> ${campaign.url}`;
+}
+
+/** Active campaigns are the real, paid-and-activated ad pool -- falls back
+ * to the house ad only when nothing real is running, so the slot is never
+ * fully empty during early testing. */
+async function getActiveCampaigns(env) {
+  const raw = await env.CAMPAIGNS.get("index");
+  const ids = raw ? JSON.parse(raw) : [];
+  const campaigns = [];
+  for (const id of ids) {
+    const c = await env.CAMPAIGNS.get(`campaign:${id}`);
+    if (!c) continue;
+    const campaign = JSON.parse(c);
+    if (campaign.status === "active" && campaign.impressions_delivered < campaign.impressions_total) {
+      campaigns.push(campaign);
+    }
   }
-  return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
+  return campaigns;
+}
+
+async function pickLine(env, state) {
+  const ratio = sponsorRatio(state);
+  const eligible = ratio < FILL_CEILING && Math.random() < FILL_CEILING;
+  if (!eligible) {
+    return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
+  }
+
+  const active = await getActiveCampaigns(env);
+  if (active.length > 0) {
+    const campaign = active[Math.floor(Math.random() * active.length)];
+    return { kind: "sponsor", line: formatCampaignLine(campaign), campaign_id: campaign.id };
+  }
+  // no real paid campaigns yet -- house ad keeps the mechanism testable
+  return { kind: "sponsor", line: HOUSE_SPONSOR, campaign_id: null };
+}
+
+/** Called when a sponsor line is actually billed -- attributes the real
+ * impression to its campaign and exhausts it once the paid block runs out. */
+async function deliverImpression(env, campaignId) {
+  if (!campaignId) return;
+  const key = `campaign:${campaignId}`;
+  const raw = await env.CAMPAIGNS.get(key);
+  if (!raw) return;
+  const campaign = JSON.parse(raw);
+  campaign.impressions_delivered += 1;
+  if (campaign.impressions_delivered >= campaign.impressions_total) {
+    campaign.status = "exhausted";
+  }
+  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
 }
 
 async function handleLine(env, installId, eventName) {
@@ -81,14 +126,18 @@ async function handleLine(env, installId, eventName) {
     const visibleFor = now - state.line_started;
     if (visibleFor >= BILLABLE_THRESHOLD) {
       state.total_calls += 1;
-      if (state.current_kind === "sponsor") state.sponsor_calls += 1;
+      if (state.current_kind === "sponsor") {
+        state.sponsor_calls += 1;
+        await deliverImpression(env, state.current_campaign_id);
+      }
     }
   }
 
   // Every real invocation picks a fresh line -- no artificial hold timer.
-  const picked = pickLine(state);
+  const picked = await pickLine(env, state);
   state.current_kind = picked.kind;
   state.current_line = picked.line;
+  state.current_campaign_id = picked.campaign_id || null;
   state.line_started = now;
   state.billed_current = false;
   state.last_event = eventName || "unknown";
@@ -141,6 +190,11 @@ async function handleRegisterPayout(request, env) {
   });
 }
 
+/** Creates a real campaign in "pending_payment" -- not yet in rotation.
+ * It only starts serving once an admin (or, later, a real payment webhook)
+ * calls /admin/activate-campaign. That's the actual activation algorithm:
+ * status flips to "active", and the very next /line call across the whole
+ * network can pick it up -- no deploy, no manual code change needed. */
 async function handleAdvertiserLead(request, env) {
   let data;
   try {
@@ -152,10 +206,70 @@ async function handleAdvertiserLead(request, env) {
   if (!required.every((k) => data[k])) {
     return json({ error: "missing fields" }, 400);
   }
-  data.ts = Date.now() / 1000;
-  const key = `lead:${data.ts}:${crypto.randomUUID()}`;
-  await env.LEADS.put(key, JSON.stringify(data));
-  return json({ ok: true });
+  const blocks = Math.max(1, Math.min(1000, parseInt(data.blocks, 10) || 1));
+
+  const id = crypto.randomUUID();
+  const campaign = {
+    id,
+    line: String(data.line).slice(0, 60),
+    url: String(data.url).slice(0, 300),
+    company: String(data.company).slice(0, 100),
+    email: String(data.email).slice(0, 200),
+    blocks,
+    price_usd: blocks * USD_PER_BLOCK,
+    impressions_total: blocks * IMPRESSIONS_PER_BLOCK,
+    impressions_delivered: 0,
+    status: "pending_payment",
+    created_at: Date.now() / 1000,
+    activated_at: null,
+  };
+
+  await env.CAMPAIGNS.put(`campaign:${id}`, JSON.stringify(campaign));
+  const indexRaw = await env.CAMPAIGNS.get("index");
+  const index = indexRaw ? JSON.parse(indexRaw) : [];
+  index.push(id);
+  await env.CAMPAIGNS.put("index", JSON.stringify(index));
+
+  return json({ ok: true, campaign_id: id, price_usd: campaign.price_usd });
+}
+
+function checkAdmin(request, env) {
+  const token = request.headers.get("X-Admin-Token");
+  return token && env.ADMIN_TOKEN && token === env.ADMIN_TOKEN;
+}
+
+async function handleActivateCampaign(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { campaign_id } = data;
+  if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
+
+  const key = `campaign:${campaign_id}`;
+  const raw = await env.CAMPAIGNS.get(key);
+  if (!raw) return json({ error: "not found" }, 404);
+  const campaign = JSON.parse(raw);
+  campaign.status = "active";
+  campaign.activated_at = Date.now() / 1000;
+  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+  return json({ ok: true, campaign });
+}
+
+async function handleListCampaigns(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  const indexRaw = await env.CAMPAIGNS.get("index");
+  const ids = indexRaw ? JSON.parse(indexRaw) : [];
+  const campaigns = [];
+  for (const id of ids) {
+    const raw = await env.CAMPAIGNS.get(`campaign:${id}`);
+    if (raw) campaigns.push(JSON.parse(raw));
+  }
+  campaigns.sort((a, b) => b.created_at - a.created_at);
+  return json({ campaigns });
 }
 
 async function handleNetworkStats(env) {
@@ -221,6 +335,14 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/register-payout") {
       return handleRegisterPayout(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/activate-campaign") {
+      return handleActivateCampaign(request, env);
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/campaigns") {
+      return handleListCampaigns(request, env);
     }
 
     // Anything else falls through to the static site (install.html,

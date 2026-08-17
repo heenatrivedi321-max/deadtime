@@ -14,3 +14,7 @@ id = "89e54ed8387646c8bc59fb73fab91bea"
 [[kv_namespaces]]
 binding = "LEADS"
 id = "ce046c03849944d6808b0e3f2030186d"
+
+[[kv_namespaces]]
+binding = "CAMPAIGNS"
+id = "828f436d4e784be0b762b54a922c8243"

@@ -18,20 +18,26 @@
   * { box-sizing:border-box; margin:0; padding:0; }
   html { scroll-behavior:smooth; }
   body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
-         -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh; }
+         -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh; cursor:default; }
 
-  .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
-  .blob { position:absolute; border-radius:50%; filter:blur(90px); opacity:.35; mix-blend-mode:screen; }
-  .b1 { width:520px; height:520px; background:var(--violet); top:-160px; right:-120px; animation:float1 22s ease-in-out infinite; }
-  .b2 { width:460px; height:460px; background:var(--gold); top:15%; left:-140px; animation:float2 26s ease-in-out infinite; }
-  .b3 { width:420px; height:420px; background:var(--teal); bottom:-140px; right:15%; animation:float3 30s ease-in-out infinite; }
-  @keyframes float1 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-60px,80px) scale(1.15); } }
-  @keyframes float2 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(70px,50px) scale(.9); } }
-  @keyframes float3 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-50px,-60px) scale(1.1); } }
+  .hero-video { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .hero-video video { position:absolute; top:50%; left:50%; min-width:100%; min-height:100%;
+                       width:auto; height:auto; transform:translate(-50%,-50%); object-fit:cover; opacity:.45; }
+  .hero-video::after { content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(7,7,10,.4) 0%, rgba(7,7,10,.8) 55%, var(--bg) 100%); }
   .grain { position:fixed; inset:0; z-index:1; pointer-events:none; opacity:.04;
            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  #particles { position:fixed; inset:0; z-index:1; pointer-events:none; }
+  #spotlight { position:fixed; width:500px; height:500px; border-radius:50%; z-index:1; pointer-events:none;
+    background:radial-gradient(circle, rgba(232,200,150,.10) 0%, transparent 70%);
+    transform:translate(-50%,-50%); transition:opacity .3s; opacity:0; }
 
-  .wrap { position:relative; z-index:2; max-width:620px; margin:0 auto; padding:100px 24px 80px; }
+  .wrap { position:relative; z-index:2; max-width:620px; margin:0 auto; padding:60px 24px 80px; }
+
+  .logo-intro { display:flex; justify-content:center; margin-bottom:32px; }
+  .logo-intro img { width:64px; height:64px; filter:drop-shadow(0 0 30px rgba(232,200,150,.35));
+                     animation:logoFloat 5s ease-in-out infinite; }
+  @keyframes logoFloat { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
 
   .reveal { opacity:0; transform:translateY(20px) scale(.98); filter:blur(4px);
             transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), filter .8s cubic-bezier(.16,1,.3,1); }
@@ -44,28 +50,37 @@
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
 
   h1 { font-family:'Fraunces',serif; font-size:clamp(32px,6vw,48px); font-weight:600; font-optical-sizing:auto;
-       letter-spacing:-0.02em; line-height:1.1; margin-bottom:18px;
+       letter-spacing:-0.02em; line-height:1.1; margin-bottom:18px; position:relative;
        background:linear-gradient(100deg,#a855f7 0%,#3b82f6 16%,#14c9a5 32%,#f2b134 48%,#f0654a 64%,#ec4899 80%,#a855f7 100%);
        background-size:140% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
        animation:shimmer 7s linear infinite; }
   @keyframes shimmer { to { background-position:140% center; } }
+  h1.glitch::before, h1.glitch::after { content:attr(data-text); position:absolute; inset:0;
+    background:none; -webkit-text-fill-color:initial; clip-path:inset(0 0 0 0); }
+  h1.glitch::before { color:#ff5ec8; transform:translate(0); opacity:0; animation:glitch1 .5s steps(2,end) 3 forwards; mix-blend-mode:screen; }
+  h1.glitch::after { color:#5ee8ff; transform:translate(0); opacity:0; animation:glitch2 .5s steps(2,end) 3 forwards; mix-blend-mode:screen; }
+  @keyframes glitch1 { 0%{ clip-path:inset(10% 0 70% 0); transform:translate(-3px,0);} 25%{ clip-path:inset(60% 0 5% 0); transform:translate(3px,0);} 50%{ clip-path:inset(20% 0 50% 0); transform:translate(-2px,0);} 75%{ clip-path:inset(80% 0 2% 0); transform:translate(2px,0);} 100%{ clip-path:inset(0 0 0 0); transform:translate(0,0); opacity:0;} }
+  @keyframes glitch2 { 0%{ clip-path:inset(70% 0 10% 0); transform:translate(3px,0);} 25%{ clip-path:inset(5% 0 60% 0); transform:translate(-3px,0);} 50%{ clip-path:inset(50% 0 20% 0); transform:translate(2px,0);} 75%{ clip-path:inset(2% 0 80% 0); transform:translate(-2px,0);} 100%{ clip-path:inset(0 0 0 0); transform:translate(0,0); opacity:0;} }
+
   .sub { color:var(--muted); font-size:16px; line-height:1.65; margin-bottom:40px; max-width:520px; }
 
   .stats { display:flex; gap:32px; margin-bottom:40px; flex-wrap:wrap; }
-  .stat .odometer { display:inline-flex; font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+  .stat .odometer { display:inline-flex; font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; text-shadow:0 0 20px rgba(232,200,150,.3); }
   .digit-wrap { display:inline-block; height:1em; overflow:hidden; vertical-align:top; }
   .digit-strip { display:flex; flex-direction:column; transition:transform 1.1s cubic-bezier(.22,1,.36,1); }
   .digit-strip span { height:1em; line-height:1; display:flex; align-items:center; justify-content:center; }
   .stat .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
-  .stat .static { font-size:26px; font-weight:800; }
+  .stat .static { font-size:26px; font-weight:800; text-shadow:0 0 20px rgba(232,200,150,.3); }
+
+  .tilt { transform-style:preserve-3d; transition:transform .15s ease-out; will-change:transform; }
 
   .demo { background:rgba(0,0,0,.6); backdrop-filter:blur(16px); border:1px solid var(--border); border-radius:14px;
           padding:20px 22px; margin-bottom:44px; position:relative; overflow:hidden; box-shadow:0 20px 60px -20px rgba(0,0,0,.7); }
-  .demo::before { content:''; position:absolute; inset:-1px; border-radius:14px; padding:1px;
+  .demo::before { content:''; position:absolute; inset:-1.5px; border-radius:14px; padding:1.5px;
     background:linear-gradient(120deg,var(--violet),var(--rose),var(--gold),var(--teal),var(--violet));
     background-size:300% auto; animation:shimmer 8s linear infinite;
     -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.4; pointer-events:none; }
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.5; pointer-events:none; }
   .demo .label { color:var(--muted); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; display:block; }
   .demo .line { font-family:'JetBrains Mono',monospace; font-size:13px; color:#999; }
   .demo .line .spinner { display:inline-block; animation:spin 1s linear infinite; }
@@ -79,23 +94,33 @@
   .trust-item { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
   .trust-item svg { flex-shrink:0; color:var(--gold); }
 
+  /* ---- SVG connector lines between price tiers ---- */
+  .tiers { display:flex; flex-direction:column; gap:0; margin-bottom:44px; position:relative; }
+  .tier-line-svg { position:absolute; left:19px; top:0; bottom:0; width:2px; z-index:0; }
+  .tier { display:flex; gap:16px; padding:16px 0; position:relative; z-index:1; }
+  .tier-dot { flex-shrink:0; width:40px; height:40px; border-radius:50%; background:var(--panel); border:1.5px solid var(--border);
+              display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; }
+  .tier.active .tier-dot { background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border-color:transparent; }
+  .tier-body h4 { font-size:14px; font-weight:700; margin-bottom:2px; }
+  .tier-body p { font-size:12px; color:var(--muted); }
+
   form { display:flex; flex-direction:column; gap:18px; background:var(--panel); backdrop-filter:blur(20px);
          border:1px solid var(--border); border-radius:18px; padding:30px; box-shadow:0 40px 100px -30px rgba(0,0,0,.8); position:relative; }
   .field { position:relative; }
   label { font-size:12px; color:var(--muted); margin-bottom:7px; display:block; letter-spacing:.01em; }
-  input { width:100%; background:rgba(0,0,0,.4); border:1px solid var(--border); border-radius:9px;
+  input, select { width:100%; background:rgba(0,0,0,.4); border:1px solid var(--border); border-radius:9px;
           padding:12px 14px; color:var(--text); font-size:14px; font-family:inherit; transition:border-color .2s, box-shadow .2s; }
   input::placeholder { color:#54545c; }
-  input:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(232,200,150,.15); }
+  input:focus, select:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(232,200,150,.15); }
   .count { font-size:11px; color:var(--muted); text-align:right; margin-top:5px; transition:color .2s; }
   .count.over { color:#e77; }
 
-  button { margin-top:4px; background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border:none;
+  #submitBtn { margin-top:4px; background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border:none;
            border-radius:9px; padding:14px; font-weight:700; font-size:14px; cursor:pointer;
            transition:transform .15s ease, box-shadow .15s ease; position:relative; overflow:hidden; }
-  button:hover { transform:translateY(-1px); box-shadow:0 10px 30px -8px rgba(232,200,150,.5); }
-  button:active { transform:translateY(0); }
-  button:disabled { opacity:.6; cursor:default; transform:none; box-shadow:none; }
+  #submitBtn:hover { transform:translateY(-1px); box-shadow:0 10px 30px -8px rgba(232,200,150,.5); }
+  #submitBtn:active { transform:translateY(0); }
+  #submitBtn:disabled { opacity:.6; cursor:default; transform:none; box-shadow:none; }
 
   .note { font-size:12px; color:var(--muted); line-height:1.6; }
   .status { font-size:14px; min-height:20px; transition:opacity .3s; }
@@ -105,17 +130,26 @@
   footer { margin-top:56px; color:#5a5a62; font-size:12px; text-align:center; }
   footer a { color:var(--muted); text-decoration:none; transition:.2s; }
   footer a:hover { color:var(--gold); }
+
+  .confetti-piece { position:fixed; z-index:50; pointer-events:none; border-radius:2px; }
 </style>
 </head>
 <body>
-<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="hero-video">
+  <video autoplay muted loop playsinline>
+    <source src="hero.mp4" type="video/mp4">
+  </video>
+</div>
+<canvas id="particles"></canvas>
+<div id="spotlight"></div>
 <div class="grain"></div>
 
 <div class="wrap">
+  <div class="logo-intro reveal in"><img src="logo-192.png" alt="Meanwhile"></div>
 
   <div class="badge reveal"><span class="dot"></span> live · built on Claude Code's official status line</div>
 
-  <h1 class="reveal">Sponsor a developer's<br>status line.</h1>
+  <h1 class="reveal glitch" data-text="Sponsor a developer's status line.">Sponsor a developer's status line.</h1>
   <p class="sub reveal">A persistent line in the developer's terminal — visible while the AI works and stays on screen after, not a flash that vanishes. One clear "(sponsored)" label. No hidden math to trust — you pay for what actually renders.</p>
 
   <div class="stats reveal">
@@ -124,7 +158,7 @@
     <div class="stat"><div class="static">$2</div><div class="lbl">per 1,000 impressions</div></div>
   </div>
 
-  <div class="demo reveal">
+  <div class="demo reveal tilt">
     <span class="label">what it looks like, live</span>
     <div class="line"><span class="spinner">✻</span> Meandering…</div>
     <div class="sponsor">&nbsp;&nbsp;└ <span class="tag">(sponsored)</span> Ramp — time is money. Save both. <span class="url">→ ramp.com</span></div>
@@ -135,7 +169,18 @@
     <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Every click verifiable on your own site</div>
   </div>
 
-  <form id="adForm" class="reveal">
+  <div class="tiers reveal">
+    <svg class="tier-line-svg" width="2" height="100%"><line x1="1" y1="0" x2="1" y2="100%" stroke="url(#tierGrad)" stroke-width="2"/>
+      <defs><linearGradient id="tierGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f2b134"/><stop offset="50%" stop-color="#ec4899"/><stop offset="100%" stop-color="#3b82f6"/>
+      </linearGradient></defs>
+    </svg>
+    <div class="tier active"><div class="tier-dot">1</div><div class="tier-body"><h4>Submit your ad</h4><p>Line, link, company, email — takes 30 seconds</p></div></div>
+    <div class="tier"><div class="tier-dot">2</div><div class="tier-body"><h4>Pick a block size</h4><p>Each block = 1,000 real impressions, $2 flat</p></div></div>
+    <div class="tier"><div class="tier-dot">3</div><div class="tier-body"><h4>Goes live automatically</h4><p>Once payment clears, your ad enters rotation immediately — no manual review delay</p></div></div>
+  </div>
+
+  <form id="adForm" class="reveal tilt">
     <div class="field">
       <label for="line">Your line (max 6 words)</label>
       <input id="line" maxlength="60" placeholder="Ramp — time is money. Save both." required>
@@ -153,12 +198,21 @@
       <label for="email">Email</label>
       <input id="email" type="email" placeholder="you@company.com" required>
     </div>
+    <div class="field">
+      <label for="blocks">Blocks (1,000 impressions each, $2/block)</label>
+      <select id="blocks">
+        <option value="1">1 block — $2 — 1,000 impressions</option>
+        <option value="5">5 blocks — $10 — 5,000 impressions</option>
+        <option value="10">10 blocks — $20 — 10,000 impressions</option>
+        <option value="25">25 blocks — $50 — 25,000 impressions</option>
+      </select>
+    </div>
     <button type="submit" id="submitBtn">Reserve early access — no payment yet</button>
     <div class="note">We're pre-launch. No charge today. When impressions go live, you'll get an email with real numbers and a checkout link.</div>
     <div id="status" class="status"></div>
   </form>
 
-  <footer class="reveal">deadtime.dev — nothing patched, open about what we track. <a href="install.html">install it instead →</a></footer>
+  <footer class="reveal">Meanwhile — nothing patched, open about what we track. <a href="install.html">install it instead →</a></footer>
 </div>
 
 <script>
@@ -223,6 +277,7 @@ document.getElementById('adForm').addEventListener('submit', async (e) => {
     url: document.getElementById('url').value.trim(),
     company: document.getElementById('company').value.trim(),
     email: document.getElementById('email').value.trim(),
+    blocks: parseInt(document.getElementById('blocks').value, 10),
   };
   btn.disabled = true;
   btn.textContent = 'Reserving…';
@@ -233,7 +288,7 @@ document.getElementById('adForm').addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(await res.text());
-    status.textContent = "Reserved — we'll email you when impressions go live.";
+    status.textContent = "Reserved — we'll email you when checkout goes live.";
     status.className = 'status ok';
     e.target.reset();
     wc.textContent = '0';
@@ -245,6 +300,59 @@ document.getElementById('adForm').addEventListener('submit', async (e) => {
     btn.textContent = 'Reserve early access — no payment yet';
   }
 });
+
+/* ---------- 3D tilt ---------- */
+document.querySelectorAll('.tilt').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = `perspective(700px) rotateY(${px * 8}deg) rotateX(${-py * 8}deg) scale(1.01)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(700px) rotateY(0) rotateX(0) scale(1)';
+  });
+});
+
+/* ---------- cursor spotlight ---------- */
+const spotlight = document.getElementById('spotlight');
+window.addEventListener('mousemove', (e) => {
+  spotlight.style.opacity = '1';
+  spotlight.style.left = e.clientX + 'px';
+  spotlight.style.top = e.clientY + 'px';
+});
+window.addEventListener('mouseleave', () => spotlight.style.opacity = '0');
+
+/* ---------- ember particle field ---------- */
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+const colors = ['232,200,150', '217,154,154', '143,214,201', '179,156,232'];
+const particles = Array.from({ length: 45 }, () => ({
+  x: Math.random() * W, y: Math.random() * H + H,
+  r: 0.6 + Math.random() * 1.8, speed: 0.25 + Math.random() * 0.6,
+  sway: Math.random() * 1.2, phase: Math.random() * Math.PI * 2,
+  color: colors[Math.floor(Math.random() * colors.length)], alpha: 0.15 + Math.random() * 0.35,
+}));
+function tick(t) {
+  ctx.clearRect(0, 0, W, H);
+  for (const p of particles) {
+    p.y -= p.speed;
+    p.x += Math.sin(t / 1800 + p.phase) * p.sway * 0.06;
+    if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${p.color},${p.alpha})`;
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = `rgba(${p.color},${p.alpha})`;
+    ctx.fill();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
 </script>
 </body>
 </html>

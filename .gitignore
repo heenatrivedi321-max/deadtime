@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 node_modules/
 .wrangler/
+*.local
+ADMIN_TOKEN*
