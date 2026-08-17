@@ -51,6 +51,8 @@ function defaultState() {
     billed_current: false,
     payout_email: null,
     current_campaign_id: null,
+    paid_out_usd: 0,
+    last_payout_at: null,
   };
 }
 
@@ -189,6 +191,72 @@ async function handleRegisterPayout(request, env) {
     current_earnings: earnings,
     payout_threshold: PAYOUT_THRESHOLD_USD,
   });
+}
+
+/** Sends one real PayPal payout to a developer's registered email. This
+ * moves actual money out -- separate API from the advertiser-side
+ * order/capture flow, which only ever moves money in. */
+async function sendPayPalPayout(env, installId, email, amountUsd) {
+  const token = await getPayPalToken(env);
+  const res = await fetch(`${PAYPAL_API}/v1/payments/payouts`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sender_batch_header: {
+        sender_batch_id: `meanwhile-${installId}-${Date.now()}`,
+        email_subject: "Your Meanwhile earnings",
+        email_message: "Thanks for running Meanwhile -- here's your share of sponsor revenue.",
+      },
+      items: [{
+        recipient_type: "EMAIL",
+        amount: { value: amountUsd.toFixed(2), currency: "USD" },
+        receiver: email,
+        note: "Meanwhile status-line sponsor earnings",
+        sender_item_id: installId,
+      }],
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `payout failed: ${res.status}`);
+  return data;
+}
+
+/** The real payout sweep: scans every install, and for anyone whose
+ * unpaid balance has crossed the threshold, actually sends the money.
+ * paid_out_usd tracks what's already been sent so nobody gets double-paid
+ * on the next run. Called both by the manual admin endpoint and by the
+ * scheduled() cron trigger -- same one real algorithm, two triggers. */
+async function runPayouts(env) {
+  const results = [];
+  let cursor;
+  do {
+    const page = await env.INSTALLS.list({ prefix: "install:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.INSTALLS.get(key.name);
+      if (!raw) continue;
+      const state = JSON.parse(raw);
+      if (!state.payout_email) continue;
+
+      const revenue = state.sponsor_calls * (CPM / 1000);
+      const earnings = revenue * USER_SHARE;
+      const unpaid = earnings - (state.paid_out_usd || 0);
+      if (unpaid < PAYOUT_THRESHOLD_USD) continue;
+
+      const installId = key.name.replace(/^install:/, "");
+      try {
+        await sendPayPalPayout(env, installId, state.payout_email, unpaid);
+        state.paid_out_usd = (state.paid_out_usd || 0) + unpaid;
+        state.last_payout_at = Date.now() / 1000;
+        await env.INSTALLS.put(key.name, JSON.stringify(state));
+        results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "sent" });
+      } catch (e) {
+        results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "failed", error: e.message });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return { ok: true, processed: results.length, results };
 }
 
 /** Creates a real campaign in "pending_payment" -- not yet in rotation.
@@ -500,6 +568,12 @@ export default {
       return handleListCampaigns(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/admin/run-payouts") {
+      if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+      const result = await runPayouts(env);
+      return json(result);
+    }
+
     // Anything else falls through to the static site (install.html,
     // advertiser.html, claim.html) served from the same Worker via assets.
     // Root and /claim have no matching filename -- rewrite explicitly.
@@ -517,5 +591,12 @@ export default {
     }
 
     return json({ error: "not found" }, 404);
+  },
+
+  /** Real, unattended payout automation -- Cloudflare fires this on the
+   * cron schedule in wrangler.toml regardless of whether anyone has this
+   * site open. No chat session, no manual trigger required. */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runPayouts(env));
   },
 };
