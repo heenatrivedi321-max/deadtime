@@ -121,11 +121,6 @@
   @keyframes type { to { width:56ch; } }
   @keyframes caret { 50% { border-color:transparent; } }
 
-  .trust { display:flex; flex-direction:column; gap:12px; background:var(--panel); backdrop-filter:blur(16px);
-           border:1px solid var(--border); border-radius:14px; padding:22px 26px; margin-bottom:52px; }
-  .trust-item { display:flex; gap:11px; font-size:13px; color:var(--muted); align-items:flex-start; }
-  .trust-item svg { flex-shrink:0; color:var(--gold); margin-top:2px; }
-
   /* ---- earnings calculator ---- */
   .calc { background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); backdrop-filter:blur(16px);
           border:1px solid var(--border); border-radius:16px; padding:28px 26px; margin-bottom:52px;
@@ -177,7 +172,13 @@
   <div class="h1-wrap">
     <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.<span class="sheen" aria-hidden="true">Get paid while your agent thinks.</span></h1>
   </div>
-  <p class="sub reveal">One line in your Claude Code status bar. Mostly useful tips. Sometimes a disclosed, relevant sponsor. You get half of every sponsored line shown.</p>
+  <p class="sub reveal">A status line that pays you instead of just sitting there being dead weight. Mostly tips. Occasionally a sponsor — always labeled, never snuck in. Half the money's yours.</p>
+
+  <div class="install-box reveal tilt">
+    <code id="installCmd">curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash</code>
+    <button id="copyBtn">Copy</button>
+  </div>
+  <p class="install-note reveal">Seconds to install. No account, no payment info up front. One line to remove from <code>~/.claude/settings.json</code> if you ever want out.</p>
 
   <div class="stats reveal">
     <div class="stat"><div class="odometer" id="odInstalls"></div><div class="lbl">installs</div></div>
@@ -185,28 +186,16 @@
     <div class="stat"><div class="pct" id="statRatio">–</div><div class="lbl">sponsor rate</div></div>
   </div>
 
-  <div class="install-box reveal tilt">
-    <code id="installCmd">curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash</code>
-    <button id="copyBtn">Copy</button>
-  </div>
-  <p class="install-note reveal">Installs in seconds. No account, no payment info. Uninstall any time by removing the <code>statusLine</code> line from <code>~/.claude/settings.json</code>.</p>
-
   <div class="steps reveal">
-    <div class="step"><div class="n">1</div><div class="body"><h3>Install</h3><p>One command wires a status line into Claude Code — nothing else on your machine changes.</p></div></div>
-    <div class="step"><div class="n">2</div><div class="body"><h3>Use Claude Code like normal</h3><p>Tips show up while your agent works. Occasionally, a short disclosed sponsor line takes its place.</p></div></div>
-    <div class="step"><div class="n">3</div><div class="body"><h3>Get paid</h3><p>Every sponsored line is logged against your anonymous install ID. Cross a threshold, get paid monthly.</p></div></div>
+    <div class="step"><div class="n">1</div><div class="body"><h3>Install</h3><p>One command, one setting Claude Code already supports natively. Nothing patched, nothing hidden.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="body"><h3>Work like you always do</h3><p>Tips fill the line while your agent thinks. Sometimes a sponsor takes its place — clearly marked "(sponsored)," never blended in. Slow or unreachable, it just falls back to plain text — never blocks your work.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="body"><h3>Get paid, automatically</h3><p>Logged against a random ID, never against you — we only know which line was shown, not what you typed. Cross $25, PayPal does the rest.</p></div></div>
   </div>
 
   <div class="demo reveal tilt">
     <span class="label">what shows up</span>
     <div class="line"><span class="spinner">✻</span> Meandering…</div>
     <div class="typed">meanwhile: Tip: /compact early avoids losing context</div>
-  </div>
-
-  <div class="trust reveal tilt">
-    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Built on Claude Code's official statusLine setting — nothing is patched.</div>
-    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> We never see your prompts, your code, or your conversation — only a random ID and which line was shown.</div>
-    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Sponsor lines are always labeled "(sponsored)" — never blended in silently.</div>
   </div>
 
   <div class="calc reveal tilt">
@@ -218,29 +207,21 @@
       <div class="amount" id="calcAmount">$6.48</div>
       <div class="lbl">estimated / month<br>at today's $2 CPM, 2-in-5 ceiling</div>
     </div>
-    <p class="calc-note">Payouts aren't live yet — we're pre-launch. This is what it looks like once real advertisers are running, not a current balance.</p>
+    <p class="calc-note">We're pre-launch, so this is the ceiling once real advertisers show up — not a balance sitting in an account somewhere. Nobody's earned this yet. Could be you first.</p>
   </div>
 
   <div class="faq reveal">
     <details class="faq-item" open>
-      <summary>Will this slow down Claude Code?</summary>
-      <p>No. One small network request per status line refresh, with a fast timeout — if it's ever slow or unreachable, you just see a plain local line instead. It never blocks or delays your actual work.</p>
-    </details>
-    <details class="faq-item">
       <summary>Does anyone see my code or prompts?</summary>
-      <p>No. The only things sent are a random anonymous install ID and which line was shown. Your conversation, code, and file contents never leave your machine.</p>
+      <p>No. The only things sent are a random anonymous install ID and which line was shown. Your conversation, code, and file contents never leave your machine — we couldn't sell you out even if we wanted to.</p>
     </details>
     <details class="faq-item">
       <summary>How do I actually get paid?</summary>
-      <p>Earnings accumulate against your install ID. Run <code>python3 statusline.py --claim</code> in your terminal for your personal link, then register your PayPal email there — once your balance crosses $25, you're included in the next monthly payout automatically. No manual step from us once that's set up. We're pre-launch right now, so no real balance exists yet — we'd rather say that plainly than imply otherwise. <a href="claim.html" style="color:var(--gold)">See what it looks like →</a></p>
+      <p>Earnings accumulate against your install ID. Run <code>python3 statusline.py --claim</code> in your terminal for your personal link, then register your PayPal email there — once your balance crosses $25, PayPal sends it automatically, no manual step from us. We're pre-launch right now, so no real balance exists yet. <a href="claim.html" style="color:var(--gold)">See what it looks like →</a></p>
     </details>
     <details class="faq-item">
       <summary>What if there's no sponsor to show?</summary>
-      <p>You get a genuinely useful tip instead. We never force an irrelevant ad just to fill space — the 2-in-5 ceiling is a maximum, not a target.</p>
-    </details>
-    <details class="faq-item">
-      <summary>How do I uninstall?</summary>
-      <p>Remove the <code>statusLine</code> entry from <code>~/.claude/settings.json</code>. That's the whole thing — no account to delete, nothing else was touched.</p>
+      <p>You get a genuinely useful tip instead. We never force an irrelevant ad just to fill space — the 2-in-5 ceiling is a maximum, not a target, and most lines aren't sponsored at all.</p>
     </details>
   </div>
 
