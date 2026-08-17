@@ -207,8 +207,8 @@
         <option value="25">25 blocks — $50 — 25,000 impressions</option>
       </select>
     </div>
-    <button type="submit" id="submitBtn">Reserve early access — no payment yet</button>
-    <div class="note">We're pre-launch. No charge today. When impressions go live, you'll get an email with real numbers and a checkout link.</div>
+    <button type="submit" id="submitBtn">Continue to PayPal</button>
+    <div class="note">You'll approve the exact charge on PayPal's own page — nothing is charged until you do. The moment it clears, your ad goes live automatically.</div>
     <div id="status" class="status"></div>
   </form>
 
@@ -268,6 +268,8 @@ async function loadStats() {
 }
 loadStats();
 
+const API = 'https://deadtime-server.bean-picker.workers.dev';
+
 document.getElementById('adForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('submitBtn');
@@ -280,28 +282,62 @@ document.getElementById('adForm').addEventListener('submit', async (e) => {
     blocks: parseInt(document.getElementById('blocks').value, 10),
   };
   btn.disabled = true;
-  btn.textContent = 'Reserving…';
+  btn.textContent = 'Creating campaign…';
   try {
-    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/advertiser-lead', {
+    const leadRes = await fetch(`${API}/advertiser-lead`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(await res.text());
-    const result = await res.json();
-    const dashUrl = `dashboard.html?id=${result.campaign_id}`;
-    status.innerHTML = `Reserved — $${result.price_usd.toFixed(2)} total. <a href="${dashUrl}" style="color:var(--gold)">Track your campaign here →</a>`;
-    status.className = 'status ok';
-    e.target.reset();
-    wc.textContent = '0';
+    if (!leadRes.ok) throw new Error(await leadRes.text());
+    const lead = await leadRes.json();
+
+    btn.textContent = 'Redirecting to PayPal…';
+    const orderRes = await fetch(`${API}/paypal/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaign_id: lead.campaign_id }),
+    });
+    if (!orderRes.ok) throw new Error(await orderRes.text());
+    const order = await orderRes.json();
+    if (!order.approval_url) throw new Error('no approval link returned');
+
+    localStorage.setItem('pending_campaign_id', lead.campaign_id);
+    window.location.href = order.approval_url;
   } catch (err) {
     status.textContent = 'Something went wrong — try again in a moment.';
     status.className = 'status err';
-  } finally {
     btn.disabled = false;
-    btn.textContent = 'Reserve early access — no payment yet';
+    btn.textContent = 'Continue to PayPal';
   }
 });
+
+/* ---------- handle the return trip from PayPal ---------- */
+(async function handlePayPalReturn() {
+  const params = new URLSearchParams(location.search);
+  const orderId = params.get('token'); // PayPal appends this on return
+  if (!orderId) return;
+
+  const status = document.getElementById('status');
+  status.textContent = 'Confirming your payment…';
+  status.className = 'status';
+  try {
+    const res = await fetch(`${API}/paypal/capture-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'capture failed');
+    const cid = data.campaign.id;
+    status.innerHTML = `Payment confirmed — your ad is live now. <a href="dashboard.html?id=${cid}" style="color:var(--gold)">Watch it deliver →</a>`;
+    status.className = 'status ok';
+  } catch (err) {
+    status.textContent = 'Payment could not be confirmed automatically — contact us with your campaign ID.';
+    status.className = 'status err';
+  }
+  history.replaceState({}, '', location.pathname);
+})();
 
 /* ---------- 3D tilt ---------- */
 document.querySelectorAll('.tilt').forEach(card => {
@@ -325,36 +361,109 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseleave', () => spotlight.style.opacity = '0');
 
-/* ---------- ember particle field ---------- */
+/* ---------- live network constellation ----------
+ * This is the actual network an ad here joins -- same live data as the
+ * homepage. Nodes drift and link ambiently; every real impression
+ * delivered anywhere on the network (via /network-stats) flares a real
+ * connection gold. Not a mockup of the network -- the network. */
 const canvas = document.getElementById('particles');
 const ctx = canvas.getContext('2d');
 let W, H;
 function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
-const colors = ['232,200,150', '217,154,154', '143,214,201', '179,156,232'];
-const particles = Array.from({ length: 45 }, () => ({
-  x: Math.random() * W, y: Math.random() * H + H,
-  r: 0.6 + Math.random() * 1.8, speed: 0.25 + Math.random() * 0.6,
-  sway: Math.random() * 1.2, phase: Math.random() * Math.PI * 2,
-  color: colors[Math.floor(Math.random() * colors.length)], alpha: 0.15 + Math.random() * 0.35,
+
+const NODE_COUNT = 42;
+const LINK_DIST = 150;
+const nodes = Array.from({ length: NODE_COUNT }, () => ({
+  x: Math.random() * W, y: Math.random() * H,
+  vx: (Math.random() - 0.5) * 0.18, vy: (Math.random() - 0.5) * 0.18,
+  r: 1.2 + Math.random() * 1.4,
 }));
+const pulses = [];
+
+function spawnPulse() {
+  if (nodes.length < 2) return;
+  const a = Math.floor(Math.random() * nodes.length);
+  let b = Math.floor(Math.random() * nodes.length);
+  if (b === a) b = (b + 1) % nodes.length;
+  pulses.push({ a, b, t0: performance.now(), dur: 900 });
+}
+
 function tick(t) {
   ctx.clearRect(0, 0, W, H);
-  for (const p of particles) {
-    p.y -= p.speed;
-    p.x += Math.sin(t / 1800 + p.phase) * p.sway * 0.06;
-    if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+
+  for (const n of nodes) {
+    n.x += n.vx; n.y += n.vy;
+    if (n.x < 0 || n.x > W) n.vx *= -1;
+    if (n.y < 0 || n.y > H) n.vy *= -1;
+  }
+
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d < LINK_DIST) {
+        ctx.strokeStyle = `rgba(232,200,150,${0.06 * (1 - d / LINK_DIST)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(nodes[i].x, nodes[i].y);
+        ctx.lineTo(nodes[j].x, nodes[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    const progress = (t - p.t0) / p.dur;
+    if (progress >= 1) { pulses.splice(i, 1); continue; }
+    const a = nodes[p.a], b = nodes[p.b];
+    const ease = 1 - Math.pow(1 - Math.min(1, progress * 1.6), 3);
+    const glow = Math.sin(Math.min(1, progress) * Math.PI);
+    ctx.strokeStyle = `rgba(242,177,52,${0.5 * glow})`;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${p.color},${p.alpha})`;
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = `rgba(${p.color},${p.alpha})`;
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x + (b.x - a.x) * ease, a.y + (b.y - a.y) * ease);
+    ctx.stroke();
+    for (const n of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * (1 + glow * 2), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(242,177,52,${0.5 * glow})`;
+      ctx.shadowBlur = 14 * glow;
+      ctx.shadowColor = 'rgba(242,177,52,0.8)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  for (const n of nodes) {
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(232,200,150,0.25)';
     ctx.fill();
   }
+
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
+
+let lastTotalCalls = null;
+async function pollNetworkActivity() {
+  try {
+    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const s = await res.json();
+    if (lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
+      const delta = Math.min(5, s.total_calls - lastTotalCalls);
+      for (let i = 0; i < delta; i++) setTimeout(spawnPulse, i * 200);
+    }
+    lastTotalCalls = s.total_calls;
+  } catch (e) { /* stay quiet, ambient network keeps going regardless */ }
+}
+pollNetworkActivity();
+setInterval(pollNetworkActivity, 8000);
+setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
 </script>
 </body>
 </html>

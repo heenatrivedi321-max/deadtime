@@ -107,9 +107,12 @@
           background:var(--panel); border-radius:8px; border:1px solid var(--border); }
   .no-id { text-align:center; color:var(--muted); font-size:14px; padding:60px 20px; }
   .no-id code { background:var(--panel); padding:3px 7px; border-radius:5px; border:1px solid var(--border); }
+  #particles { position:fixed; inset:0; z-index:0; pointer-events:none; }
+  .wrap { position:relative; z-index:2; }
 </style>
 </head>
 <body>
+<canvas id="particles"></canvas>
 <div class="wrap">
   <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
   <div id="app"></div>
@@ -223,6 +226,7 @@ if (!id) {
     };
   }
 
+  let lastTotalCalls = null;
   async function loadBalance() {
     try {
       const res = await fetch(`https://deadtime-server.bean-picker.workers.dev/earnings?id=${id}`);
@@ -243,11 +247,17 @@ if (!id) {
         document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
         document.getElementById('destNote').textContent = s.payout_email;
       }
+      if (typeof spawnYourPulse === 'function' && lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
+        const delta = Math.min(4, s.total_calls - lastTotalCalls);
+        for (let i = 0; i < delta; i++) setTimeout(spawnYourPulse, i * 250);
+      }
+      lastTotalCalls = s.total_calls;
     } catch (e) {
       document.getElementById('progressNote').textContent = 'Could not reach server';
     }
   }
   loadBalance();
+  setInterval(loadBalance, 8000);
 
   document.getElementById('claimForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -283,6 +293,96 @@ if (!id) {
     }
   });
 }
+
+/* ---------- your node ----------
+ * A quiet ring of the wider network, with one node marked as you --
+ * bigger, gold, centered. Every time your real usage ticks up (checked
+ * against /earnings on each poll), your node actually flares and sends
+ * a pulse out into the network. This is your position in the system,
+ * not a generic animation. */
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const RING_COUNT = 24;
+const you = { r: 3 };
+const ring = Array.from({ length: RING_COUNT }, (_, i) => {
+  const a = (i / RING_COUNT) * Math.PI * 2 + Math.random() * 0.25;
+  const rad = Math.min(W, H) * (0.3 + Math.random() * 0.55);
+  return { a, rad, r: 1 + Math.random() * 1.2, drift: (Math.random() - 0.5) * 0.0005 };
+});
+const pulses = [];
+
+function spawnYourPulse() {
+  const n = ring[Math.floor(Math.random() * ring.length)];
+  pulses.push({ node: n, t0: performance.now(), dur: 950 });
+}
+
+function tick(t) {
+  ctx.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H * 0.32;
+
+  const pts = ring.map(n => {
+    n.a += n.drift;
+    return { x: cx + Math.cos(n.a) * n.rad, y: cy + Math.sin(n.a) * n.rad, r: n.r };
+  });
+
+  for (const p of pts) {
+    ctx.strokeStyle = 'rgba(232,200,150,0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    const idx = ring.indexOf(p.node);
+    const target = pts[idx] || pts[0];
+    const progress = (t - p.t0) / p.dur;
+    if (progress >= 1) { pulses.splice(i, 1); continue; }
+    const ease = 1 - Math.pow(1 - Math.min(1, progress * 1.5), 3);
+    const glow = Math.sin(Math.min(1, progress) * Math.PI);
+    const x = cx + (target.x - cx) * ease, y = cy + (target.y - cy) * ease;
+    ctx.strokeStyle = `rgba(242,177,52,${0.5 * glow})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, 1.5 + glow * 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(242,177,52,${0.55 * glow})`;
+    ctx.shadowBlur = 14 * glow;
+    ctx.shadowColor = 'rgba(242,177,52,0.8)';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(232,200,150,0.18)';
+    ctx.fill();
+  }
+
+  const pulse = 1 + Math.sin(t / 600) * 0.15;
+  ctx.beginPath();
+  ctx.arc(cx, cy, you.r * pulse, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(242,177,52,0.7)';
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = 'rgba(242,177,52,0.7)';
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+setInterval(() => { if (Math.random() < 0.3) spawnYourPulse(); }, 5000);
 </script>
 </body>
 </html>
