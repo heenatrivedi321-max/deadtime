@@ -232,7 +232,7 @@
     </details>
     <details class="faq-item">
       <summary>How do I actually get paid?</summary>
-      <p>Earnings accumulate against your install ID. Once real advertisers are live and you cross a payout threshold, you'll get paid manually (PayPal/UPI) on a monthly basis. We're pre-launch right now, so no real payouts have gone out yet — we'd rather say that plainly than imply otherwise.</p>
+      <p>Earnings accumulate against your install ID. Run <code>python3 statusline.py --claim</code> in your terminal for your personal link, then register your PayPal email there — once your balance crosses $25, you're included in the next monthly payout automatically. No manual step from us once that's set up. We're pre-launch right now, so no real balance exists yet — we'd rather say that plainly than imply otherwise. <a href="claim.html" style="color:var(--gold)">See what it looks like →</a></p>
     </details>
     <details class="faq-item">
       <summary>What if there's no sponsor to show?</summary>
@@ -244,7 +244,7 @@
     </details>
   </div>
 
-  <footer class="reveal">Meanwhile — <a href="advertiser.html">sponsor a status line instead →</a></footer>
+  <footer class="reveal">Meanwhile — <a href="advertiser.html">sponsor a status line instead →</a> · <a href="claim.html">check your payout status →</a></footer>
 </div>
 
 <script>
@@ -366,7 +366,11 @@ document.querySelectorAll('.tilt').forEach(card => {
   });
 });
 
-/* ---------- ember particle field ---------- */
+/* ---------- live network constellation ----------
+ * Not decoration -- each node is ambient, but the network genuinely
+ * reacts to real activity: every time /network-stats shows a new real
+ * impression since the last poll, a random connection actually flares
+ * gold and pulses. The site's real backend drives what you're looking at. */
 const canvas = document.getElementById('particles');
 const ctx = canvas.getContext('2d');
 let W, H;
@@ -374,34 +378,102 @@ function resize() { W = canvas.width = window.innerWidth; H = canvas.height = wi
 resize();
 window.addEventListener('resize', resize);
 
-const colors = ['232,200,150', '217,154,154', '143,214,201', '179,156,232'];
-const particles = Array.from({ length: 50 }, () => ({
-  x: Math.random() * W,
-  y: Math.random() * H + H,
-  r: 0.6 + Math.random() * 1.8,
-  speed: 0.25 + Math.random() * 0.6,
-  sway: Math.random() * 1.2,
-  phase: Math.random() * Math.PI * 2,
-  color: colors[Math.floor(Math.random() * colors.length)],
-  alpha: 0.15 + Math.random() * 0.35,
+const NODE_COUNT = 42;
+const LINK_DIST = 150;
+const nodes = Array.from({ length: NODE_COUNT }, () => ({
+  x: Math.random() * W, y: Math.random() * H,
+  vx: (Math.random() - 0.5) * 0.18, vy: (Math.random() - 0.5) * 0.18,
+  r: 1.2 + Math.random() * 1.4,
 }));
+const pulses = []; // active real-event flares: { a, b, t0, dur }
+
+function spawnPulse() {
+  if (nodes.length < 2) return;
+  const a = Math.floor(Math.random() * nodes.length);
+  let b = Math.floor(Math.random() * nodes.length);
+  if (b === a) b = (b + 1) % nodes.length;
+  pulses.push({ a, b, t0: performance.now(), dur: 900 });
+}
 
 function tick(t) {
   ctx.clearRect(0, 0, W, H);
-  for (const p of particles) {
-    p.y -= p.speed;
-    p.x += Math.sin(t / 1800 + p.phase) * p.sway * 0.06;
-    if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+
+  for (const n of nodes) {
+    n.x += n.vx; n.y += n.vy;
+    if (n.x < 0 || n.x > W) n.vx *= -1;
+    if (n.y < 0 || n.y > H) n.vy *= -1;
+  }
+
+  // faint ambient links between nearby nodes
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+      const d = Math.hypot(dx, dy);
+      if (d < LINK_DIST) {
+        ctx.strokeStyle = `rgba(232,200,150,${0.06 * (1 - d / LINK_DIST)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(nodes[i].x, nodes[i].y);
+        ctx.lineTo(nodes[j].x, nodes[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // real-event pulses: a bright traveling line + flare, tied to actual impressions
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    const progress = (t - p.t0) / p.dur;
+    if (progress >= 1) { pulses.splice(i, 1); continue; }
+    const a = nodes[p.a], b = nodes[p.b];
+    const ease = 1 - Math.pow(1 - Math.min(1, progress * 1.6), 3);
+    const glow = Math.sin(Math.min(1, progress) * Math.PI);
+    ctx.strokeStyle = `rgba(242,177,52,${0.5 * glow})`;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${p.color},${p.alpha})`;
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = `rgba(${p.color},${p.alpha})`;
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x + (b.x - a.x) * ease, a.y + (b.y - a.y) * ease);
+    ctx.stroke();
+    for (const n of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r * (1 + glow * 2), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(242,177,52,${0.5 * glow})`;
+      ctx.shadowBlur = 14 * glow;
+      ctx.shadowColor = 'rgba(242,177,52,0.8)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // ambient node dots
+  for (const n of nodes) {
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(232,200,150,0.25)';
     ctx.fill();
   }
+
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
+
+/* poll real backend activity and flare the network on genuine change */
+let lastTotalCalls = null;
+async function pollNetworkActivity() {
+  try {
+    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const s = await res.json();
+    if (lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
+      const delta = Math.min(5, s.total_calls - lastTotalCalls);
+      for (let i = 0; i < delta; i++) setTimeout(spawnPulse, i * 200);
+    }
+    lastTotalCalls = s.total_calls;
+  } catch (e) { /* stay quiet, ambient network keeps going regardless */ }
+}
+pollNetworkActivity();
+setInterval(pollNetworkActivity, 8000);
+// gentle occasional ambient pulse so the network doesn't feel dead between real events
+setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
 </script>
 </body>
 </html>
