@@ -10,6 +10,7 @@
   :root {
     --bg:#0d1117; --panel:#151b23; --panel-2:#1b232d; --border:#2a333f;
     --text:#e8edf3; --muted:#7d8998; --accent:#4a9eff; --green:#3fb968; --gold:#e0b054;
+    --pp-dark:#003087; --pp-light:#0070ba; --pp-glow:#2a9bf0;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
@@ -27,6 +28,28 @@
   h1 { font-family:'Fraunces',serif; font-size:26px; font-weight:600; margin-bottom:8px; letter-spacing:-0.01em; }
   .sub { color:var(--muted); font-size:14px; line-height:1.6; margin-bottom:28px; }
 
+  /* ---- destination card: where the money actually goes ---- */
+  .destination { display:flex; align-items:center; gap:16px; background:var(--panel);
+                  border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:20px;
+                  position:relative; overflow:hidden; }
+  .pp-badge-wrap { position:relative; width:54px; height:54px; flex-shrink:0; }
+  .pp-badge { width:54px; height:54px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--pp-light), var(--pp-dark));
+              display:flex; align-items:center; justify-content:center; position:relative; z-index:2;
+              box-shadow:0 0 0 rgba(42,155,240,0); transition:box-shadow .5s ease, transform .4s cubic-bezier(.34,1.56,.64,1); }
+  .pp-badge.pulse { animation:ppPulse .7s ease; box-shadow:0 0 30px 6px rgba(42,155,240,.5); }
+  @keyframes ppPulse { 0%{ transform:scale(1); } 35%{ transform:scale(1.18); } 100%{ transform:scale(1); } }
+  .pp-ring { position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--pp-glow); opacity:0;
+             z-index:1; pointer-events:none; }
+  .pp-ring.expand { animation:ppRing .8s cubic-bezier(.16,1,.3,1) forwards; }
+  @keyframes ppRing { 0%{ opacity:.8; transform:scale(.6); } 100%{ opacity:0; transform:scale(2.2); } }
+  .dest-text .dest-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  .dest-text .dest-value { font-size:15px; font-weight:600; margin-top:2px; }
+  .dest-text .dest-note { font-size:12px; color:var(--muted); margin-top:2px; }
+
+  /* the traveling orb, animated via JS along a path to the badge */
+  .orb { position:fixed; width:10px; height:10px; border-radius:50%; background:var(--gold);
+         box-shadow:0 0 12px 3px rgba(224,176,84,.7); pointer-events:none; z-index:80; opacity:0; }
+
   .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
   .card-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
   .id-value { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); word-break:break-all; }
@@ -42,12 +65,14 @@
   .steps { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
   .step { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
   .step .check { flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
-                  display:flex; align-items:center; justify-content:center; }
+                  display:flex; align-items:center; justify-content:center; transition:background .3s, border-color .3s; }
   .step.done .check { background:var(--green); border-color:var(--green); }
   .step.done { color:var(--text); }
 
-  form { display:flex; flex-direction:column; gap:14px; background:var(--panel); border:1px solid var(--border);
-         border-radius:12px; padding:22px; }
+  .form-panel { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:12px;
+                padding:22px; min-height:150px; }
+  form { display:flex; flex-direction:column; gap:14px; transition:opacity .3s ease, transform .3s ease; }
+  form.hidden { opacity:0; transform:scale(.97); pointer-events:none; position:absolute; inset:22px; }
   label { font-size:12px; color:var(--muted); margin-bottom:6px; display:block; font-weight:500; }
   input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px;
           padding:11px 13px; color:var(--text); font-size:14px; font-family:inherit; transition:border-color .15s; }
@@ -57,8 +82,16 @@
   button:hover { background:#3a8eef; }
   button:disabled { opacity:.5; cursor:default; }
   .status { font-size:13px; min-height:18px; }
-  .status.ok { color:var(--green); }
   .status.err { color:#e5697a; }
+
+  /* success state, replaces the form */
+  .success-state { display:flex; flex-direction:column; align-items:center; text-align:center;
+                    gap:14px; opacity:0; transform:scale(.95); transition:opacity .4s ease .1s, transform .4s cubic-bezier(.34,1.56,.64,1) .1s; }
+  .success-state.show { opacity:1; transform:scale(1); }
+  .success-check { width:52px; height:52px; border-radius:50%; background:var(--green);
+                    display:flex; align-items:center; justify-content:center; }
+  .success-title { font-size:15px; font-weight:600; }
+  .success-detail { font-size:13px; color:var(--muted); line-height:1.5; }
 
   .trust-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:18px; }
   .trust-row svg { flex-shrink:0; color:var(--green); }
@@ -74,6 +107,7 @@
   <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
   <div id="app"></div>
 </div>
+<div class="orb" id="orb"></div>
 
 <script>
 const params = new URLSearchParams(location.search);
@@ -81,6 +115,10 @@ const id = params.get('id');
 const app = document.getElementById('app');
 const THRESHOLD = 25;
 const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d1117" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>`;
+const ppMark = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <path d="M8 5h6.2c2.6 0 4.3 1.7 3.9 4.2-.5 3-2.7 4.6-5.6 4.6H10l-1 5H6l2-13.8Z" fill="#ffffff" opacity=".55"/>
+  <path d="M6 7h6.2c2.6 0 4.3 1.7 3.9 4.2-.5 3-2.7 4.6-5.6 4.6H8l-1 5H4L6 7Z" fill="#ffffff"/>
+</svg>`;
 
 if (!id) {
   app.innerHTML = `
@@ -95,6 +133,18 @@ if (!id) {
     </div>
     <h1>Register your payout email</h1>
     <p class="sub">Once your balance crosses $${THRESHOLD}, you're included in the next monthly PayPal payout automatically.</p>
+
+    <div class="destination">
+      <div class="pp-badge-wrap">
+        <div class="pp-ring" id="ppRing"></div>
+        <div class="pp-badge" id="ppBadge">${ppMark}</div>
+      </div>
+      <div class="dest-text">
+        <div class="dest-label">Payout destination</div>
+        <div class="dest-value">PayPal</div>
+        <div class="dest-note" id="destNote">Not connected yet</div>
+      </div>
+    </div>
 
     <div class="card">
       <div class="card-label">Your install ID</div>
@@ -115,14 +165,21 @@ if (!id) {
       <div class="step"><span class="check"></span> Paid automatically, next monthly batch</div>
     </div>
 
-    <form id="claimForm">
-      <div>
-        <label for="email">PayPal email address</label>
-        <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
+    <div class="form-panel">
+      <form id="claimForm">
+        <div>
+          <label for="email">PayPal email address</label>
+          <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <button type="submit" id="submitBtn">Register for payout</button>
+        <div id="status" class="status"></div>
+      </form>
+      <div class="success-state" id="successState">
+        <div class="success-check">${checkIcon.replace('11','20').replace('11','20')}</div>
+        <div class="success-title">Connected to PayPal</div>
+        <div class="success-detail" id="successDetail"></div>
       </div>
-      <button type="submit" id="submitBtn">Register for payout</button>
-      <div id="status" class="status"></div>
-    </form>
+    </div>
 
     <div class="trust-row">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -131,6 +188,36 @@ if (!id) {
 
     <p class="note">Payouts are batched monthly, manually, to registered emails once a balance crosses $${THRESHOLD}. We're pre-launch — there's no real balance to pay out yet, but this is the real mechanism that will run once there is.</p>
   `;
+
+  function flyOrbToBadge(fromEl) {
+    const orb = document.getElementById('orb');
+    const badge = document.getElementById('ppBadge');
+    const from = fromEl.getBoundingClientRect();
+    const to = badge.getBoundingClientRect();
+    const startX = from.left + from.width / 2, startY = from.top + from.height / 2;
+    const endX = to.left + to.width / 2, endY = to.top + to.height / 2;
+
+    orb.style.left = startX + 'px';
+    orb.style.top = startY + 'px';
+    orb.style.opacity = '1';
+
+    const midX = (startX + endX) / 2, midY = Math.min(startY, endY) - 70;
+    const anim = orb.animate([
+      { transform: 'translate(-50%,-50%) scale(1)', offset: 0 },
+      { transform: `translate(${midX - startX - 5}px, ${midY - startY}px) scale(1.3)`, offset: .5 },
+      { transform: `translate(${endX - startX}px, ${endY - startY}px) scale(.4)`, offset: 1 },
+    ], { duration: 700, easing: 'cubic-bezier(.3,.1,.3,1)' });
+
+    anim.onfinish = () => {
+      orb.style.opacity = '0';
+      badge.classList.add('pulse');
+      document.getElementById('ppRing').classList.add('expand');
+      setTimeout(() => {
+        badge.classList.remove('pulse');
+        document.getElementById('ppRing').classList.remove('expand');
+      }, 800);
+    };
+  }
 
   async function loadBalance() {
     try {
@@ -150,6 +237,7 @@ if (!id) {
         document.getElementById('email').value = s.payout_email;
         document.getElementById('stepEmail').classList.add('done');
         document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
+        document.getElementById('destNote').textContent = s.payout_email;
       }
     } catch (e) {
       document.getElementById('progressNote').textContent = 'Could not reach server';
@@ -172,14 +260,20 @@ if (!id) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'failed');
-      status.textContent = `Registered — payouts will go to ${email} once you cross $${THRESHOLD}.`;
-      status.className = 'status ok';
+
+      flyOrbToBadge(btn);
+      document.getElementById('destNote').textContent = email;
       document.getElementById('stepEmail').classList.add('done');
       document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
+      document.getElementById('successDetail').textContent = `Payouts go to ${email} once you cross $${THRESHOLD}.`;
+
+      setTimeout(() => {
+        document.getElementById('claimForm').classList.add('hidden');
+        document.getElementById('successState').classList.add('show');
+      }, 500);
     } catch (err) {
       status.textContent = 'Something went wrong — check the email and try again.';
       status.className = 'status err';
-    } finally {
       btn.disabled = false;
       btn.textContent = 'Register for payout';
     }
