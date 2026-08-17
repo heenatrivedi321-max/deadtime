@@ -5,7 +5,7 @@
 <title>deadtime — get paid while your agent thinks</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.08);
@@ -58,16 +58,18 @@
   .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
-  .h1-wrap { position:relative; margin-bottom:20px; }
-  h1 { font-size:clamp(34px,6vw,50px); font-weight:800; letter-spacing:-0.03em; line-height:1.1; position:relative;
-       background:linear-gradient(120deg,#fff 20%,var(--gold) 45%,var(--rose) 65%,var(--violet) 90%);
-       background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
-       animation:shimmer 6s linear infinite; }
-  @keyframes shimmer { to { background-position:200% center; } }
+  .h1-wrap { position:relative; margin-bottom:24px; }
+  h1 { font-family:'Fraunces',serif; font-size:clamp(36px,6.5vw,56px); font-weight:600; font-optical-sizing:auto;
+       letter-spacing:-0.02em; line-height:1.08; position:relative;
+       background:linear-gradient(100deg,#f2b134 0%,#f0654a 16%,#ec4899 32%,#a855f7 48%,#3b82f6 64%,#14c9a5 80%,#f2b134 100%);
+       background-size:140% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+       animation:shimmer 7s linear infinite; }
+  @keyframes shimmer { to { background-position:140% center; } }
+  h1 .sheen { display:none; }
   h1.glitch::before, h1.glitch::after { content:attr(data-text); position:absolute; inset:0;
     background:none; -webkit-text-fill-color:initial; clip-path:inset(0 0 0 0); }
-  h1.glitch::before { color:#ff5ec8; transform:translate(0); animation:glitch1 .5s steps(2,end) 3; mix-blend-mode:screen; }
-  h1.glitch::after { color:#5ee8ff; transform:translate(0); animation:glitch2 .5s steps(2,end) 3; mix-blend-mode:screen; }
+  h1.glitch::before { color:#ff5ec8; transform:translate(0); opacity:0; animation:glitch1 .5s steps(2,end) 3 forwards; mix-blend-mode:screen; }
+  h1.glitch::after { color:#5ee8ff; transform:translate(0); opacity:0; animation:glitch2 .5s steps(2,end) 3 forwards; mix-blend-mode:screen; }
   @keyframes glitch1 { 0%{ clip-path:inset(10% 0 70% 0); transform:translate(-3px,0);} 25%{ clip-path:inset(60% 0 5% 0); transform:translate(3px,0);} 50%{ clip-path:inset(20% 0 50% 0); transform:translate(-2px,0);} 75%{ clip-path:inset(80% 0 2% 0); transform:translate(2px,0);} 100%{ clip-path:inset(0 0 0 0); transform:translate(0,0); opacity:0;} }
   @keyframes glitch2 { 0%{ clip-path:inset(70% 0 10% 0); transform:translate(3px,0);} 25%{ clip-path:inset(5% 0 60% 0); transform:translate(-3px,0);} 50%{ clip-path:inset(50% 0 20% 0); transform:translate(2px,0);} 75%{ clip-path:inset(2% 0 80% 0); transform:translate(-2px,0);} 100%{ clip-path:inset(0 0 0 0); transform:translate(0,0); opacity:0;} }
 
@@ -146,7 +148,7 @@
   <div class="badge reveal"><span class="dot"></span> live on Cloudflare · open about what we track</div>
 
   <div class="h1-wrap">
-    <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.</h1>
+    <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.<span class="sheen" aria-hidden="true">Get paid while your agent thinks.</span></h1>
   </div>
   <p class="sub reveal">One line in your Claude Code status bar. Mostly useful tips. Sometimes a disclosed, relevant sponsor. You get half of every sponsored line shown.</p>
 
