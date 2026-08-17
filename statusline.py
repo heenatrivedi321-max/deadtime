@@ -7,6 +7,7 @@ server is the only trustworthy source of truth for impression counts.
 import json
 import ssl
 import sys
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
@@ -28,8 +29,20 @@ def get_install_id() -> str:
     return new_id
 
 
-def fetch_line(install_id: str) -> str:
-    url = f"{SERVER_URL}/line?id={install_id}"
+def read_event_name() -> str:
+    """Claude Code passes session state as JSON on stdin, including which
+    real event triggered this call (new assistant message, session start,
+    /compact, etc.) -- we forward that so billing is tied to genuine
+    activity, not a guess."""
+    try:
+        payload = json.loads(sys.stdin.read())
+        return str(payload.get("hook_event_name", "unknown"))
+    except Exception:
+        return "unknown"
+
+
+def fetch_line(install_id: str, event_name: str) -> str:
+    url = f"{SERVER_URL}/line?id={install_id}&event={urllib.parse.quote(event_name)}"
     req = urllib.request.Request(url, headers={"User-Agent": "deadtime-client/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=3, context=SSL_CONTEXT) as resp:
@@ -41,12 +54,9 @@ def fetch_line(install_id: str) -> str:
 
 
 def main():
-    try:
-        sys.stdin.read()
-    except Exception:
-        pass
+    event_name = read_event_name()
     install_id = get_install_id()
-    print(fetch_line(install_id))
+    print(fetch_line(install_id, event_name))
 
 
 if __name__ == "__main__":

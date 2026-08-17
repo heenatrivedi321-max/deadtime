@@ -29,7 +29,6 @@ const SPONSORS = [
 ];
 
 const FILL_CEILING = 0.40;
-const ROTATE_SECONDS = 20;
 const BILLABLE_THRESHOLD = 10;
 const CPM = 2.0;
 const USER_SHARE = 0.5;
@@ -66,26 +65,32 @@ function pickLine(state) {
   return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
 }
 
-async function handleLine(env, installId) {
+async function handleLine(env, installId, eventName) {
   const key = `install:${installId}`;
   const raw = await env.INSTALLS.get(key);
   const state = raw ? JSON.parse(raw) : defaultState();
   const now = Date.now() / 1000;
 
-  if (state.current_line === null || now - state.line_started >= ROTATE_SECONDS) {
-    const picked = pickLine(state);
-    state.current_kind = picked.kind;
-    state.current_line = picked.line;
-    state.line_started = now;
-    state.billed_current = false;
+  // Claude Code only calls us on real events (new message, session start,
+  // /compact, etc.) -- never a blind timer, since we don't set a
+  // refreshInterval. So every invocation IS a real activity signal. Bill
+  // the OUTGOING line here, based on how long it was genuinely on screen
+  // since the last real event -- not an artificial server-side clock.
+  if (state.current_line !== null && !state.billed_current) {
+    const visibleFor = now - state.line_started;
+    if (visibleFor >= BILLABLE_THRESHOLD) {
+      state.total_calls += 1;
+      if (state.current_kind === "sponsor") state.sponsor_calls += 1;
+    }
   }
 
-  const visibleFor = now - state.line_started;
-  if (!state.billed_current && visibleFor >= BILLABLE_THRESHOLD) {
-    state.total_calls += 1;
-    if (state.current_kind === "sponsor") state.sponsor_calls += 1;
-    state.billed_current = true;
-  }
+  // Every real invocation picks a fresh line -- no artificial hold timer.
+  const picked = pickLine(state);
+  state.current_kind = picked.kind;
+  state.current_line = picked.line;
+  state.line_started = now;
+  state.billed_current = false;
+  state.last_event = eventName || "unknown";
 
   await env.INSTALLS.put(key, JSON.stringify(state));
   return json({ line: state.current_line, kind: state.current_kind });
@@ -164,7 +169,8 @@ export default {
     if (request.method === "GET" && url.pathname === "/line") {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "missing ?id=" }, 400);
-      return handleLine(env, id);
+      const eventName = url.searchParams.get("event");
+      return handleLine(env, id, eventName);
     }
 
     if (request.method === "GET" && url.pathname === "/earnings") {
