@@ -15,23 +15,25 @@ Built on Claude Code's official `statusLine` setting — nothing is patched.
 curl -fsSL https://raw.githubusercontent.com/heenatrivedi321-max/deadtime/main/install.sh | bash
 ```
 
-Restart Claude Code afterward to see it live.
+Restart Claude Code afterward to see it live. Live site:
+https://deadtime-server.bean-picker.workers.dev
 
 ## How it works
 
 - `statusline.py` -- the client. Generates a random anonymous install ID,
   asks the server for a line, prints it. Never sees or sends your prompts,
   code, or conversation content.
-- `worker/` -- the Cloudflare Worker backend. Picks tip vs. sponsor per
-  install, enforces the 2-in-5 sponsor ceiling, only bills an impression
-  once a line has been continuously shown for 10 seconds.
-- `site/` -- the two public pages: `install.html` (for developers) and
-  `advertiser.html` (for sponsors).
+- `worker/` -- the Cloudflare Worker. Serves the API (picks tip vs.
+  sponsor per install, enforces the 2-in-5 sponsor ceiling, only bills an
+  impression once a line has been continuously shown for 10 seconds) and
+  the public site, from `public/`, as static assets.
+- `public/` -- the two public pages: `install.html` (for developers) and
+  `advertiser.html` (for sponsors). Deployed as-is, no build step.
 
 ## For sponsors
 
-See the [advertiser page](site/advertiser.html) -- reserve a spot, no
-payment required yet, real numbers before any charge.
+Visit the [advertiser page](https://deadtime-server.bean-picker.workers.dev/advertiser.html)
+-- reserve a spot, no payment required yet, real numbers before any charge.
 
 ## Privacy
 

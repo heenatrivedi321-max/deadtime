@@ -181,6 +181,16 @@ export default {
       return handleNetworkStats(env);
     }
 
+    // Anything else falls through to the static site (install.html,
+    // advertiser.html) served from the same Worker via assets.
+    // Root has no index.html -- rewrite it to install.html explicitly.
+    if (request.method === "GET") {
+      if (url.pathname === "/") {
+        return env.ASSETS.fetch(new Request(new URL("/install.html", url), request));
+      }
+      return env.ASSETS.fetch(request);
+    }
+
     return json({ error: "not found" }, 404);
   },
 };
