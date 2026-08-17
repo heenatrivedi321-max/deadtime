@@ -1,0 +1,11 @@
+name = "deadtime-server"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "INSTALLS"
+id = "89e54ed8387646c8bc59fb73fab91bea"
+
+[[kv_namespaces]]
+binding = "LEADS"
+id = "ce046c03849944d6808b0e3f2030186d"

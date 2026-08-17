@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>deadtime — sponsor a developer's status line</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #08080a;
+    --panel: #111114;
+    --panel-2: #16161a;
+    --border: #232327;
+    --text: #f2ede1;
+    --muted: #83838d;
+    --accent: #c9a96e;
+    --accent-2: #e8c896;
+    --green: #7ee787;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,169,110,0.08), transparent), var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 620px; margin: 0 auto; padding: 100px 24px 80px; }
+
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+  .reveal.d1 { transition-delay: .08s; }
+  .reveal.d2 { transition-delay: .16s; }
+  .reveal.d3 { transition-delay: .24s; }
+  .reveal.d4 { transition-delay: .32s; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--border); padding: 6px 12px; border-radius: 100px;
+    margin-bottom: 24px; letter-spacing: .02em;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1.15; margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 30%, var(--accent-2) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .sub { color: var(--muted); font-size: 16px; line-height: 1.6; margin-bottom: 40px; max-width: 520px; }
+
+  .stats { display: flex; gap: 32px; margin-bottom: 40px; flex-wrap: wrap; }
+  .stat { }
+  .stat .num { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .demo {
+    background: #000; border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 44px; position: relative; overflow: hidden;
+    box-shadow: 0 20px 60px -20px rgba(0,0,0,0.6);
+  }
+  .demo::before {
+    content: ''; position: absolute; inset: 0; border-radius: 12px; padding: 1px;
+    background: linear-gradient(135deg, rgba(201,169,110,0.3), transparent 40%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+  }
+  .demo .label { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 12px; display: block; }
+  .demo .line { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #999; }
+  .demo .line .spinner { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .demo .sponsor { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--green); margin-top: 8px; opacity: 0; animation: typeIn .4s ease-out .8s forwards; }
+  @keyframes typeIn { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
+  .demo .sponsor .tag { color: var(--accent); }
+  .demo .sponsor .url { color: var(--muted); }
+
+  .trust { display: flex; gap: 20px; margin-bottom: 44px; flex-wrap: wrap; }
+  .trust-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .trust-item svg { flex-shrink: 0; color: var(--accent); }
+
+  form {
+    display: flex; flex-direction: column; gap: 18px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,0.7);
+  }
+  .field { position: relative; }
+  label { font-size: 12px; color: var(--muted); margin-bottom: 7px; display: block; letter-spacing: .01em; }
+  input {
+    width: 100%; background: #0b0b0d; border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; color: var(--text); font-size: 14px; font-family: inherit;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input::placeholder { color: #4a4a52; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201,169,110,0.12); }
+  .count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 5px; transition: color .2s; }
+  .count.over { color: #e77; }
+
+  button {
+    margin-top: 4px; background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    color: #16130a; border: none; border-radius: 8px; padding: 14px; font-weight: 600; font-size: 14px;
+    cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; position: relative;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 8px 24px -8px rgba(201,169,110,0.5); }
+  button:active { transform: translateY(0); }
+  button:disabled { opacity: .6; cursor: default; transform: none; box-shadow: none; }
+
+  .note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .status { font-size: 14px; min-height: 20px; transition: opacity .3s; }
+  .status.ok { color: var(--green); }
+  .status.err { color: #e77; }
+
+  footer { margin-top: 56px; color: #55555c; font-size: 12px; text-align: center; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="badge reveal in"><span class="dot"></span> live · built on Claude Code's official status line</div>
+
+  <h1 class="reveal in d1">Sponsor a developer's<br>status line.</h1>
+  <p class="sub reveal in d2">Shown while an AI coding agent is working — the one moment a developer is actually staring at their screen, not tabbed away. One clear "(sponsored)" label. No hidden math to trust — you pay for what actually renders.</p>
+
+  <div class="stats reveal in d2">
+    <div class="stat"><div class="num" id="statCalls">0</div><div class="lbl">status lines served</div></div>
+    <div class="stat"><div class="num" id="statRatio">0%</div><div class="lbl">sponsor fill rate</div></div>
+    <div class="stat"><div class="num">$2</div><div class="lbl">per 1,000 impressions</div></div>
+  </div>
+
+  <div class="demo reveal in d3">
+    <span class="label">what it looks like, live</span>
+    <div class="line"><span class="spinner">✻</span> Meandering…</div>
+    <div class="sponsor">&nbsp;&nbsp;└ <span class="tag">(sponsored)</span> Ramp — time is money. Save both. <span class="url">→ ramp.com</span></div>
+  </div>
+
+  <div class="trust reveal in d3">
+    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Official extension point, not patched</div>
+    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Every click verifiable on your own site</div>
+  </div>
+
+  <form id="adForm" class="reveal in d4">
+    <div class="field">
+      <label for="line">Your line (max 6 words)</label>
+      <input id="line" maxlength="60" placeholder="Ramp — time is money. Save both." required>
+      <div class="count" id="wcWrap"><span id="wc">0</span>/6 words</div>
+    </div>
+    <div class="field">
+      <label for="url">Destination URL</label>
+      <input id="url" type="url" placeholder="https://yourcompany.com" required>
+    </div>
+    <div class="field">
+      <label for="company">Company name</label>
+      <input id="company" placeholder="Ramp" required>
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@company.com" required>
+    </div>
+    <button type="submit" id="submitBtn">Reserve early access — no payment yet</button>
+    <div class="note">We're pre-launch. No charge today. When impressions go live, you'll get an email with real numbers and a checkout link.</div>
+    <div id="status" class="status"></div>
+  </form>
+
+  <footer>deadtime.dev — nothing patched, open about what we track. <a href="#">how it works →</a></footer>
+</div>
+
+<script>
+// scroll/entrance reveal (elements already .in on load for above-the-fold; this re-arms for resize/late content)
+document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+
+// word counter
+const lineInput = document.getElementById('line');
+const wc = document.getElementById('wc');
+const wcWrap = document.getElementById('wcWrap');
+lineInput.addEventListener('input', () => {
+  const words = lineInput.value.trim().split(/\s+/).filter(Boolean).length;
+  wc.textContent = words;
+  wcWrap.classList.toggle('over', words > 6);
+});
+
+// animated counters, pulled from the real local ledger via a tiny endpoint
+async function loadStats() {
+  try {
+    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const s = await res.json();
+    animateNumber('statCalls', s.total_calls);
+    document.getElementById('statRatio').textContent = Math.round(s.sponsor_ratio * 100) + '%';
+  } catch (e) { /* server not reachable -- leave at 0, that's honest */ }
+}
+function animateNumber(id, target) {
+  const el = document.getElementById(id);
+  const start = 0, dur = 900, t0 = performance.now();
+  function tick(t) {
+    const p = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(start + (target - start) * eased);
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+loadStats();
+
+// form submit
+document.getElementById('adForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const status = document.getElementById('status');
+  const payload = {
+    line: lineInput.value.trim(),
+    url: document.getElementById('url').value.trim(),
+    company: document.getElementById('company').value.trim(),
+    email: document.getElementById('email').value.trim(),
+  };
+  btn.disabled = true;
+  btn.textContent = 'Reserving…';
+  try {
+    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/advertiser-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    status.textContent = "Reserved — we'll email you when impressions go live.";
+    status.className = 'status ok';
+    e.target.reset();
+    wc.textContent = '0';
+  } catch (err) {
+    status.textContent = 'Something went wrong — try again in a moment.';
+    status.className = 'status err';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reserve early access — no payment yet';
+  }
+});
+</script>
+</body>
+</html>

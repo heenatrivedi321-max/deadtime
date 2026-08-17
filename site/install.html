@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>deadtime — get paid while your agent thinks</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#08080a; --panel:#111114; --panel-2:#16161a; --border:#232327;
+    --text:#f2ede1; --muted:#83838d; --accent:#c9a96e; --accent-2:#e8c896; --green:#7ee787;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(201,169,110,0.08), transparent), var(--bg);
+         color: var(--text); font-family:'Inter',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 100px 24px 80px; }
+
+  .badge { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);
+           background:var(--panel); border:1px solid var(--border); padding:6px 12px; border-radius:100px; margin-bottom:24px; }
+  .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+  h1 { font-size:clamp(32px,5.5vw,46px); font-weight:700; letter-spacing:-0.02em; line-height:1.12; margin-bottom:18px;
+       background:linear-gradient(135deg,#fff 30%,var(--accent-2) 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .sub { color:var(--muted); font-size:17px; line-height:1.6; margin-bottom:40px; max-width:540px; }
+
+  .stats { display:flex; gap:36px; margin-bottom:44px; flex-wrap:wrap; }
+  .stat .num { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
+
+  .install-box { background:#000; border:1px solid var(--border); border-radius:12px; padding:4px; margin-bottom:16px;
+                 display:flex; align-items:center; box-shadow:0 20px 60px -20px rgba(0,0,0,0.6); position:relative; overflow:hidden; }
+  .install-box code { flex:1; font-family:'JetBrains Mono',monospace; font-size:13px; color:#8fdc8f; padding:14px 16px; overflow-x:auto; white-space:nowrap; }
+  .install-box button { background:var(--panel-2); border:1px solid var(--border); color:var(--text); border-radius:8px;
+                         padding:10px 16px; font-size:13px; cursor:pointer; margin-right:6px; white-space:nowrap; transition:.15s; }
+  .install-box button:hover { background:var(--border); }
+  .install-note { font-size:13px; color:var(--muted); margin-bottom:48px; }
+
+  .steps { display:flex; flex-direction:column; gap:20px; margin-bottom:48px; }
+  .step { display:flex; gap:16px; }
+  .step .n { flex-shrink:0; width:28px; height:28px; border-radius:50%; background:var(--panel-2); border:1px solid var(--border);
+             display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:var(--accent); }
+  .step .body h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .step .body p { font-size:14px; color:var(--muted); line-height:1.5; }
+
+  .demo { background:#000; border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:48px; }
+  .demo .label { color:var(--muted); font-size:10px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; display:block; }
+  .demo .line { font-family:'JetBrains Mono',monospace; font-size:13px; color:#999; }
+  .demo .tip { font-family:'JetBrains Mono',monospace; font-size:13px; color:#8fdc8f; margin-top:8px; }
+
+  .trust { display:flex; flex-direction:column; gap:10px; background:var(--panel); border:1px solid var(--border);
+           border-radius:12px; padding:20px 24px; margin-bottom:48px; }
+  .trust-item { display:flex; gap:10px; font-size:13px; color:var(--muted); align-items:flex-start; }
+  .trust-item svg { flex-shrink:0; color:var(--accent); margin-top:2px; }
+
+  footer { color:#55555c; font-size:12px; text-align:center; }
+  footer a { color:var(--muted); text-decoration:none; }
+  footer a:hover { color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge"><span class="dot"></span> live on Cloudflare · open about what we track</div>
+
+  <h1>Get paid while your agent thinks.</h1>
+  <p class="sub">One line in your Claude Code status bar. Mostly useful tips. Sometimes a disclosed, relevant sponsor. You get half of every sponsored line shown.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="statInstalls">–</div><div class="lbl">installs</div></div>
+    <div class="stat"><div class="num" id="statCalls">–</div><div class="lbl">lines served</div></div>
+    <div class="stat"><div class="num" id="statRatio">–</div><div class="lbl">sponsor rate</div></div>
+  </div>
+
+  <div class="install-box">
+    <code id="installCmd">curl -fsSL https://deadtime.dev/install.sh | bash</code>
+    <button id="copyBtn">Copy</button>
+  </div>
+  <p class="install-note">Installs in seconds. No account, no payment info. Uninstall any time by removing the <code>statusLine</code> line from <code>~/.claude/settings.json</code>.</p>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div class="body"><h3>Install</h3><p>One command wires a status line into Claude Code — nothing else on your machine changes.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="body"><h3>Use Claude Code like normal</h3><p>Tips show up while your agent works. Occasionally, a short disclosed sponsor line takes its place.</p></div></div>
+    <div class="step"><div class="n">3</div><div class="body"><h3>Get paid</h3><p>Every sponsored line is logged against your anonymous install ID. Cross a threshold, get paid monthly.</p></div></div>
+  </div>
+
+  <div class="demo">
+    <span class="label">what shows up</span>
+    <div class="line">✻ Meandering…</div>
+    <div class="tip">deadtime: Tip: /compact early avoids losing context on long sessions</div>
+  </div>
+
+  <div class="trust">
+    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Built on Claude Code's official statusLine setting — nothing is patched.</div>
+    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> We never see your prompts, your code, or your conversation — only a random ID and which line was shown.</div>
+    <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Sponsor lines are always labeled "(sponsored)" — never blended in silently.</div>
+  </div>
+
+  <footer>deadtime.dev — <a href="advertiser.html">sponsor a status line instead →</a></footer>
+</div>
+
+<script>
+async function loadStats() {
+  try {
+    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const s = await res.json();
+    animate('statInstalls', s.installs);
+    animate('statCalls', s.total_calls);
+    document.getElementById('statRatio').textContent = Math.round(s.sponsor_ratio * 100) + '%';
+  } catch (e) { /* leave as – if unreachable, honest about it */ }
+}
+function animate(id, target) {
+  const el = document.getElementById(id);
+  const t0 = performance.now(), dur = 800;
+  function tick(t) {
+    const p = Math.min(1, (t - t0) / dur);
+    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+loadStats();
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('installCmd').textContent);
+  const btn = document.getElementById('copyBtn');
+  const original = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = original, 1500);
+});
+</script>
+</body>
+</html>
