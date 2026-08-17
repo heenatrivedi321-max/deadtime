@@ -8,12 +8,14 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
-    --bg:#0d1117; --panel:#151b23; --panel-2:#1b232d; --border:#2a333f;
-    --text:#e8edf3; --muted:#7d8998; --accent:#4a9eff; --green:#3fb968; --gold:#e0b054;
+    --bg:#07070a; --panel:rgba(255,255,255,0.045); --panel-2:rgba(255,255,255,0.07); --border:rgba(255,255,255,0.1);
+    --text:#f5f0e6; --muted:#8c8c96; --green:#3fb968; --gold:#e8c896;
     --pp-dark:#003087; --pp-light:#0070ba; --pp-glow:#2a9bf0;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
+  body { background:radial-gradient(ellipse 60% 35% at 50% -5%, rgba(232,200,150,.09), transparent),
+         radial-gradient(ellipse 50% 30% at 90% 20%, rgba(168,85,247,.06), transparent), var(--bg);
+         color:var(--text); font-family:'Inter',-apple-system,sans-serif;
          -webkit-font-smoothing:antialiased; min-height:100vh; }
   .wrap { max-width:460px; margin:0 auto; padding:56px 24px 80px; }
 
@@ -25,7 +27,11 @@
                    background:rgba(63,185,104,.1); border:1px solid rgba(63,185,104,.25);
                    padding:5px 12px; border-radius:100px; margin-bottom:20px; }
 
-  h1 { font-family:'Fraunces',serif; font-size:26px; font-weight:600; margin-bottom:8px; letter-spacing:-0.01em; }
+  h1 { font-family:'Fraunces',serif; font-size:27px; font-weight:600; margin-bottom:8px; letter-spacing:-0.01em;
+       background:linear-gradient(100deg,#f2b134,#f0654a,#ec4899,#a855f7,#3b82f6,#14c9a5,#f2b134);
+       background-size:180% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+       animation:shimmer 8s linear infinite; }
+  @keyframes shimmer { to { background-position:180% center; } }
   .sub { color:var(--muted); font-size:14px; line-height:1.6; margin-bottom:28px; }
 
   /* ---- destination card: where the money actually goes ---- */
@@ -33,9 +39,10 @@
                   border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:20px;
                   position:relative; overflow:hidden; }
   .pp-badge-wrap { position:relative; width:54px; height:54px; flex-shrink:0; }
-  .pp-badge { width:54px; height:54px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--pp-light), var(--pp-dark));
+  .pp-badge { width:54px; height:54px; border-radius:50%; background:#ffffff;
               display:flex; align-items:center; justify-content:center; position:relative; z-index:2;
               box-shadow:0 0 0 rgba(42,155,240,0); transition:box-shadow .5s ease, transform .4s cubic-bezier(.34,1.56,.64,1); }
+  .pp-badge img { width:28px; height:auto; }
   .pp-badge.pulse { animation:ppPulse .7s ease; box-shadow:0 0 30px 6px rgba(42,155,240,.5); }
   @keyframes ppPulse { 0%{ transform:scale(1); } 35%{ transform:scale(1.18); } 100%{ transform:scale(1); } }
   .pp-ring { position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--pp-glow); opacity:0;
@@ -59,7 +66,7 @@
   .balance-card .amount { font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:700; color:var(--text); }
   .balance-card .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
   .progress-track { height:6px; background:var(--border); border-radius:100px; margin-top:18px; overflow:hidden; }
-  .progress-fill { height:100%; background:var(--accent); border-radius:100px; transition:width .6s ease; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,#f2b134,#ec4899); border-radius:100px; transition:width .6s ease; }
   .progress-note { font-size:12px; color:var(--muted); margin-top:8px; }
 
   .steps { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
@@ -76,10 +83,10 @@
   label { font-size:12px; color:var(--muted); margin-bottom:6px; display:block; font-weight:500; }
   input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px;
           padding:11px 13px; color:var(--text); font-size:14px; font-family:inherit; transition:border-color .15s; }
-  input:focus { outline:none; border-color:var(--accent); }
-  button { background:var(--accent); color:#fff; border:none; border-radius:8px;
-           padding:13px; font-weight:600; font-size:14px; cursor:pointer; transition:background .15s; }
-  button:hover { background:#3a8eef; }
+  input:focus { outline:none; border-color:var(--gold); }
+  button { background:linear-gradient(135deg,#e8c896,#d99a9a); color:#1a1408; border:none; border-radius:8px;
+           padding:13px; font-weight:700; font-size:14px; cursor:pointer; transition:transform .15s, box-shadow .15s; }
+  button:hover { transform:translateY(-1px); box-shadow:0 8px 24px -8px rgba(232,200,150,.4); }
   button:disabled { opacity:.5; cursor:default; }
   .status { font-size:13px; min-height:18px; }
   .status.err { color:#e5697a; }
@@ -115,10 +122,7 @@ const id = params.get('id');
 const app = document.getElementById('app');
 const THRESHOLD = 25;
 const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d1117" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>`;
-const ppMark = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-  <path d="M8 5h6.2c2.6 0 4.3 1.7 3.9 4.2-.5 3-2.7 4.6-5.6 4.6H10l-1 5H6l2-13.8Z" fill="#ffffff" opacity=".55"/>
-  <path d="M6 7h6.2c2.6 0 4.3 1.7 3.9 4.2-.5 3-2.7 4.6-5.6 4.6H8l-1 5H4L6 7Z" fill="#ffffff"/>
-</svg>`;
+const ppMark = `<img src="paypal-mark.png" alt="PayPal">`;
 
 if (!id) {
   app.innerHTML = `
