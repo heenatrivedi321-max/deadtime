@@ -27,6 +27,7 @@ const TIPS = [
 const HOUSE_SPONSOR = "(sponsored) deadtime -- get paid while your agent thinks -> deadtime.dev";
 const IMPRESSIONS_PER_BLOCK = 1000;
 const USD_PER_BLOCK = 2.0;
+const PAYPAL_API = "https://api-m.paypal.com"; // LIVE -- real money, no sandbox fallback configured
 
 const FILL_CEILING = 0.40;
 const BILLABLE_THRESHOLD = 10;
@@ -238,6 +239,20 @@ function checkAdmin(request, env) {
   return token && env.ADMIN_TOKEN && token === env.ADMIN_TOKEN;
 }
 
+/** Shared by both the manual admin endpoint and the automatic PayPal
+ * capture handler -- this is the one real activation algorithm, called
+ * from two different triggers. */
+async function activateCampaign(env, campaignId) {
+  const key = `campaign:${campaignId}`;
+  const raw = await env.CAMPAIGNS.get(key);
+  if (!raw) return null;
+  const campaign = JSON.parse(raw);
+  campaign.status = "active";
+  campaign.activated_at = Date.now() / 1000;
+  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+  return campaign;
+}
+
 async function handleActivateCampaign(request, env) {
   if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
   let data;
@@ -249,14 +264,140 @@ async function handleActivateCampaign(request, env) {
   const { campaign_id } = data;
   if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
 
+  const campaign = await activateCampaign(env, campaign_id);
+  if (!campaign) return json({ error: "not found" }, 404);
+  return json({ ok: true, campaign });
+}
+
+async function getPayPalToken(env) {
+  const auth = btoa(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`);
+  const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!res.ok) throw new Error(`paypal auth failed: ${res.status}`);
+  const data = await res.json();
+  return data.access_token;
+}
+
+/** Creates a real PayPal order for a pending campaign. Moves no money --
+ * an order only becomes a charge once the advertiser approves it on
+ * PayPal's own page and we capture it afterward. */
+async function handleCreatePayPalOrder(request, env) {
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { campaign_id } = data;
+  if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
+
   const key = `campaign:${campaign_id}`;
   const raw = await env.CAMPAIGNS.get(key);
-  if (!raw) return json({ error: "not found" }, 404);
+  if (!raw) return json({ error: "campaign not found" }, 404);
   const campaign = JSON.parse(raw);
-  campaign.status = "active";
-  campaign.activated_at = Date.now() / 1000;
+  if (campaign.status !== "pending_payment") {
+    return json({ error: `campaign is already ${campaign.status}` }, 409);
+  }
+
+  let token;
+  try {
+    token = await getPayPalToken(env);
+  } catch (e) {
+    return json({ error: "paypal auth failed" }, 502);
+  }
+
+  const orderRes = await fetch(`${PAYPAL_API}/v2/checkout/orders`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: campaign_id,
+        description: `Meanwhile ad campaign: ${campaign.company}`,
+        amount: { currency_code: "USD", value: campaign.price_usd.toFixed(2) },
+      }],
+      application_context: {
+        return_url: `${new URL(request.url).origin}/advertiser.html?paid=1&campaign_id=${campaign_id}`,
+        cancel_url: `${new URL(request.url).origin}/advertiser.html?cancelled=1`,
+      },
+    }),
+  });
+  const order = await orderRes.json();
+  if (!orderRes.ok) return json({ error: order.message || "order creation failed" }, 502);
+
+  campaign.paypal_order_id = order.id;
   await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
-  return json({ ok: true, campaign });
+
+  const approveLink = (order.links || []).find((l) => l.rel === "approve" || l.rel === "payer-action");
+  return json({ order_id: order.id, approval_url: approveLink ? approveLink.href : null });
+}
+
+/** Captures an approved PayPal order and activates the campaign, all in
+ * one step -- this is the "payment automatically starts delivering"
+ * mechanism. Only ever fires after a real advertiser has approved the
+ * exact charge on PayPal's own page; this endpoint just finishes what
+ * they already authorized. */
+async function handleCapturePayPalOrder(request, env) {
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { order_id } = data;
+  if (!order_id) return json({ error: "missing order_id" }, 400);
+
+  let token;
+  try {
+    token = await getPayPalToken(env);
+  } catch (e) {
+    return json({ error: "paypal auth failed" }, 502);
+  }
+
+  const captureRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${order_id}/capture`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  const capture = await captureRes.json();
+  if (!captureRes.ok || capture.status !== "COMPLETED") {
+    return json({ error: "capture failed", detail: capture }, 502);
+  }
+
+  const campaignId = capture.purchase_units?.[0]?.reference_id;
+  if (!campaignId) return json({ error: "no reference_id on captured order" }, 500);
+
+  const activated = await activateCampaign(env, campaignId);
+  if (!activated) return json({ error: "campaign not found for activation" }, 500);
+
+  return json({ ok: true, campaign: activated });
+}
+
+/** Public status lookup for one campaign, keyed by its own unguessable
+ * UUID -- same access pattern as the developer claim page. No admin
+ * token needed; only safe-to-share fields are returned. */
+async function handleCampaignStatus(env, campaignId) {
+  const raw = await env.CAMPAIGNS.get(`campaign:${campaignId}`);
+  if (!raw) return json({ error: "not found" }, 404);
+  const c = JSON.parse(raw);
+  return json({
+    id: c.id,
+    line: c.line,
+    url: c.url,
+    company: c.company,
+    blocks: c.blocks,
+    price_usd: c.price_usd,
+    impressions_total: c.impressions_total,
+    impressions_delivered: c.impressions_delivered,
+    status: c.status,
+    created_at: c.created_at,
+    activated_at: c.activated_at,
+  });
 }
 
 async function handleListCampaigns(request, env) {
@@ -329,12 +470,26 @@ export default {
       return handleAdvertiserLead(request, env);
     }
 
+    if (request.method === "GET" && url.pathname === "/campaign-status") {
+      const cid = url.searchParams.get("id");
+      if (!cid) return json({ error: "missing ?id=" }, 400);
+      return handleCampaignStatus(env, cid);
+    }
+
     if (request.method === "GET" && url.pathname === "/network-stats") {
       return handleNetworkStats(env);
     }
 
     if (request.method === "POST" && url.pathname === "/register-payout") {
       return handleRegisterPayout(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/paypal/create-order") {
+      return handleCreatePayPalOrder(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/paypal/capture-order") {
+      return handleCapturePayPalOrder(request, env);
     }
 
     if (request.method === "POST" && url.pathname === "/admin/activate-campaign") {
@@ -354,6 +509,9 @@ export default {
       }
       if (url.pathname === "/claim") {
         return env.ASSETS.fetch(new Request(new URL("/claim.html", url), request));
+      }
+      if (url.pathname === "/dashboard") {
+        return env.ASSETS.fetch(new Request(new URL("/dashboard.html", url), request));
       }
       return env.ASSETS.fetch(request);
     }

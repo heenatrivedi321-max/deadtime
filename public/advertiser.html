@@ -288,7 +288,9 @@ document.getElementById('adForm').addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(await res.text());
-    status.textContent = "Reserved — we'll email you when checkout goes live.";
+    const result = await res.json();
+    const dashUrl = `dashboard.html?id=${result.campaign_id}`;
+    status.innerHTML = `Reserved — $${result.price_usd.toFixed(2)} total. <a href="${dashUrl}" style="color:var(--gold)">Track your campaign here →</a>`;
     status.className = 'status ok';
     e.target.reset();
     wc.textContent = '0';
