@@ -14,7 +14,7 @@
   * { box-sizing:border-box; margin:0; padding:0; }
   html { scroll-behavior:smooth; }
   body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
-         -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh; }
+         -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh; cursor:default; }
 
   /* ---- aurora background ---- */
   .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
@@ -29,7 +29,24 @@
   .grain { position:fixed; inset:0; z-index:1; pointer-events:none; opacity:.04;
            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
-  .wrap { position:relative; z-index:2; max-width:640px; margin:0 auto; padding:100px 24px 80px; }
+  /* ---- particle field ---- */
+  #particles { position:fixed; inset:0; z-index:1; pointer-events:none; }
+
+  /* ---- cursor spotlight ---- */
+  #spotlight { position:fixed; width:500px; height:500px; border-radius:50%; z-index:1; pointer-events:none;
+    background:radial-gradient(circle, rgba(232,200,150,.10) 0%, transparent 70%);
+    transform:translate(-50%,-50%); transition:opacity .3s; opacity:0; }
+
+  /* ---- hype ticker ---- */
+  .ticker-wrap { position:relative; z-index:2; overflow:hidden; border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+                 background:rgba(255,255,255,.02); backdrop-filter:blur(8px); padding:10px 0; }
+  .ticker { display:flex; white-space:nowrap; animation:tickerScroll 22s linear infinite; width:max-content; }
+  .ticker span { font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.08em; color:var(--muted); padding:0 28px;
+                 display:inline-flex; align-items:center; gap:8px; }
+  .ticker span.hot { color:var(--gold); }
+  @keyframes tickerScroll { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+
+  .wrap { position:relative; z-index:2; max-width:640px; margin:0 auto; padding:80px 24px 80px; }
 
   .reveal { opacity:0; transform:translateY(24px) scale(.98); filter:blur(4px);
             transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), filter .8s cubic-bezier(.16,1,.3,1); }
@@ -41,20 +58,30 @@
   .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
-  h1 { font-size:clamp(34px,6vw,50px); font-weight:800; letter-spacing:-0.03em; line-height:1.1; margin-bottom:20px;
+  .h1-wrap { position:relative; margin-bottom:20px; }
+  h1 { font-size:clamp(34px,6vw,50px); font-weight:800; letter-spacing:-0.03em; line-height:1.1; position:relative;
        background:linear-gradient(120deg,#fff 20%,var(--gold) 45%,var(--rose) 65%,var(--violet) 90%);
        background-size:200% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
        animation:shimmer 6s linear infinite; }
   @keyframes shimmer { to { background-position:200% center; } }
+  h1.glitch::before, h1.glitch::after { content:attr(data-text); position:absolute; inset:0;
+    background:none; -webkit-text-fill-color:initial; clip-path:inset(0 0 0 0); }
+  h1.glitch::before { color:#ff5ec8; transform:translate(0); animation:glitch1 .5s steps(2,end) 3; mix-blend-mode:screen; }
+  h1.glitch::after { color:#5ee8ff; transform:translate(0); animation:glitch2 .5s steps(2,end) 3; mix-blend-mode:screen; }
+  @keyframes glitch1 { 0%{ clip-path:inset(10% 0 70% 0); transform:translate(-3px,0);} 25%{ clip-path:inset(60% 0 5% 0); transform:translate(3px,0);} 50%{ clip-path:inset(20% 0 50% 0); transform:translate(-2px,0);} 75%{ clip-path:inset(80% 0 2% 0); transform:translate(2px,0);} 100%{ clip-path:inset(0 0 0 0); transform:translate(0,0); opacity:0;} }
+  @keyframes glitch2 { 0%{ clip-path:inset(70% 0 10% 0); transform:translate(3px,0);} 25%{ clip-path:inset(5% 0 60% 0); transform:translate(-3px,0);} 50%{ clip-path:inset(50% 0 20% 0); transform:translate(2px,0);} 75%{ clip-path:inset(2% 0 80% 0); transform:translate(-2px,0);} 100%{ clip-path:inset(0 0 0 0); transform:translate(0,0); opacity:0;} }
+
   .sub { color:var(--muted); font-size:17px; line-height:1.65; margin-bottom:44px; max-width:520px; }
 
   .stats { display:flex; gap:40px; margin-bottom:48px; flex-wrap:wrap; }
-  .stat .odometer { display:inline-flex; font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+  .stat .odometer { display:inline-flex; font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; text-shadow:0 0 20px rgba(232,200,150,.3); }
   .digit-wrap { display:inline-block; height:1em; overflow:hidden; vertical-align:top; }
   .digit-strip { display:flex; flex-direction:column; transition:transform 1.1s cubic-bezier(.22,1,.36,1); }
   .digit-strip span { height:1em; line-height:1; display:flex; align-items:center; justify-content:center; }
   .stat .lbl { font-size:12px; color:var(--muted); margin-top:4px; }
-  .stat .pct { font-size:30px; font-weight:800; }
+  .stat .pct { font-size:30px; font-weight:800; text-shadow:0 0 20px rgba(232,200,150,.3); }
+
+  .tilt { transform-style:preserve-3d; transition:transform .15s ease-out; will-change:transform; }
 
   .install-box { background:rgba(0,0,0,.55); backdrop-filter:blur(16px); border:1px solid var(--border);
                  border-radius:14px; padding:5px; margin-bottom:16px; display:flex; align-items:center;
@@ -66,10 +93,10 @@
     -webkit-mask-composite:xor; mask-composite:exclude; opacity:.5; pointer-events:none; }
   .install-box code { flex:1; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:#a8f0c6;
                        padding:15px 16px; overflow-x:auto; white-space:nowrap; }
-  .install-box button { background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--text);
-                         border-radius:9px; padding:10px 18px; font-size:13px; cursor:pointer; margin-right:5px;
-                         white-space:nowrap; transition:.2s; }
-  .install-box button:hover { background:rgba(255,255,255,.12); transform:translateY(-1px); }
+  #copyBtn { background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--text);
+             border-radius:9px; padding:10px 18px; font-size:13px; cursor:pointer; margin-right:5px;
+             white-space:nowrap; transition:background .2s, box-shadow .2s; position:relative; }
+  #copyBtn:hover { background:rgba(255,255,255,.14); box-shadow:0 6px 20px -6px rgba(232,200,150,.4); }
   .install-note { font-size:13px; color:var(--muted); margin-bottom:52px; line-height:1.6; }
   .install-note code { color:var(--muted); background:rgba(255,255,255,.06); padding:1px 5px; border-radius:4px; }
 
@@ -101,16 +128,26 @@
   footer { color:#5a5a62; font-size:12px; text-align:center; }
   footer a { color:var(--muted); text-decoration:none; transition:.2s; }
   footer a:hover { color:var(--gold); }
+
+  .confetti-piece { position:fixed; z-index:50; pointer-events:none; border-radius:2px; }
 </style>
 </head>
 <body>
 <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+<canvas id="particles"></canvas>
+<div id="spotlight"></div>
 <div class="grain"></div>
+
+<div class="ticker-wrap">
+  <div class="ticker" id="ticker"></div>
+</div>
 
 <div class="wrap">
   <div class="badge reveal"><span class="dot"></span> live on Cloudflare · open about what we track</div>
 
-  <h1 class="reveal">Get paid while your agent thinks.</h1>
+  <div class="h1-wrap">
+    <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.</h1>
+  </div>
   <p class="sub reveal">One line in your Claude Code status bar. Mostly useful tips. Sometimes a disclosed, relevant sponsor. You get half of every sponsored line shown.</p>
 
   <div class="stats reveal">
@@ -119,7 +156,7 @@
     <div class="stat"><div class="pct" id="statRatio">–</div><div class="lbl">sponsor rate</div></div>
   </div>
 
-  <div class="install-box reveal">
+  <div class="install-box reveal tilt">
     <code id="installCmd">curl -fsSL https://raw.githubusercontent.com/heenatrivedi321-max/deadtime/main/install.sh | bash</code>
     <button id="copyBtn">Copy</button>
   </div>
@@ -131,13 +168,13 @@
     <div class="step"><div class="n">3</div><div class="body"><h3>Get paid</h3><p>Every sponsored line is logged against your anonymous install ID. Cross a threshold, get paid monthly.</p></div></div>
   </div>
 
-  <div class="demo reveal">
+  <div class="demo reveal tilt">
     <span class="label">what shows up</span>
     <div class="line"><span class="spinner">✻</span> Meandering…</div>
     <div class="typed">deadtime: Tip: /compact early avoids losing context</div>
   </div>
 
-  <div class="trust reveal">
+  <div class="trust reveal tilt">
     <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Built on Claude Code's official statusLine setting — nothing is patched.</div>
     <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> We never see your prompts, your code, or your conversation — only a random ID and which line was shown.</div>
     <div class="trust-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Sponsor lines are always labeled "(sponsored)" — never blended in silently.</div>
@@ -147,7 +184,14 @@
 </div>
 
 <script>
-// scroll-triggered reveal, staggered
+/* ---------- hype ticker ---------- */
+const tickerItems = ['★ LIVE ON CLOUDFLARE', '⚡ NOTHING PATCHED', '🔒 OPEN ABOUT WHAT WE TRACK', '💸 HALF THE REVENUE, YOURS',
+                      '✓ OFFICIAL EXTENSION POINT', '★ NO ACCOUNT REQUIRED', '⚡ INSTALLS IN SECONDS'];
+const tickerEl = document.getElementById('ticker');
+const doubled = [...tickerItems, ...tickerItems, ...tickerItems, ...tickerItems];
+tickerEl.innerHTML = doubled.map((t,i) => `<span class="${i % 3 === 0 ? 'hot' : ''}">${t}</span>`).join('');
+
+/* ---------- scroll-triggered reveal ---------- */
 const revealEls = document.querySelectorAll('.reveal');
 const io = new IntersectionObserver((entries) => {
   entries.forEach((e, i) => {
@@ -158,14 +202,13 @@ const io = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.15 });
 revealEls.forEach(el => io.observe(el));
-// above-the-fold items reveal immediately without waiting on scroll
 setTimeout(() => revealEls.forEach((el, i) => {
   if (el.getBoundingClientRect().top < window.innerHeight) {
     setTimeout(() => el.classList.add('in'), i * 70);
   }
 }), 50);
 
-// odometer: each digit is a vertical strip that rolls into place
+/* ---------- odometer ---------- */
 function renderOdometer(el, value) {
   const digits = String(value).split('');
   el.innerHTML = digits.map(d => {
@@ -180,7 +223,6 @@ function renderOdometer(el, value) {
     });
   });
 }
-
 async function loadStats() {
   try {
     const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
@@ -195,13 +237,97 @@ async function loadStats() {
 }
 loadStats();
 
-document.getElementById('copyBtn').addEventListener('click', () => {
+/* ---------- copy + confetti ---------- */
+function burstConfetti(x, y) {
+  const colors = ['#e8c896', '#d99a9a', '#8fd6c9', '#b39ce8', '#fff'];
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const size = 4 + Math.random() * 5;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    document.body.appendChild(p);
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 120;
+    const dx = Math.cos(angle) * dist, dy = Math.sin(angle) * dist - 40;
+    p.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) rotate(${Math.random()*720}deg)`, opacity: 0 }
+    ], { duration: 700 + Math.random() * 400, easing: 'cubic-bezier(.16,1,.3,1)' })
+      .onfinish = () => p.remove();
+  }
+}
+document.getElementById('copyBtn').addEventListener('click', (e) => {
   navigator.clipboard.writeText(document.getElementById('installCmd').textContent);
-  const btn = document.getElementById('copyBtn');
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  burstConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
   const original = btn.textContent;
   btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = original, 1500);
 });
+
+/* ---------- cursor spotlight ---------- */
+const spotlight = document.getElementById('spotlight');
+window.addEventListener('mousemove', (e) => {
+  spotlight.style.opacity = '1';
+  spotlight.style.left = e.clientX + 'px';
+  spotlight.style.top = e.clientY + 'px';
+});
+window.addEventListener('mouseleave', () => spotlight.style.opacity = '0');
+
+/* ---------- 3D tilt on cards ---------- */
+document.querySelectorAll('.tilt').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const r = card.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    card.style.transform = `perspective(700px) rotateY(${px * 8}deg) rotateX(${-py * 8}deg) scale(1.01)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(700px) rotateY(0) rotateX(0) scale(1)';
+  });
+});
+
+/* ---------- ember particle field ---------- */
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+const colors = ['232,200,150', '217,154,154', '143,214,201', '179,156,232'];
+const particles = Array.from({ length: 50 }, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H + H,
+  r: 0.6 + Math.random() * 1.8,
+  speed: 0.25 + Math.random() * 0.6,
+  sway: Math.random() * 1.2,
+  phase: Math.random() * Math.PI * 2,
+  color: colors[Math.floor(Math.random() * colors.length)],
+  alpha: 0.15 + Math.random() * 0.35,
+}));
+
+function tick(t) {
+  ctx.clearRect(0, 0, W, H);
+  for (const p of particles) {
+    p.y -= p.speed;
+    p.x += Math.sin(t / 1800 + p.phase) * p.sway * 0.06;
+    if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${p.color},${p.alpha})`;
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = `rgba(${p.color},${p.alpha})`;
+    ctx.fill();
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
 </script>
 </body>
 </html>
