@@ -74,7 +74,7 @@
          transition:color 1.1s ease .15s; }
   .sub.in { color:#f0a860; }
 
-  .stats { display:flex; gap:40px; margin-bottom:48px; flex-wrap:wrap; }
+  .stats { display:flex; gap:40px; margin-bottom:64px; flex-wrap:wrap; }
   .stat .odometer { display:inline-flex; font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; text-shadow:0 0 20px rgba(232,200,150,.3); }
   .digit-wrap { display:inline-block; height:1em; overflow:hidden; vertical-align:top; }
   .digit-strip { display:flex; flex-direction:column; transition:transform 1.1s cubic-bezier(.22,1,.36,1); }
@@ -101,7 +101,7 @@
   .install-note { font-size:13px; color:var(--muted); margin-bottom:52px; line-height:1.6; }
   .install-note code { color:var(--muted); background:rgba(255,255,255,.06); padding:1px 5px; border-radius:4px; }
 
-  .steps { display:flex; flex-direction:column; gap:22px; margin-bottom:52px; }
+  .steps { display:flex; flex-direction:column; gap:26px; margin-bottom:64px; }
   .step { display:flex; gap:16px; }
   .step .n { flex-shrink:0; width:30px; height:30px; border-radius:50%;
              background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408;
@@ -110,54 +110,60 @@
   .step .body h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
   .step .body p { font-size:14px; color:var(--muted); line-height:1.55; }
 
-  .demo { background:rgba(0,0,0,.6); backdrop-filter:blur(16px); border:1px solid var(--border);
-          border-radius:14px; padding:22px 24px; margin-bottom:52px; box-shadow:0 30px 80px -30px rgba(0,0,0,.7); }
+  .demo { margin-bottom:64px; }
   .demo .label { color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px; display:block; }
-  .demo .line { font-family:'JetBrains Mono',monospace; font-size:13px; color:#999; }
-  .demo .spinner { display:inline-block; animation:spin 1s linear infinite; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .demo .typed { font-family:'JetBrains Mono',monospace; font-size:13px; color:#a8f0c6; margin-top:10px; white-space:nowrap; overflow:hidden;
-                 border-right:2px solid #a8f0c6; width:0; animation:type 2.2s steps(48,end) 1s forwards, caret .8s step-end infinite; }
-  @keyframes type { to { width:56ch; } }
-  @keyframes caret { 50% { border-color:transparent; } }
+  .demo-window { position:relative; background:rgba(0,0,0,.5); backdrop-filter:blur(16px); border:1px solid var(--border);
+                 border-radius:14px; padding:20px 22px 26px; box-shadow:0 30px 80px -30px rgba(0,0,0,.7); overflow:hidden; }
+  .demo-window::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; border-radius:50%;
+    background:radial-gradient(circle, rgba(232,200,150,.14), transparent 70%); pointer-events:none; }
+  .demo-dots { display:flex; gap:6px; margin-bottom:20px; position:relative; z-index:1; }
+  .demo-dots span { width:8px; height:8px; border-radius:50%; }
+  .demo-dots .d1 { background:rgba(217,154,154,.4); }
+  .demo-dots .d2 { background:rgba(232,200,150,.4); }
+  .demo-dots .d3 { background:rgba(143,214,201,.4); }
+  .demo-line-stage { position:relative; z-index:1; height:1.6em; }
+  .demo-line-item { position:absolute; inset:0; display:flex; align-items:center; gap:9px;
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:#a8f0c6; white-space:nowrap; overflow:hidden;
+    opacity:0; animation:demoCycle 12.9s ease-in-out infinite; }
+  @keyframes demoCycle {
+    0% { opacity:0; transform:translateY(5px); }
+    4% { opacity:1; transform:translateY(0); }
+    28% { opacity:1; transform:translateY(0); }
+    33% { opacity:0; transform:translateY(-5px); }
+    100% { opacity:0; }
+  }
+  .demo-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .demo-dot-tip { background:var(--teal); box-shadow:0 0 6px rgba(143,214,201,.6); }
+  .demo-dot-sponsor { background:var(--gold); box-shadow:0 0 8px rgba(242,177,52,.7); animation:demoDotBreathe 2.4s ease-in-out infinite; }
+  @keyframes demoDotBreathe { 0%,100%{ box-shadow:0 0 6px rgba(242,177,52,.5); } 50%{ box-shadow:0 0 12px rgba(242,177,52,.9); } }
+  .demo-sponsor-text { color:var(--gold); }
 
   /* ---- looted-time hero scene ---- */
   .loot-scene { position:relative; display:flex; align-items:center; gap:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(16px);
-                border:1px solid transparent; border-radius:14px; padding:26px 20px; margin-bottom:10px;
+                border:1px solid transparent; border-radius:14px; padding:28px 22px; margin-bottom:22px;
                 box-shadow:0 30px 80px -30px rgba(0,0,0,.8); overflow:hidden; isolation:isolate; }
   .loot-scene::before { content:''; position:absolute; inset:-1.5px; border-radius:14px; padding:1.5px; z-index:-1;
     background:linear-gradient(120deg,rgba(140,140,150,.5),#f2b134,rgba(140,140,150,.5),#f2b134);
-    background-size:300% auto; animation:shimmer 6s linear infinite;
+    background-size:300% auto; animation:shimmer 8s linear infinite;
     -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
-    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.7; }
-  .loot-scene::after { content:''; position:absolute; top:0; left:-60%; width:40%; height:100%; z-index:0;
-    background:linear-gradient(100deg, transparent, rgba(255,255,255,.06), transparent);
-    animation:lootShine 5s ease-in-out infinite; pointer-events:none; }
-  @keyframes lootShine { 0%{ left:-60%; } 45%,100%{ left:130%; } }
-  .loot-glow { position:absolute; top:50%; width:130px; height:130px; border-radius:50%; filter:blur(40px);
-               transform:translateY(-50%); z-index:0; pointer-events:none; }
-  .loot-glow-dim { left:6%; background:rgba(150,150,160,.18); animation:lootPulseDim 3.6s ease-in-out infinite; }
-  .loot-glow-gold { right:6%; background:rgba(242,177,52,.28); animation:lootPulseGold 2.6s ease-in-out infinite; }
-  @keyframes lootPulseDim { 0%,100%{ opacity:.5; transform:translateY(-50%) scale(1); } 50%{ opacity:.8; transform:translateY(-50%) scale(1.15); } }
-  @keyframes lootPulseGold { 0%,100%{ opacity:.6; transform:translateY(-50%) scale(1); } 50%{ opacity:1; transform:translateY(-50%) scale(1.25); } }
-  .loot-half { position:relative; z-index:1; flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:9px; }
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.55; }
+  .loot-glow { position:absolute; top:50%; width:130px; height:130px; border-radius:50%; filter:blur(44px);
+               transform:translateY(-50%); z-index:0; pointer-events:none; opacity:.6; }
+  .loot-glow-dim { left:6%; background:rgba(150,150,160,.16); }
+  .loot-glow-gold { right:6%; background:rgba(242,177,52,.22); }
+  .loot-half { position:relative; z-index:1; flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; }
   .loot-label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; }
   .loot-label-dim { color:#9a9aa4; }
-  .loot-label-gold { color:var(--gold); text-shadow:0 0 12px rgba(242,177,52,.6); }
+  .loot-label-gold { color:var(--gold); }
   .hourglass { width:72px; height:78px; overflow:visible; }
-  .hourglass.dim { animation:lootFlicker 3.2s ease-in-out infinite; }
-  @keyframes lootFlicker { 0%,100%{ opacity:1; } 46%{ opacity:1; } 48%{ opacity:.55; } 50%{ opacity:1; } 82%{ opacity:1; } 84%{ opacity:.7; } 86%{ opacity:1; } }
-  .hourglass.gold { filter:drop-shadow(0 0 10px rgba(242,177,52,.5)); animation:lootGoldPulse 2.6s ease-in-out infinite; }
-  @keyframes lootGoldPulse { 0%,100%{ filter:drop-shadow(0 0 8px rgba(242,177,52,.45)); } 50%{ filter:drop-shadow(0 0 18px rgba(242,177,52,.85)); } }
+  .hourglass.gold { filter:drop-shadow(0 0 10px rgba(242,177,52,.45)); }
   .loot-caption { font-size:12px; color:var(--muted); line-height:1.5; }
   .loot-arrow { position:relative; z-index:1; color:var(--muted); font-size:15px; flex-shrink:0; display:flex; }
-  .loot-arrow span { animation:lootArrow 1.8s ease-in-out infinite; opacity:0; }
-  .loot-arrow span:nth-child(1){ animation-delay:0s; } .loot-arrow span:nth-child(2){ animation-delay:.2s; } .loot-arrow span:nth-child(3){ animation-delay:.4s; }
+  .loot-arrow span { animation:lootArrow 2.4s ease-in-out infinite; opacity:0; }
+  .loot-arrow span:nth-child(1){ animation-delay:0s; } .loot-arrow span:nth-child(2){ animation-delay:.25s; } .loot-arrow span:nth-child(3){ animation-delay:.5s; }
   @keyframes lootArrow { 0%{ opacity:0; transform:translateX(-4px); } 30%{ opacity:1; transform:translateX(0); } 70%{ opacity:1; } 100%{ opacity:0; transform:translateX(4px); } }
-  #lootCounter { color:var(--gold); font-family:'JetBrains Mono',monospace; font-weight:700;
-                 text-shadow:0 0 10px rgba(242,177,52,.7); animation:lootCounterGlow 1.8s ease-in-out infinite; }
-  @keyframes lootCounterGlow { 0%,100%{ text-shadow:0 0 8px rgba(242,177,52,.5); } 50%{ text-shadow:0 0 16px rgba(242,177,52,.9); } }
-  .loot-note { position:relative; z-index:1; font-size:12px; color:#5a5a62; margin-bottom:52px; text-align:center; }
+  #lootCounter { color:var(--gold); font-family:'JetBrains Mono',monospace; font-weight:700; text-shadow:0 0 8px rgba(242,177,52,.5); }
+  .loot-note { position:relative; z-index:1; font-size:12px; color:#5a5a62; margin-bottom:64px; text-align:center; }
   @media (max-width:480px) {
     .loot-scene { flex-direction:column; }
     .loot-arrow { transform:rotate(90deg); }
@@ -166,7 +172,7 @@
 
   /* ---- earnings calculator ---- */
   .calc { background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); backdrop-filter:blur(16px);
-          border:1px solid var(--border); border-radius:16px; padding:28px 26px; margin-bottom:52px;
+          border:1px solid var(--border); border-radius:16px; padding:28px 26px; margin-bottom:64px;
           box-shadow:0 30px 80px -30px rgba(0,0,0,.7); }
   .calc h3 { font-family:'Fraunces',serif; font-size:20px; font-weight:600; margin-bottom:6px; }
   .calc .calc-sub { font-size:13px; color:var(--muted); margin-bottom:24px; line-height:1.5; }
@@ -181,7 +187,7 @@
   .calc-note { font-size:11px; color:var(--muted); margin-top:14px; line-height:1.5; }
 
   /* ---- FAQ ---- */
-  .faq { margin-bottom:52px; }
+  .faq { margin-bottom:64px; }
   .faq-item { border-bottom:1px solid var(--border); }
   .faq-item summary { padding:18px 4px; font-size:14px; font-weight:600; cursor:pointer; list-style:none;
                        display:flex; justify-content:space-between; align-items:center; }
@@ -229,11 +235,10 @@
     <div class="loot-half">
       <div class="loot-label loot-label-dim">Everywhere else</div>
       <svg class="hourglass dim" viewBox="0 0 120 130" aria-hidden="true">
-        <defs><filter id="glowDim" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
         <polygon class="hourglass-outline dim" points="14,10 106,10 60,65 106,120 14,120 60,65" fill="none" stroke="rgba(150,150,160,.55)" stroke-width="2.5" stroke-linejoin="round"/>
         <clipPath id="clipTop"><polygon points="14,10 106,10 60,65"/></clipPath>
         <g clip-path="url(#clipTop)"><rect x="14" y="10" width="92" height="34" fill="rgba(150,150,160,.16)"/></g>
-        <g class="loot-particles-dim" filter="url(#glowDim)">
+        <g class="loot-particles-dim">
           <circle r="2" fill="rgba(175,175,182,.9)"><animateMotion path="M 60,20 L 58,64" dur="1.1s" begin="0s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.1s" begin="0s" repeatCount="indefinite"/></circle>
           <circle r="1.6" fill="rgba(175,175,182,.8)"><animateMotion path="M 66,18 L 61,64" dur="1.3s" begin=".3s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.3s" begin=".3s" repeatCount="indefinite"/></circle>
           <circle r="1.8" fill="rgba(175,175,182,.85)"><animateMotion path="M 54,22 L 59,64" dur="1s" begin=".6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1s" begin=".6s" repeatCount="indefinite"/></circle>
@@ -250,11 +255,10 @@
     <div class="loot-half">
       <div class="loot-label loot-label-gold">Meanwhile</div>
       <svg class="hourglass gold" viewBox="0 0 120 130" aria-hidden="true">
-        <defs><filter id="glowGold" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
         <polygon class="hourglass-outline gold" points="14,10 106,10 60,65 106,120 14,120 60,65" fill="none" stroke="#f2b134" stroke-width="2.5" stroke-linejoin="round"/>
         <clipPath id="clipTopG"><polygon points="14,10 106,10 60,65"/></clipPath>
         <g clip-path="url(#clipTopG)"><rect x="14" y="10" width="92" height="34" fill="rgba(242,177,52,.2)"/></g>
-        <g class="loot-particles-gold" filter="url(#glowGold)">
+        <g class="loot-particles-gold">
           <circle r="2.2" fill="#f2b134"><animateMotion path="M 60,20 L 58,64" dur="1.1s" begin="0s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.1s" begin="0s" repeatCount="indefinite"/></circle>
           <circle r="1.8" fill="#f0a860"><animateMotion path="M 66,18 L 61,64" dur="1.3s" begin=".3s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.3s" begin=".3s" repeatCount="indefinite"/></circle>
           <circle r="2" fill="#f2b134"><animateMotion path="M 54,22 L 59,64" dur="1s" begin=".6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1s" begin=".6s" repeatCount="indefinite"/></circle>
@@ -283,9 +287,15 @@
   </div>
 
   <div class="demo reveal tilt">
-    <span class="label">what shows up</span>
-    <div class="line"><span class="spinner">✻</span> Meandering…</div>
-    <div class="typed">meanwhile: Tip: /compact early avoids losing context</div>
+    <span class="label">what shows up while your agent thinks</span>
+    <div class="demo-window">
+      <div class="demo-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
+      <div class="demo-line-stage">
+        <div class="demo-line-item" style="animation-delay:0s"><span class="demo-dot demo-dot-tip"></span><span>Tip: /rewind lets you jump back to an earlier point</span></div>
+        <div class="demo-line-item" style="animation-delay:4.3s"><span class="demo-dot demo-dot-tip"></span><span>Tip: ask for a plan before a big change</span></div>
+        <div class="demo-line-item" style="animation-delay:8.6s"><span class="demo-dot demo-dot-sponsor"></span><span class="demo-sponsor-text">(sponsored) example line → example.com</span></div>
+      </div>
+    </div>
   </div>
 
   <div class="calc reveal tilt" id="calc">
