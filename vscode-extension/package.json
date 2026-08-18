@@ -1,0 +1,30 @@
+{
+  "name": "meanwhile",
+  "displayName": "Meanwhile",
+  "description": "A quiet line in your status bar while you code. Occasionally a disclosed sponsor line -- half the revenue is yours.",
+  "version": "0.1.0",
+  "publisher": "meanwhile-dev",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "meanwhile.claim",
+        "title": "Meanwhile: Check Earnings"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
