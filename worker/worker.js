@@ -125,17 +125,44 @@ async function pickLine(env, state) {
 
 /** Called when a sponsor line is actually billed -- attributes the real
  * impression to its campaign and exhausts it once the paid block runs out. */
+/** Real, known limitation, not hidden: this is a read-increment-write on
+ * a single shared key, and Workers KV has no atomic increment or
+ * compare-and-swap. Two concurrent deliveries for the same popular
+ * campaign (entirely realistic once there's real traffic -- this is
+ * the ONE key every delivery of that campaign touches, from any user,
+ * anywhere) can race, and one write can clobber the other's increment.
+ * Retrying with a fresh re-read each attempt meaningfully narrows the
+ * collision window, but doesn't close it -- proven directly tonight
+ * with the campaign-index bug that an immediate read-back can't be
+ * trusted either, since KV itself is eventually consistent. A fully
+ * atomic fix needs Cloudflare Durable Objects; this is the honest
+ * best-effort mitigation on the current KV-only architecture. */
 async function deliverImpression(env, campaignId) {
   if (!campaignId) return;
   const key = `campaign:${campaignId}`;
-  const raw = await env.CAMPAIGNS.get(key);
-  if (!raw) return;
-  const campaign = JSON.parse(raw);
-  campaign.impressions_delivered += 1;
-  if (campaign.impressions_delivered >= campaign.impressions_total) {
-    campaign.status = "exhausted";
+  let done = false;
+  for (let attempt = 0; attempt < 3 && !done; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 60 * attempt));
+    const raw = await env.CAMPAIGNS.get(key);
+    if (!raw) return;
+    const campaign = JSON.parse(raw);
+    const expected = campaign.impressions_delivered + 1;
+    campaign.impressions_delivered = expected;
+    if (campaign.impressions_delivered >= campaign.impressions_total) {
+      campaign.status = "exhausted";
+    }
+    await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+
+    // Best-effort check, not proof -- KV's own eventual consistency
+    // means this can still be wrong. What it reliably prevents is the
+    // real mistake above: blindly looping N times would have added N
+    // to the counter for one real impression. This only re-attempts
+    // (fresh read, +1 relative to whatever's actually there now) if
+    // the write doesn't look like it landed.
+    const verifyRaw = await env.CAMPAIGNS.get(key);
+    const verifyCampaign = verifyRaw ? JSON.parse(verifyRaw) : null;
+    done = !!verifyCampaign && verifyCampaign.impressions_delivered >= expected;
   }
-  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
 }
 
 async function handleLine(env, installId, eventName) {
