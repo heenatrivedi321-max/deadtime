@@ -421,7 +421,34 @@ async function runPayouts(env) {
  * calls /admin/activate-campaign. That's the actual activation algorithm:
  * status flips to "active", and the very next /line call across the whole
  * network can pick it up -- no deploy, no manual code change needed. */
+const LEAD_RATE_LIMIT = 5;
+const LEAD_RATE_WINDOW_SECONDS = 3600;
+
+/** Just proved live that this endpoint had zero friction -- five rapid
+ * submissions, all 200, no payment required for any of them. Beyond
+ * the obvious spam/clutter, each one is a permanent CAMPAIGNS entry
+ * that the reconciliation sweep's self-healing list() scan iterates
+ * over forever, and list() is the exact resource that already hit a
+ * real daily quota wall once tonight. Reusing the LEADS namespace for
+ * this -- it's bound in wrangler.toml but was otherwise completely
+ * unused. KV's native TTL expiration makes this genuinely free
+ * cleanup, no cron needed. */
+async function checkLeadRateLimit(env, ip) {
+  const key = `ratelimit:lead:${ip}`;
+  const raw = await env.LEADS.get(key);
+  const count = raw ? parseInt(raw, 10) : 0;
+  if (count >= LEAD_RATE_LIMIT) return false;
+  await env.LEADS.put(key, String(count + 1), { expirationTtl: LEAD_RATE_WINDOW_SECONDS });
+  return true;
+}
+
 async function handleAdvertiserLead(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const allowed = await checkLeadRateLimit(env, ip);
+  if (!allowed) {
+    return json({ error: `too many submissions -- try again in under an hour (limit: ${LEAD_RATE_LIMIT}/hour)` }, 429);
+  }
+
   let data;
   try {
     data = await request.json();
