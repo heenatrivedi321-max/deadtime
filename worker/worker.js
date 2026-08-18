@@ -641,6 +641,70 @@ async function handleRefundCampaign(request, env) {
   return json({ ok: true, campaign, refund_amount_usd: refundAmount });
 }
 
+/** Terms promises "we reserve the right to remove or refuse any
+ * campaign that is illegal, deceptive, malicious, or sexually
+ * explicit" -- and campaigns auto-activate the instant payment clears,
+ * with no human review before real developers start seeing the line
+ * in their real terminals. Until now there was no way to act on that
+ * promise without also forcing an immediate refund decision through
+ * PayPal -- two genuinely separate questions ("should this stop
+ * showing right now" and "how much, if anything, do we owe back")
+ * that shouldn't be coupled. This is the pure content lever: stops
+ * delivery immediately, no money moves. */
+async function handleSuspendCampaign(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { campaign_id } = data;
+  if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
+
+  const key = `campaign:${campaign_id}`;
+  const raw = await env.CAMPAIGNS.get(key);
+  if (!raw) return json({ error: "campaign not found" }, 404);
+  const campaign = JSON.parse(raw);
+  if (campaign.status === "refunded") return json({ error: "already refunded" }, 409);
+
+  campaign.status = "suspended";
+  campaign.suspended_at = Date.now() / 1000;
+  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+  return json({ ok: true, campaign });
+}
+
+/** The reverse -- for when a suspension turns out to be a false alarm
+ * or the issue gets resolved, without needing to route back through
+ * PayPal to "re-activate" something that was never actually refunded. */
+async function handleResumeCampaign(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { campaign_id } = data;
+  if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
+
+  const key = `campaign:${campaign_id}`;
+  const raw = await env.CAMPAIGNS.get(key);
+  if (!raw) return json({ error: "campaign not found" }, 404);
+  const campaign = JSON.parse(raw);
+  if (campaign.status !== "suspended") {
+    return json({ error: `campaign is ${campaign.status}, not suspended -- nothing to resume` }, 409);
+  }
+  if (campaign.impressions_delivered >= campaign.impressions_total) {
+    return json({ error: "fully delivered -- resuming would serve more than was paid for" }, 409);
+  }
+
+  campaign.status = "active";
+  delete campaign.suspended_at;
+  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+  return json({ ok: true, campaign });
+}
+
 async function getPayPalToken(env) {
   const auth = btoa(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`);
   const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
@@ -1061,6 +1125,14 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/admin/refund-campaign") {
       return handleRefundCampaign(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/suspend-campaign") {
+      return handleSuspendCampaign(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/resume-campaign") {
+      return handleResumeCampaign(request, env);
     }
 
     if (request.method === "GET" && url.pathname === "/admin/campaigns") {
