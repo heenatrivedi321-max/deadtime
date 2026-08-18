@@ -102,11 +102,18 @@
   .install-note code { color:var(--muted); background:rgba(255,255,255,.06); padding:1px 5px; border-radius:4px; }
 
   .steps { display:flex; flex-direction:column; gap:26px; margin-bottom:64px; }
-  .step { display:flex; gap:16px; }
-  .step .n { flex-shrink:0; width:30px; height:30px; border-radius:50%;
+  .step { display:flex; gap:16px; transition:transform .3s ease; }
+  .step:hover { transform:translateX(3px); }
+  .step .n { position:relative; flex-shrink:0; width:30px; height:30px; border-radius:50%;
              background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408;
              display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;
              box-shadow:0 4px 16px -4px rgba(232,200,150,.5); }
+  .step .n::after { content:''; position:absolute; inset:-4px; border-radius:50%;
+    border:1.5px solid rgba(242,177,52,.55); animation:stepRing 2.8s ease-out infinite; opacity:0; }
+  .step:nth-child(1) .n::after { animation-delay:0s; }
+  .step:nth-child(2) .n::after { animation-delay:.5s; }
+  .step:nth-child(3) .n::after { animation-delay:1s; }
+  @keyframes stepRing { 0%{ transform:scale(.75); opacity:.8; } 100%{ transform:scale(1.7); opacity:0; } }
   .step .body h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
   .step .body p { font-size:14px; color:var(--muted); line-height:1.55; }
 
@@ -182,23 +189,30 @@
   .calc-result { display:flex; align-items:baseline; gap:12px; padding-top:18px; border-top:1px solid var(--border); }
   .calc-result .amount { font-family:'JetBrains Mono',monospace; font-size:34px; font-weight:800;
     background:linear-gradient(100deg,#f2b134,#f0654a,#ec4899,#a855f7); background-size:140% auto;
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:shimmer 7s linear infinite; }
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; animation:shimmer 7s linear infinite;
+    display:inline-block; transition:transform .25s cubic-bezier(.34,1.56,.64,1); }
+  .calc-result .amount.bump { transform:scale(1.12); }
   .calc-result .lbl { font-size:12px; color:var(--muted); }
   .calc-note { font-size:11px; color:var(--muted); margin-top:14px; line-height:1.5; }
 
   /* ---- FAQ ---- */
   .faq { margin-bottom:64px; }
   .faq-item { border-bottom:1px solid var(--border); }
-  .faq-item summary { padding:18px 4px; font-size:14px; font-weight:600; cursor:pointer; list-style:none;
-                       display:flex; justify-content:space-between; align-items:center; }
-  .faq-item summary::-webkit-details-marker { display:none; }
-  .faq-item summary::after { content:'+'; font-size:20px; color:var(--muted); font-weight:400; transition:transform .25s; }
-  .faq-item[open] summary::after { transform:rotate(45deg); }
-  .faq-item p { padding:0 4px 18px; font-size:13px; color:var(--muted); line-height:1.6; }
+  .faq-q { width:100%; background:none; border:none; padding:18px 4px; font-size:14px; font-weight:600;
+           font-family:inherit; color:var(--text); cursor:pointer; display:flex; justify-content:space-between;
+           align-items:center; text-align:left; transition:color .2s; }
+  .faq-q:hover { color:var(--gold); }
+  .faq-q .plus { font-size:20px; color:var(--muted); font-weight:400; transition:transform .3s cubic-bezier(.34,1.56,.64,1); flex-shrink:0; margin-left:12px; }
+  .faq-item.open .faq-q .plus { transform:rotate(135deg); color:var(--gold); }
+  .faq-a { max-height:0; overflow:hidden; transition:max-height .4s cubic-bezier(.16,1,.3,1); }
+  .faq-a p { padding:0 4px 18px; font-size:13px; color:var(--muted); line-height:1.6; }
 
   footer { color:#5a5a62; font-size:12px; text-align:center; }
-  footer a { color:var(--muted); text-decoration:none; transition:.2s; }
+  footer a { position:relative; color:var(--muted); text-decoration:none; transition:color .2s; }
+  footer a::after { content:''; position:absolute; left:0; bottom:-2px; width:100%; height:1px;
+    background:linear-gradient(90deg,#f2b134,#ec4899); transform:scaleX(0); transform-origin:right; transition:transform .35s ease; }
   footer a:hover { color:var(--gold); }
+  footer a:hover::after { transform:scaleX(1); transform-origin:left; }
 
   .confetti-piece { position:fixed; z-index:50; pointer-events:none; border-radius:2px; }
 </style>
@@ -311,18 +325,18 @@
   </div>
 
   <div class="faq reveal">
-    <details class="faq-item" open>
-      <summary>Does anyone see my code or prompts?</summary>
-      <p>No. The only things sent are a random anonymous install ID and which line was shown. Your conversation, code, and file contents never leave your machine — we couldn't sell you out even if we wanted to.</p>
-    </details>
-    <details class="faq-item">
-      <summary>How do I actually get paid?</summary>
-      <p>Earnings accumulate against your install ID. Run <code>python3 statusline.py --claim</code> in your terminal for your personal link, then register your PayPal email there — once your balance crosses $25, PayPal sends it automatically, no manual step from us. We're pre-launch right now, so no real balance exists yet. <a href="claim.html" style="color:var(--gold)">See what it looks like →</a></p>
-    </details>
-    <details class="faq-item">
-      <summary>What if there's no sponsor to show?</summary>
-      <p>You get a genuinely useful tip instead. We never force an irrelevant ad just to fill space — the 2-in-5 ceiling is a maximum, not a target, and most lines aren't sponsored at all.</p>
-    </details>
+    <div class="faq-item open">
+      <button class="faq-q" type="button">Does anyone see my code or prompts?<span class="plus">+</span></button>
+      <div class="faq-a"><p>No. The only things sent are a random anonymous install ID and which line was shown. Your conversation, code, and file contents never leave your machine — we couldn't sell you out even if we wanted to.</p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" type="button">How do I actually get paid?<span class="plus">+</span></button>
+      <div class="faq-a"><p>Earnings accumulate against your install ID. Run <code>python3 statusline.py --claim</code> in your terminal for your personal link, then register your PayPal email there — once your balance crosses $25, PayPal sends it automatically, no manual step from us. We're pre-launch right now, so no real balance exists yet. <a href="claim.html" style="color:var(--gold)">See what it looks like →</a></p></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" type="button">What if there's no sponsor to show?<span class="plus">+</span></button>
+      <div class="faq-a"><p>You get a genuinely useful tip instead. We never force an irrelevant ad just to fill space — the 2-in-5 ceiling is a maximum, not a target, and most lines aren't sponsored at all.</p></div>
+    </div>
   </div>
 
   <footer class="reveal">Meanwhile — <a href="advertiser.html">sponsor a status line instead →</a> · <a href="claim.html">check your payout status →</a></footer>
@@ -359,6 +373,9 @@ function updateCalc() {
   const revenuePerDay = sponsorPerDay * (CPM / 1000);
   const userPerDay = revenuePerDay * USER_SHARE;
   calcAmount.textContent = '$' + (userPerDay * 30).toFixed(2);
+  calcAmount.classList.remove('bump');
+  void calcAmount.offsetWidth;
+  calcAmount.classList.add('bump');
 }
 hoursSlider.addEventListener('input', updateCalc);
 updateCalc();
@@ -435,9 +452,35 @@ document.getElementById('copyBtn').addEventListener('click', (e) => {
   const btn = e.currentTarget;
   const rect = btn.getBoundingClientRect();
   burstConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  const ripple = document.createElement('span');
+  ripple.style.cssText = `position:absolute;inset:0;border-radius:9px;border:1.5px solid rgba(232,200,150,.8);pointer-events:none;`;
+  btn.style.position = 'relative';
+  btn.appendChild(ripple);
+  ripple.animate([
+    { transform: 'scale(1)', opacity: 1 },
+    { transform: 'scale(1.35)', opacity: 0 }
+  ], { duration: 550, easing: 'cubic-bezier(.16,1,.3,1)' }).onfinish = () => ripple.remove();
   const original = btn.textContent;
   btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = original, 1500);
+});
+
+/* ---------- FAQ accordion ---------- */
+document.querySelectorAll('.faq-item').forEach(item => {
+  const q = item.querySelector('.faq-q');
+  const a = item.querySelector('.faq-a');
+  if (item.classList.contains('open')) a.style.maxHeight = a.scrollHeight + 'px';
+  q.addEventListener('click', () => {
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(other => {
+      if (other !== item) {
+        other.classList.remove('open');
+        other.querySelector('.faq-a').style.maxHeight = null;
+      }
+    });
+    item.classList.toggle('open', !isOpen);
+    a.style.maxHeight = !isOpen ? a.scrollHeight + 'px' : null;
+  });
 });
 
 /* ---------- cursor spotlight ---------- */
