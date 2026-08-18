@@ -32,6 +32,15 @@ def get_install_id() -> str:
         return INSTALL_ID_FILE.read_text().strip()
     new_id = str(uuid.uuid4())
     INSTALL_ID_FILE.write_text(new_id)
+    try:
+        # This ID is a real credential now -- it's what /register-payout
+        # trusts to change where money goes. Default file permissions
+        # (world-readable) would let any other local account on a shared
+        # machine read it. Windows doesn't have this permission model, so
+        # this is a no-op there rather than an error.
+        INSTALL_ID_FILE.chmod(0o600)
+    except Exception:
+        pass
     return new_id
 
 
