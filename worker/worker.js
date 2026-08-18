@@ -540,13 +540,19 @@ function checkAdmin(request, env) {
 /** Shared by both the manual admin endpoint and the automatic PayPal
  * capture handler -- this is the one real activation algorithm, called
  * from two different triggers. */
-async function activateCampaign(env, campaignId) {
+async function activateCampaign(env, campaignId, paypalCaptureId) {
   const key = `campaign:${campaignId}`;
   const raw = await env.CAMPAIGNS.get(key);
   if (!raw) return null;
   const campaign = JSON.parse(raw);
   campaign.status = "active";
   campaign.activated_at = Date.now() / 1000;
+  // Terms promises a pro-rated refund for undelivered impressions --
+  // that's meaningless without the one thing PayPal's Refunds API
+  // actually needs to act on a specific payment. Never stored before;
+  // even a fully manual refund would've meant hunting through PayPal's
+  // own transaction history to find the matching payment.
+  if (paypalCaptureId) campaign.paypal_capture_id = paypalCaptureId;
   await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
   return campaign;
 }
@@ -565,6 +571,74 @@ async function handleActivateCampaign(request, env) {
   const campaign = await activateCampaign(env, campaign_id);
   if (!campaign) return json({ error: "not found" }, 404);
   return json({ ok: true, campaign });
+}
+
+/** The Terms page promises a specific, calculable thing: a pro-rated
+ * refund for undelivered impressions, computed from the same
+ * impressions_delivered/impressions_total numbers shown on the
+ * dashboard. Until now there was zero code behind that promise --
+ * this is what actually keeps it. Real PayPal Refunds API call against
+ * the real capture, real pro-rated math, not a manual "figure it out
+ * yourself in the PayPal dashboard" process. */
+async function handleRefundCampaign(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { campaign_id } = data;
+  if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
+
+  const key = `campaign:${campaign_id}`;
+  const raw = await env.CAMPAIGNS.get(key);
+  if (!raw) return json({ error: "campaign not found" }, 404);
+  const campaign = JSON.parse(raw);
+
+  if (campaign.status === "refunded") {
+    return json({ error: "already refunded" }, 409);
+  }
+  if (!campaign.paypal_capture_id) {
+    return json({ error: "no capture id on file for this campaign -- refund it manually in the PayPal dashboard, then mark it refunded yourself" }, 422);
+  }
+  if (campaign.impressions_delivered >= campaign.impressions_total) {
+    return json({ error: "fully delivered -- nothing left to refund" }, 409);
+  }
+
+  const undeliveredFraction = (campaign.impressions_total - campaign.impressions_delivered) / campaign.impressions_total;
+  const refundAmount = Math.round(campaign.price_usd * undeliveredFraction * 100) / 100;
+  if (refundAmount <= 0) return json({ error: "calculated refund amount is $0" }, 409);
+
+  let token;
+  try {
+    token = await getPayPalToken(env);
+  } catch (e) {
+    await logError(env, "paypal_auth_failed", `refund for campaign ${campaign_id}`, e.message);
+    return json({ error: "paypal auth failed" }, 502);
+  }
+
+  const refundRes = await fetch(`${PAYPAL_API}/v2/payments/captures/${campaign.paypal_capture_id}/refund`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: { value: refundAmount.toFixed(2), currency_code: "USD" },
+      note_to_payer: `Meanwhile: pro-rated refund for ${campaign.impressions_total - campaign.impressions_delivered} of ${campaign.impressions_total} undelivered impressions`,
+    }),
+  });
+  const refund = await refundRes.json();
+  if (!refundRes.ok || refund.status !== "COMPLETED") {
+    await logError(env, "refund_failed", `campaign ${campaign_id}, capture ${campaign.paypal_capture_id}`, JSON.stringify(refund));
+    return json({ error: "refund failed", detail: refund }, 502);
+  }
+
+  campaign.status = "refunded";
+  campaign.refunded_at = Date.now() / 1000;
+  campaign.refund_amount_usd = refundAmount;
+  campaign.paypal_refund_id = refund.id;
+  await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+
+  return json({ ok: true, campaign, refund_amount_usd: refundAmount });
 }
 
 async function getPayPalToken(env) {
@@ -666,10 +740,14 @@ async function captureAndActivateOrder(env, orderId) {
   if (!campaignId) {
     return { ok: false, error: "no reference_id on captured order", detail: capture };
   }
+  const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
 
-  const activated = await activateCampaign(env, campaignId);
+  const activated = await activateCampaign(env, campaignId, captureId);
   if (!activated) {
     return { ok: false, error: "campaign not found for activation", detail: capture, moneyTaken: true };
+  }
+  if (!captureId) {
+    await logError(env, "no_capture_id_on_completed_order", `campaign ${campaignId}, order ${orderId} -- captured successfully but no capture id found in the response, refunds for this campaign will need manual lookup in PayPal directly`, JSON.stringify(capture));
   }
 
   return { ok: true, campaign: activated };
@@ -979,6 +1057,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/admin/activate-campaign") {
       return handleActivateCampaign(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/refund-campaign") {
+      return handleRefundCampaign(request, env);
     }
 
     if (request.method === "GET" && url.pathname === "/admin/campaigns") {
