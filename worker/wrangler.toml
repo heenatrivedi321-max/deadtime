@@ -24,4 +24,4 @@ binding = "ERRORS"
 id = "83a97e184c3d485ca30e075b48aee2fb"
 
 [triggers]
-crons = ["11 6 * * *"]
+crons = ["11 6 * * *", "*/20 * * * *"]

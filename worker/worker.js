@@ -500,6 +500,36 @@ async function handleCreatePayPalOrder(request, env) {
  * mechanism. Only ever fires after a real advertiser has approved the
  * exact charge on PayPal's own page; this endpoint just finishes what
  * they already authorized. */
+/** The one real capture+activate algorithm -- shared by the browser-
+ * triggered endpoint below and the reconciliation sweep further down,
+ * which exists specifically because the browser trigger alone isn't
+ * reliable (advertiser closes the tab before the return URL loads,
+ * loses connection, etc.). Either caller ends up here. */
+async function captureAndActivateOrder(env, orderId) {
+  const token = await getPayPalToken(env);
+
+  const captureRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  const capture = await captureRes.json();
+  if (!captureRes.ok || capture.status !== "COMPLETED") {
+    return { ok: false, error: "capture failed", detail: capture };
+  }
+
+  const campaignId = capture.purchase_units?.[0]?.reference_id;
+  if (!campaignId) {
+    return { ok: false, error: "no reference_id on captured order", detail: capture };
+  }
+
+  const activated = await activateCampaign(env, campaignId);
+  if (!activated) {
+    return { ok: false, error: "campaign not found for activation", detail: capture, moneyTaken: true };
+  }
+
+  return { ok: true, campaign: activated };
+}
+
 async function handleCapturePayPalOrder(request, env) {
   let data;
   try {
@@ -510,37 +540,88 @@ async function handleCapturePayPalOrder(request, env) {
   const { order_id } = data;
   if (!order_id) return json({ error: "missing order_id" }, 400);
 
-  let token;
+  let result;
   try {
-    token = await getPayPalToken(env);
+    result = await captureAndActivateOrder(env, order_id);
   } catch (e) {
     await logError(env, "paypal_auth_failed", `capture for order ${order_id}`, e.message);
     return json({ error: "paypal auth failed" }, 502);
   }
 
-  const captureRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${order_id}/capture`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-  });
-  const capture = await captureRes.json();
-  if (!captureRes.ok || capture.status !== "COMPLETED") {
-    await logError(env, "capture_failed", `order ${order_id}`, JSON.stringify(capture));
-    return json({ error: "capture failed", detail: capture }, 502);
+  if (!result.ok) {
+    const category = result.moneyTaken ? "activation_failed_after_capture" : "capture_failed";
+    const note = result.moneyTaken
+      ? `order ${order_id} captured (money taken) but campaign not found for activation -- needs manual /admin/activate-campaign`
+      : `order ${order_id}`;
+    await logError(env, category, note, JSON.stringify(result.detail));
+    return json({ error: result.error, detail: result.detail }, result.error === "capture failed" ? 502 : 500);
   }
 
-  const campaignId = capture.purchase_units?.[0]?.reference_id;
-  if (!campaignId) {
-    await logError(env, "capture_no_reference", `order ${order_id} captured with no reference_id -- money taken, campaign unknown`, JSON.stringify(capture));
-    return json({ error: "no reference_id on captured order" }, 500);
+  return json({ ok: true, campaign: result.campaign });
+}
+
+/** Reconciliation sweep: the browser-triggered capture above is the
+ * happy path, not the only path. If an advertiser approves payment on
+ * PayPal's page and then closes the tab, loses connection, or the
+ * return redirect just glitches, PayPal has their money and the
+ * campaign sits in "pending_payment" forever with nobody told. This
+ * scans for exactly that state and finishes the job server-side --
+ * same real algorithm as above, triggered by time instead of a
+ * browser round-trip. Runs on the daily cron alongside payouts, and
+ * on demand via /admin/reconcile-orders. */
+async function reconcilePendingOrders(env) {
+  const indexRaw = await env.CAMPAIGNS.get("index");
+  const ids = indexRaw ? JSON.parse(indexRaw) : [];
+  const results = [];
+  let scanned = 0;
+
+  for (const id of ids) {
+    const raw = await env.CAMPAIGNS.get(`campaign:${id}`);
+    if (!raw) continue;
+    const campaign = JSON.parse(raw);
+    if (campaign.status !== "pending_payment" || !campaign.paypal_order_id) continue;
+    scanned++;
+
+    try {
+      const token = await getPayPalToken(env);
+      const statusRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${campaign.paypal_order_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const orderData = await statusRes.json();
+      if (!statusRes.ok) {
+        results.push({ campaign_id: id, status: "order_lookup_failed", detail: orderData });
+        continue;
+      }
+
+      if (orderData.status === "APPROVED") {
+        // Advertiser approved on PayPal's page but the browser never
+        // made it back to finish the job -- finish it now.
+        const result = await captureAndActivateOrder(env, campaign.paypal_order_id);
+        if (result.ok) {
+          results.push({ campaign_id: id, status: "recovered_and_activated" });
+        } else {
+          await logError(env, "reconcile_capture_failed", `campaign ${id}, order ${campaign.paypal_order_id}`, JSON.stringify(result.detail));
+          results.push({ campaign_id: id, status: "capture_retry_failed", detail: result.error });
+        }
+      } else if (orderData.status === "COMPLETED") {
+        // Rare: PayPal shows it already captured but our activation
+        // step never ran (e.g. the Worker died mid-request).
+        const activated = await activateCampaign(env, id);
+        results.push({ campaign_id: id, status: activated ? "recovered_and_activated" : "activation_failed" });
+        if (!activated) {
+          await logError(env, "reconcile_activation_failed", `campaign ${id}, order ${campaign.paypal_order_id} already COMPLETED on PayPal's side`, "");
+        }
+      } else {
+        // CREATED / PAYER_ACTION_REQUIRED -- advertiser genuinely
+        // hasn't paid yet, nothing to recover, leave it alone.
+        results.push({ campaign_id: id, status: "still_waiting_on_advertiser", detail: orderData.status });
+      }
+    } catch (e) {
+      await logError(env, "reconcile_check_failed", `campaign ${id}, order ${campaign.paypal_order_id}`, e.message);
+    }
   }
 
-  const activated = await activateCampaign(env, campaignId);
-  if (!activated) {
-    await logError(env, "activation_failed_after_capture", `order ${order_id} captured (money taken) but campaign ${campaignId} not found for activation -- needs manual /admin/activate-campaign`, JSON.stringify(capture));
-    return json({ error: "campaign not found for activation" }, 500);
-  }
-
-  return json({ ok: true, campaign: activated });
+  return { ok: true, scanned, results };
 }
 
 /** Public status lookup for one campaign, keyed by its own unguessable
@@ -734,6 +815,12 @@ export default {
       return json(result);
     }
 
+    if (request.method === "POST" && url.pathname === "/admin/reconcile-orders") {
+      if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+      const result = await reconcilePendingOrders(env);
+      return json(result);
+    }
+
     if (request.method === "GET" && url.pathname === "/admin/errors") {
       return handleListErrors(request, env);
     }
@@ -765,8 +852,17 @@ export default {
    * cron schedule in wrangler.toml regardless of whether anyone has this
    * site open. No chat session, no manual trigger required. */
   async scheduled(event, env, ctx) {
+    // Two schedules share this one handler -- daily (payouts, the slow
+    // side) and every 20 min (reconciliation, the side where money can
+    // be visibly stuck for a real advertiser and every extra hour
+    // matters more).
+    if (event.cron === "11 6 * * *") {
+      ctx.waitUntil(
+        runPayouts(env).catch((e) => logError(env, "scheduled_payout_crash", "the daily cron itself threw", e.message))
+      );
+    }
     ctx.waitUntil(
-      runPayouts(env).catch((e) => logError(env, "scheduled_payout_crash", "the daily cron itself threw", e.message))
+      reconcilePendingOrders(env).catch((e) => logError(env, "scheduled_reconcile_crash", "the reconciliation sweep itself threw", e.message))
     );
   },
 };
