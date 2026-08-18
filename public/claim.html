@@ -175,7 +175,7 @@ const ppMark = `<img src="paypal-mark.png" alt="PayPal">`;
 if (!id) {
   app.innerHTML = `
     <h1>No install ID found</h1>
-    <div class="no-id">Run <code>python3 statusline.py --claim</code> in your terminal to get your personal link.</div>
+    <div class="no-id">Run <code>python3 ~/.deadtime-client/statusline.py --claim</code> in your terminal to get your personal link.</div>
   `;
 } else {
   app.innerHTML = `

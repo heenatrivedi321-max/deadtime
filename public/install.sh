@@ -35,3 +35,5 @@ print(f"deadtime: wired into {settings_path}")
 PYEOF
 
 echo "deadtime: installed. Restart Claude Code (close and reopen your terminal) to see it live."
+echo "deadtime: to check earnings or register a payout email later, run:"
+echo "  python3 $INSTALL_DIR/statusline.py --claim"
