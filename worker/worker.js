@@ -215,6 +215,17 @@ async function handleEarnings(env, installId) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** The real client only ever generates a standard v4 UUID for install_id.
+ * Validating the shape at every entry point rejects garbage before it
+ * ever reaches KV -- found this the hard way: an oversized id crashed
+ * with a raw KV error (caught by the top-level handler, but still a
+ * 500 for something that should just be a clean 400), and a
+ * path-traversal-looking id silently created a junk KV record. Neither
+ * was exploitable, both were sloppy. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidId(id) {
+  return typeof id === "string" && UUID_RE.test(id);
+}
 const PAYOUT_THRESHOLD_USD = 25;
 
 /** The install ID alone is what /claim?id=... is built around -- and
@@ -236,6 +247,7 @@ async function handleRegisterPayout(request, env) {
   }
   const { id, email, current_email } = data;
   if (!id || !email) return json({ error: "missing id or email" }, 400);
+  if (!isValidId(id)) return json({ error: "invalid id" }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "invalid email" }, 400);
 
   const key = `install:${id}`;
@@ -850,6 +862,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/line") {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "missing ?id=" }, 400);
+      if (!isValidId(id)) return json({ error: "invalid id" }, 400);
       const eventName = url.searchParams.get("event");
       return handleLine(env, id, eventName);
     }
@@ -857,6 +870,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/earnings") {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "missing ?id=" }, 400);
+      if (!isValidId(id)) return json({ error: "invalid id" }, 400);
       return handleEarnings(env, id);
     }
 
@@ -867,6 +881,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/campaign-status") {
       const cid = url.searchParams.get("id");
       if (!cid) return json({ error: "missing ?id=" }, 400);
+      if (!isValidId(cid)) return json({ error: "invalid id" }, 400);
       return handleCampaignStatus(env, cid);
     }
 
