@@ -60,7 +60,11 @@ def fetch_line(install_id: str, event_name: str) -> str:
     url = f"{SERVER_URL}/line?id={install_id}&event={urllib.parse.quote(event_name)}"
     req = urllib.request.Request(url, headers={"User-Agent": "deadtime-client/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=3, context=SSL_CONTEXT) as resp:
+        # 6s, not 3s: cold-starting a fresh python3 process and loading the
+        # certifi cert bundle can itself take close to 2s before the request
+        # even goes out -- measured live, not a guess. A short timeout here
+        # just means falling back to filler more often than necessary.
+        with urllib.request.urlopen(req, timeout=6, context=SSL_CONTEXT) as resp:
             data = json.loads(resp.read())
             return data["line"]
     except Exception:
