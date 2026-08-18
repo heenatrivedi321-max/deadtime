@@ -121,6 +121,24 @@
   @keyframes type { to { width:56ch; } }
   @keyframes caret { 50% { border-color:transparent; } }
 
+  /* ---- looted-time hero scene ---- */
+  .loot-scene { display:flex; align-items:center; gap:18px; background:rgba(0,0,0,.5); backdrop-filter:blur(16px);
+                border:1px solid var(--border); border-radius:14px; padding:22px 20px; margin-bottom:10px;
+                box-shadow:0 30px 80px -30px rgba(0,0,0,.7); }
+  .loot-half { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px; }
+  .loot-label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; }
+  .loot-label-dim { color:#8c8c96; }
+  .loot-label-gold { color:var(--gold); }
+  .hourglass { width:64px; height:70px; }
+  .loot-caption { font-size:12px; color:var(--muted); line-height:1.5; }
+  .loot-arrow { color:var(--muted); font-size:18px; flex-shrink:0; }
+  #lootCounter { color:var(--gold); font-family:'JetBrains Mono',monospace; font-weight:700; }
+  .loot-note { font-size:12px; color:#5a5a62; margin-bottom:52px; text-align:center; }
+  @media (max-width:480px) {
+    .loot-scene { flex-direction:column; }
+    .loot-arrow { transform:rotate(90deg); }
+  }
+
   /* ---- earnings calculator ---- */
   .calc { background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); backdrop-filter:blur(16px);
           border:1px solid var(--border); border-radius:16px; padding:28px 26px; margin-bottom:52px;
@@ -180,6 +198,42 @@
   </div>
   <p class="install-note reveal">Seconds to install. No account, no payment info up front. One line to remove from <code>~/.claude/settings.json</code> if you ever want out.</p>
 
+  <div class="loot-scene reveal tilt">
+    <div class="loot-half">
+      <div class="loot-label loot-label-dim">Everywhere else</div>
+      <svg class="hourglass" viewBox="0 0 120 130" aria-hidden="true">
+        <polygon points="14,10 106,10 60,65 106,120 14,120 60,65" fill="none" stroke="rgba(140,140,150,.5)" stroke-width="2.5" stroke-linejoin="round"/>
+        <clipPath id="clipTop"><polygon points="14,10 106,10 60,65"/></clipPath>
+        <clipPath id="clipBot"><polygon points="106,120 14,120 60,65"/></clipPath>
+        <g clip-path="url(#clipTop)"><rect x="14" y="10" width="92" height="34" fill="rgba(140,140,150,.15)"/></g>
+        <g class="loot-particles-dim">
+          <circle r="2" fill="rgba(160,160,168,.8)"><animateMotion path="M 60,20 L 58,64" dur="1.1s" begin="0s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.1s" begin="0s" repeatCount="indefinite"/></circle>
+          <circle r="1.6" fill="rgba(160,160,168,.7)"><animateMotion path="M 66,18 L 61,64" dur="1.3s" begin=".3s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.3s" begin=".3s" repeatCount="indefinite"/></circle>
+          <circle r="1.8" fill="rgba(160,160,168,.75)"><animateMotion path="M 54,22 L 59,64" dur="1s" begin=".6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1s" begin=".6s" repeatCount="indefinite"/></circle>
+        </g>
+      </svg>
+      <div class="loot-caption">Your attention, taken. Nobody ever sends you anything for it.</div>
+    </div>
+    <div class="loot-arrow">→</div>
+    <div class="loot-half">
+      <div class="loot-label loot-label-gold">Meanwhile</div>
+      <svg class="hourglass gold" viewBox="0 0 120 130" aria-hidden="true">
+        <polygon points="14,10 106,10 60,65 106,120 14,120 60,65" fill="none" stroke="rgba(242,177,52,.7)" stroke-width="2.5" stroke-linejoin="round"/>
+        <clipPath id="clipTopG"><polygon points="14,10 106,10 60,65"/></clipPath>
+        <g clip-path="url(#clipTopG)"><rect x="14" y="10" width="92" height="34" fill="rgba(242,177,52,.18)"/></g>
+        <g class="loot-particles-gold">
+          <circle r="2" fill="#f2b134"><animateMotion path="M 60,20 L 58,64" dur="1.1s" begin="0s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.1s" begin="0s" repeatCount="indefinite"/></circle>
+          <circle r="1.6" fill="#f0a860"><animateMotion path="M 66,18 L 61,64" dur="1.3s" begin=".3s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1.3s" begin=".3s" repeatCount="indefinite"/></circle>
+          <circle r="1.8" fill="#f2b134"><animateMotion path="M 54,22 L 59,64" dur="1s" begin=".6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.8;1" dur="1s" begin=".6s" repeatCount="indefinite"/></circle>
+          <circle r="2" fill="#f2b134"><animateMotion path="M 60,68 C 74,60 88,45 92,26" dur="1.6s" begin=".15s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;1" dur="1.6s" begin=".15s" repeatCount="indefinite"/></circle>
+          <circle r="1.6" fill="#f0a860"><animateMotion path="M 59,70 C 70,64 84,50 90,30" dur="1.4s" begin=".7s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;1" dur="1.4s" begin=".7s" repeatCount="indefinite"/></circle>
+        </g>
+      </svg>
+      <div class="loot-caption">Same time. Half the money actually reaches you. <span id="lootCounter">$0.00</span></div>
+    </div>
+  </div>
+  <p class="loot-note reveal">That counter's illustrative, ticking for effect — your real number's the calculator <a href="#calc" style="color:var(--gold)">below ↓</a>.</p>
+
   <div class="stats reveal">
     <div class="stat"><div class="odometer" id="odInstalls"></div><div class="lbl">installs</div></div>
     <div class="stat"><div class="odometer" id="odCalls"></div><div class="lbl">lines served</div></div>
@@ -198,7 +252,7 @@
     <div class="typed">meanwhile: Tip: /compact early avoids losing context</div>
   </div>
 
-  <div class="calc reveal tilt">
+  <div class="calc reveal tilt" id="calc">
     <h3>What could you earn?</h3>
     <p class="calc-sub">Real formula, not a guess — same math we use to bill advertisers. Depends on real sponsor demand, so treat this as a ceiling, not a promise.</p>
     <div class="calc-row"><span>Active Claude Code time per day</span><span class="val" id="hoursVal">3.0 hrs</span></div>
@@ -291,6 +345,21 @@ async function loadStats() {
   }
 }
 loadStats();
+
+/* ---------- illustrative loot counter ----------
+ * Purely decorative -- ticks up to sell the idea, then resets. The real
+ * number lives in the calculator below, clearly linked from the caption
+ * so nobody mistakes this for an actual balance. */
+(function () {
+  const el = document.getElementById('lootCounter');
+  if (!el) return;
+  let cents = 0;
+  setInterval(() => {
+    cents += 1 + Math.floor(Math.random() * 2);
+    if (cents > 47) cents = 0;
+    el.textContent = '$0.' + String(cents).padStart(2, '0');
+  }, 900);
+})();
 
 /* ---------- copy + confetti ---------- */
 function burstConfetti(x, y) {
