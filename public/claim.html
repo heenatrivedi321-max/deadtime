@@ -184,7 +184,7 @@ if (!id) {
       Secured to your anonymous install ID
     </div>
     <h1>Register your payout email</h1>
-    <p class="sub">Once your balance crosses $${THRESHOLD}, you're included in the next monthly PayPal payout automatically.</p>
+    <p class="sub">Once your balance crosses $${THRESHOLD}, PayPal sends it to you automatically the next day — no manual step, no monthly wait.</p>
 
     <div class="destination">
       <div class="pp-badge-wrap">
@@ -277,6 +277,10 @@ if (!id) {
     };
   }
 
+  let emailFieldTouched = false;
+  document.getElementById('email').addEventListener('input', () => { emailFieldTouched = true; });
+  document.getElementById('emailConfirm').addEventListener('input', () => { emailFieldTouched = true; });
+
   let lastTotalCalls = null;
   async function loadBalance() {
     try {
@@ -293,8 +297,10 @@ if (!id) {
         document.getElementById('stepThreshold').querySelector('.check').innerHTML = checkIcon;
       }
       if (s.payout_email) {
-        document.getElementById('email').value = s.payout_email;
-        document.getElementById('emailConfirm').value = s.payout_email;
+        if (!emailFieldTouched) {
+          document.getElementById('email').value = s.payout_email;
+          document.getElementById('emailConfirm').value = s.payout_email;
+        }
         document.getElementById('stepEmail').classList.add('done');
         document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
         document.getElementById('destNote').textContent = s.payout_email;
