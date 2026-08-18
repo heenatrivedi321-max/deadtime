@@ -360,6 +360,14 @@ async function handleAdvertiserLead(request, env) {
   if (!required.every((k) => data[k])) {
     return json({ error: "missing fields" }, 400);
   }
+  // Defense in depth: this data ends up rendered on a real page
+  // (dashboard.html), which HTML-escapes it -- but that only holds if
+  // every future rendering surface remembers to. Reject the actual
+  // attack vector at the source too. Legitimate ad copy or a company
+  // name never needs angle brackets.
+  if (["line", "company", "url"].some((k) => /[<>]/.test(data[k]))) {
+    return json({ error: "line, company, and url can't contain < or >" }, 400);
+  }
   const blocks = Math.max(1, Math.min(1000, parseInt(data.blocks, 10) || 1));
 
   const id = crypto.randomUUID();

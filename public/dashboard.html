@@ -194,13 +194,28 @@ function armTilt() {
   });
 }
 
+/** Advertiser-submitted fields (company, line, url) are free-form text
+ * with zero server-side sanitization -- only length limits. Anyone can
+ * create a pending campaign with no payment required, so this data is
+ * fully untrusted. Never interpolate it into innerHTML without escaping
+ * -- confirmed via a real live test that skipping this lets arbitrary
+ * script execute in the browser of anyone who opens the dashboard link. */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str ?? '');
+  return div.innerHTML;
+}
+
 function render(c) {
   const pct = c.impressions_total ? Math.min(100, (c.impressions_delivered / c.impressions_total) * 100) : 0;
+  const company = escapeHtml(c.company);
+  const line = escapeHtml(c.line);
+  const url = escapeHtml(c.url);
   app.innerHTML = `
     <div class="status-badge reveal ${c.status === 'pending_payment' ? 'pending' : c.status}">
       <span class="dot"></span> ${STATUS_LABEL[c.status] || c.status}
     </div>
-    <h1 class="reveal">${c.company}</h1>
+    <h1 class="reveal">${company}</h1>
     <p class="sub reveal">Campaign ID: <span style="font-family:'JetBrains Mono',monospace">${c.id}</span></p>
 
     <div class="progress-card reveal tilt">
@@ -223,11 +238,11 @@ function render(c) {
 
     <div class="card reveal tilt">
       <div class="card-label">Your line</div>
-      <div class="card-value">${c.line}</div>
+      <div class="card-value">${line}</div>
     </div>
     <div class="card reveal tilt">
       <div class="card-label">Destination</div>
-      <div class="card-value mono">${c.url}</div>
+      <div class="card-value mono">${url}</div>
     </div>
 
     <div class="refresh-note reveal in"><span class="refresh-dot"></span> Updates automatically every 15 seconds</div>
