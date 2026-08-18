@@ -134,8 +134,10 @@
   .platform-card.soon { opacity:.55; }
   .platform-icon { width:44px; height:44px; border-radius:12px; background:var(--panel); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:700;
-    font-size:13px; color:var(--muted); }
-  .platform-icon-live { background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border-color:transparent; }
+    font-size:13px; color:var(--muted); overflow:hidden; }
+  .platform-icon img { width:100%; height:100%; object-fit:cover; }
+  .platform-icon.on-white { background:#fff; }
+  .platform-icon.on-white img { object-fit:contain; padding:8px; width:100%; height:100%; box-sizing:border-box; }
   .platform-name { font-size:13px; font-weight:600; }
   .platform-status { font-size:11px; color:var(--muted); }
   .platform-status.live { color:var(--gold); font-weight:600; }
@@ -328,17 +330,17 @@
     <span class="platforms-label">works with</span>
     <div class="platform-row">
       <a href="connect.html" class="platform-card live">
-        <div class="platform-icon platform-icon-live">CC</div>
+        <div class="platform-icon"><img src="logo-claude-code.png" alt="Claude Code" loading="lazy"></div>
         <div class="platform-name">Claude Code</div>
         <div class="platform-status live">● connected today</div>
       </a>
       <div class="platform-card soon">
-        <div class="platform-icon">Cu</div>
+        <div class="platform-icon"><img src="logo-cursor.svg" alt="Cursor" loading="lazy"></div>
         <div class="platform-name">Cursor</div>
         <div class="platform-status">coming soon</div>
       </div>
       <div class="platform-card soon">
-        <div class="platform-icon">Co</div>
+        <div class="platform-icon on-white"><img src="logo-github-copilot.png" alt="GitHub Copilot" loading="lazy"></div>
         <div class="platform-name">GitHub Copilot</div>
         <div class="platform-status">coming soon</div>
       </div>
