@@ -552,7 +552,19 @@ async function handleHealth(env) {
   return json({ ok: recentCount === 0, errors_last_24h: recentCount, last_error: lastError });
 }
 
-async function handleNetworkStats(env) {
+/** This used to do a full KV list()+get() scan on every single call --
+ * fine for one person testing, genuinely unsustainable once real
+ * visitors are polling this every 8 seconds each (that's exactly what
+ * burned through Cloudflare's free-tier daily KV list() quota during
+ * testing tonight -- error was real, not hypothetical). Cached for 30s
+ * via the Cache API so a burst of visitors shares one scan instead of
+ * one each. */
+async function handleNetworkStats(env, request) {
+  const cacheKey = new Request(new URL("/network-stats", request.url).toString(), request);
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   let cursor;
   let installs = 0;
   let total = 0;
@@ -570,16 +582,33 @@ async function handleNetworkStats(env) {
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 
-  return json({
+  const res = json({
     installs,
     total_calls: total,
     sponsor_calls: sponsor,
     sponsor_ratio: total ? sponsor / total : 0,
   });
+  res.headers.set("Cache-Control", "public, max-age=30");
+  await cache.put(cacheKey, res.clone());
+  return res;
 }
 
 export default {
+  /** Top-level safety net -- any uncaught exception anywhere in routing
+   * (like the real KV list() daily-quota error found while testing)
+   * used to surface as Cloudflare's opaque "error code: 1101" with
+   * nothing logged. Now it's caught, logged durably, and returned as a
+   * real JSON error instead. */
   async fetch(request, env) {
+    try {
+      return await this._route(request, env);
+    } catch (e) {
+      await logError(env, "unhandled_exception", `${request.method} ${new URL(request.url).pathname}`, e.stack || e.message);
+      return json({ error: "internal error", detail: e.message }, 500);
+    }
+  },
+
+  async _route(request, env) {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -616,7 +645,7 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname === "/network-stats") {
-      return handleNetworkStats(env);
+      return handleNetworkStats(env, request);
     }
 
     if (request.method === "POST" && url.pathname === "/register-payout") {
