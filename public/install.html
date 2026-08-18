@@ -316,7 +316,7 @@
   <div class="h1-wrap">
     <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.<span class="sheen" aria-hidden="true">Get paid while your agent thinks.</span></h1>
   </div>
-  <p class="sub reveal">A status line that pays you instead of just sitting there being dead weight. Mostly tips. Occasionally a sponsor — always labeled, never snuck in. Half the money's yours.</p>
+  <p class="sub reveal">A status line that pays you instead of just sitting there being dead weight. A quiet line while you wait. Occasionally a sponsor — always labeled, never snuck in. Half the money's yours.</p>
 
   <div class="os-toggle reveal">
     <button class="os-btn active" data-os="unix" type="button">macOS / Linux</button>
@@ -411,8 +411,8 @@
     <div class="demo-window">
       <div class="demo-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
       <div class="demo-line-stage">
-        <div class="demo-line-item" style="animation-delay:0s"><span class="demo-dot demo-dot-tip"></span><span>Tip: /rewind lets you jump back to an earlier point</span></div>
-        <div class="demo-line-item" style="animation-delay:4.3s"><span class="demo-dot demo-dot-tip"></span><span>Tip: ask for a plan before a big change</span></div>
+        <div class="demo-line-item" style="animation-delay:0s"><span class="demo-dot demo-dot-tip"></span><span>The pause is not empty. It's where the next idea is standing.</span></div>
+        <div class="demo-line-item" style="animation-delay:4.3s"><span class="demo-dot demo-dot-tip"></span><span>Patience is just thinking you haven't rushed yet.</span></div>
         <div class="demo-line-item" style="animation-delay:8.6s"><span class="demo-dot demo-dot-sponsor"></span><span class="demo-sponsor-text">(sponsored) example line → example.com</span></div>
       </div>
     </div>
@@ -425,7 +425,7 @@
     <input type="range" id="hoursSlider" min="0.5" max="8" step="0.5" value="3">
     <div class="calc-result">
       <div class="amount" id="calcAmount">$6.48</div>
-      <div class="lbl">estimated / month<br>at today's $2 CPM, 3-in-5 ceiling</div>
+      <div class="lbl">estimated / month<br>at today's $2 CPM, 4-in-5 ceiling</div>
     </div>
     <p class="calc-note">This is the ceiling at full sponsor demand — not a balance sitting in an account somewhere. Actual earnings track real, live sponsor activity. Nobody's earned this yet. Could be you first.</p>
   </div>
@@ -441,7 +441,7 @@
     </div>
     <div class="faq-item">
       <button class="faq-q" type="button">What if there's no sponsor to show?<span class="plus">+</span></button>
-      <div class="faq-a"><p>You get a genuinely useful tip instead. We never force an irrelevant ad just to fill space — the 3-in-5 ceiling is a maximum, not a guarantee, and how often you actually see a sponsor depends entirely on real advertiser demand.</p></div>
+      <div class="faq-a"><p>You get a short, quiet line instead — something to read while you wait, not a productivity tip. We never force an irrelevant ad just to fill space — the 4-in-5 ceiling is a maximum, not a guarantee, and how often you actually see a sponsor depends entirely on real advertiser demand.</p></div>
     </div>
   </div>
 
@@ -478,7 +478,7 @@ setTimeout(() => revealEls.forEach((el, i) => {
 }), 50);
 
 /* ---------- earnings calculator ---------- */
-const ROTATE_SECONDS = 20, FILL_CEILING = 0.6, CPM = 2.0, USER_SHARE = 0.5;
+const ROTATE_SECONDS = 20, FILL_CEILING = 0.8, CPM = 2.0, USER_SHARE = 0.5;
 const hoursSlider = document.getElementById('hoursSlider');
 const hoursVal = document.getElementById('hoursVal');
 const calcAmount = document.getElementById('calcAmount');

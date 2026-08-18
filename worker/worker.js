@@ -14,14 +14,14 @@
  */
 
 const TIPS = [
-  "Tip: /rewind lets you jump back to an earlier point in this session",
-  "Tip: Shift+Tab cycles permission modes without leaving the prompt",
-  "Tip: ask for a plan before a big change -- cheaper to fix than code",
-  "Tip: /compact early avoids losing context on long sessions",
-  "Tip: paste a screenshot directly, no need to save it first",
-  "Tip: name files before you ask for them, saves a round trip",
-  "Tip: /clear between unrelated tasks keeps context focused",
-  "Fact: most bugs hide in the code you were most confident about",
+  "The best ideas arrive exactly when you stop chasing them.",
+  "A river doesn't rush -- it just never stops.",
+  "Somewhere, a bug is quietly being born so you can later find it.",
+  "The pause is not empty. It's where the next idea is standing.",
+  "Patience is just thinking you haven't rushed yet.",
+  "Every great answer was, for a moment, only a question.",
+  "The work happens in the space between two keystrokes.",
+  "Meanwhile, something is always becoming something else.",
 ];
 
 const HOUSE_SPONSOR = "(sponsored) deadtime -- get paid while your agent thinks -> deadtime.dev";
@@ -29,7 +29,7 @@ const IMPRESSIONS_PER_BLOCK = 1000;
 const USD_PER_BLOCK = 2.0;
 const PAYPAL_API = "https://api-m.paypal.com"; // LIVE -- real money, no sandbox fallback configured
 
-const FILL_CEILING = 0.6;
+const FILL_CEILING = 0.8;
 const BILLABLE_THRESHOLD = 10;
 const CPM = 2.0;
 const USER_SHARE = 0.5;
