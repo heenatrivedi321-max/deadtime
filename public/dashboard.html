@@ -60,7 +60,9 @@
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
   .card { background:var(--panel); backdrop-filter:blur(14px); border:1px solid var(--border); border-radius:14px;
-          padding:22px 24px; margin-bottom:20px; box-shadow:0 20px 50px -25px rgba(0,0,0,.6); }
+          padding:22px 24px; margin-bottom:20px; box-shadow:0 20px 50px -25px rgba(0,0,0,.6);
+          transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+  .card:hover { transform:translateY(-2px); border-color:rgba(232,200,150,.3); box-shadow:0 26px 60px -25px rgba(0,0,0,.7); }
   .card-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
   .card-value { font-size:16px; font-weight:600; }
   .card-value.mono { font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--muted); word-break:break-all; }

@@ -49,6 +49,9 @@
              z-index:1; pointer-events:none; }
   .pp-ring.expand { animation:ppRing .8s cubic-bezier(.16,1,.3,1) forwards; }
   @keyframes ppRing { 0%{ opacity:.8; transform:scale(.6); } 100%{ opacity:0; transform:scale(2.2); } }
+  .pp-ring-idle { position:absolute; inset:-6px; border-radius:50%; border:1.5px solid rgba(42,155,240,.4);
+                  z-index:1; pointer-events:none; animation:ppIdle 2.8s ease-out infinite; }
+  @keyframes ppIdle { 0%{ transform:scale(.85); opacity:.7; } 100%{ transform:scale(1.5); opacity:0; } }
   .dest-text .dest-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
   .dest-text .dest-value { font-size:15px; font-weight:600; margin-top:2px; }
   .dest-text .dest-note { font-size:12px; color:var(--muted); margin-top:2px; }
@@ -65,15 +68,20 @@
                    border-radius:12px; padding:24px 22px; margin-bottom:20px; }
   .balance-card .amount { font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:700; color:var(--text); }
   .balance-card .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
-  .progress-track { height:6px; background:var(--border); border-radius:100px; margin-top:18px; overflow:hidden; }
-  .progress-fill { height:100%; background:linear-gradient(90deg,#f2b134,#ec4899); border-radius:100px; transition:width .6s ease; }
+  .progress-track { height:6px; background:var(--border); border-radius:100px; margin-top:18px; overflow:hidden; position:relative; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,#f2b134,#ec4899); border-radius:100px; transition:width .6s ease; position:relative; overflow:hidden; }
+  .progress-fill::after { content:''; position:absolute; inset:0; width:40%;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.5), transparent);
+    animation:progressShine 2.2s ease-in-out infinite; }
+  @keyframes progressShine { 0%{ transform:translateX(-120%); } 100%{ transform:translateX(350%); } }
   .progress-note { font-size:12px; color:var(--muted); margin-top:8px; }
 
   .steps { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
   .step { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
   .step .check { flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
-                  display:flex; align-items:center; justify-content:center; transition:background .3s, border-color .3s; }
-  .step.done .check { background:var(--green); border-color:var(--green); }
+                  display:flex; align-items:center; justify-content:center;
+                  transition:background .3s, border-color .3s, transform .35s cubic-bezier(.34,1.56,.64,1); }
+  .step.done .check { background:var(--green); border-color:var(--green); transform:scale(1.15); }
   .step.done { color:var(--text); }
 
   .form-panel { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:12px;
@@ -143,6 +151,7 @@ if (!id) {
 
     <div class="destination">
       <div class="pp-badge-wrap">
+        <div class="pp-ring-idle"></div>
         <div class="pp-ring" id="ppRing"></div>
         <div class="pp-badge" id="ppBadge">${ppMark}</div>
       </div>
