@@ -41,6 +41,30 @@ function json(body, status = 200) {
   });
 }
 
+/** Durable error log -- unlike `wrangler tail` (expires after ~30 min and
+ * requires someone watching live), this persists in KV so any failure in
+ * a money-moving path can be reviewed hours or days later via
+ * /admin/errors. Capped to the most recent 200 entries. */
+async function logError(env, category, message, details) {
+  try {
+    const entry = {
+      id: crypto.randomUUID(),
+      category,
+      message,
+      details: details ? String(details).slice(0, 2000) : null,
+      at: Date.now() / 1000,
+    };
+    await env.ERRORS.put(`error:${entry.id}`, JSON.stringify(entry));
+    const indexRaw = await env.ERRORS.get("index");
+    const index = indexRaw ? JSON.parse(indexRaw) : [];
+    index.unshift(entry.id);
+    if (index.length > 200) index.length = 200;
+    await env.ERRORS.put("index", JSON.stringify(index));
+  } catch (e) {
+    // logging must never itself break the real request path
+  }
+}
+
 function defaultState() {
   return {
     total_calls: 0,
@@ -251,6 +275,7 @@ async function runPayouts(env) {
         results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "sent" });
       } catch (e) {
         results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "failed", error: e.message });
+        await logError(env, "payout_failed", `payout of $${unpaid.toFixed(2)} to install ${installId} failed`, e.message);
       }
     }
     cursor = page.list_complete ? undefined : page.cursor;
@@ -377,6 +402,7 @@ async function handleCreatePayPalOrder(request, env) {
   try {
     token = await getPayPalToken(env);
   } catch (e) {
+    await logError(env, "paypal_auth_failed", `order creation for campaign ${campaign_id}`, e.message);
     return json({ error: "paypal auth failed" }, 502);
   }
 
@@ -397,7 +423,10 @@ async function handleCreatePayPalOrder(request, env) {
     }),
   });
   const order = await orderRes.json();
-  if (!orderRes.ok) return json({ error: order.message || "order creation failed" }, 502);
+  if (!orderRes.ok) {
+    await logError(env, "order_create_failed", `campaign ${campaign_id}`, JSON.stringify(order));
+    return json({ error: order.message || "order creation failed" }, 502);
+  }
 
   campaign.paypal_order_id = order.id;
   await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
@@ -425,6 +454,7 @@ async function handleCapturePayPalOrder(request, env) {
   try {
     token = await getPayPalToken(env);
   } catch (e) {
+    await logError(env, "paypal_auth_failed", `capture for order ${order_id}`, e.message);
     return json({ error: "paypal auth failed" }, 502);
   }
 
@@ -434,14 +464,21 @@ async function handleCapturePayPalOrder(request, env) {
   });
   const capture = await captureRes.json();
   if (!captureRes.ok || capture.status !== "COMPLETED") {
+    await logError(env, "capture_failed", `order ${order_id}`, JSON.stringify(capture));
     return json({ error: "capture failed", detail: capture }, 502);
   }
 
   const campaignId = capture.purchase_units?.[0]?.reference_id;
-  if (!campaignId) return json({ error: "no reference_id on captured order" }, 500);
+  if (!campaignId) {
+    await logError(env, "capture_no_reference", `order ${order_id} captured with no reference_id -- money taken, campaign unknown`, JSON.stringify(capture));
+    return json({ error: "no reference_id on captured order" }, 500);
+  }
 
   const activated = await activateCampaign(env, campaignId);
-  if (!activated) return json({ error: "campaign not found for activation" }, 500);
+  if (!activated) {
+    await logError(env, "activation_failed_after_capture", `order ${order_id} captured (money taken) but campaign ${campaignId} not found for activation -- needs manual /admin/activate-campaign`, JSON.stringify(capture));
+    return json({ error: "campaign not found for activation" }, 500);
+  }
 
   return json({ ok: true, campaign: activated });
 }
@@ -479,6 +516,40 @@ async function handleListCampaigns(request, env) {
   }
   campaigns.sort((a, b) => b.created_at - a.created_at);
   return json({ campaigns });
+}
+
+/** Durable replacement for babysitting `wrangler tail` -- shows the last
+ * 200 real failures from every money-moving path, whenever you check,
+ * not just while a 30-minute tail session happens to be open. */
+async function handleListErrors(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  const indexRaw = await env.ERRORS.get("index");
+  const ids = indexRaw ? JSON.parse(indexRaw) : [];
+  const errors = [];
+  for (const id of ids.slice(0, 100)) {
+    const raw = await env.ERRORS.get(`error:${id}`);
+    if (raw) errors.push(JSON.parse(raw));
+  }
+  return json({ count: errors.length, errors });
+}
+
+/** Public, no-auth health check -- returns real recent error counts so an
+ * external uptime monitor (UptimeRobot, Better Uptime, etc.) can page you
+ * if this starts failing, instead of relying on someone noticing by hand. */
+async function handleHealth(env) {
+  const indexRaw = await env.ERRORS.get("index");
+  const ids = indexRaw ? JSON.parse(indexRaw) : [];
+  const dayAgo = Date.now() / 1000 - 86400;
+  let recentCount = 0;
+  let lastError = null;
+  for (const id of ids.slice(0, 50)) {
+    const raw = await env.ERRORS.get(`error:${id}`);
+    if (!raw) continue;
+    const e = JSON.parse(raw);
+    if (!lastError) lastError = { category: e.category, at: e.at };
+    if (e.at >= dayAgo) recentCount++;
+  }
+  return json({ ok: recentCount === 0, errors_last_24h: recentCount, last_error: lastError });
 }
 
 async function handleNetworkStats(env) {
@@ -574,6 +645,14 @@ export default {
       return json(result);
     }
 
+    if (request.method === "GET" && url.pathname === "/admin/errors") {
+      return handleListErrors(request, env);
+    }
+
+    if (request.method === "GET" && url.pathname === "/health") {
+      return handleHealth(env);
+    }
+
     // Anything else falls through to the static site (install.html,
     // advertiser.html, claim.html) served from the same Worker via assets.
     // Root and /claim have no matching filename -- rewrite explicitly.
@@ -597,6 +676,8 @@ export default {
    * cron schedule in wrangler.toml regardless of whether anyone has this
    * site open. No chat session, no manual trigger required. */
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runPayouts(env));
+    ctx.waitUntil(
+      runPayouts(env).catch((e) => logError(env, "scheduled_payout_crash", "the daily cron itself threw", e.message))
+    );
   },
 };

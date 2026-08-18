@@ -19,5 +19,9 @@ id = "ce046c03849944d6808b0e3f2030186d"
 binding = "CAMPAIGNS"
 id = "828f436d4e784be0b762b54a922c8243"
 
+[[kv_namespaces]]
+binding = "ERRORS"
+id = "83a97e184c3d485ca30e075b48aee2fb"
+
 [triggers]
 crons = ["11 6 * * *"]
