@@ -217,9 +217,12 @@ async function handleRegisterPayout(request, env) {
   });
 }
 
-/** Sends one real PayPal payout to a developer's registered email. This
- * moves actual money out -- separate API from the advertiser-side
- * order/capture flow, which only ever moves money in. */
+/** Sends one real PayPal payout to a developer's registered email, then
+ * actually checks whether it landed instead of trusting the "batch
+ * accepted" response -- PayPal accepts the batch immediately but the
+ * real per-item outcome (SUCCESS / PENDING / UNCLAIMED / FAILED) only
+ * shows up on a follow-up status check. A typo'd or non-PayPal email
+ * doesn't error out at creation time; it just sits unclaimed. */
 async function sendPayPalPayout(env, installId, email, amountUsd) {
   const token = await getPayPalToken(env);
   const res = await fetch(`${PAYPAL_API}/v1/payments/payouts`, {
@@ -242,7 +245,28 @@ async function sendPayPalPayout(env, installId, email, amountUsd) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || `payout failed: ${res.status}`);
-  return data;
+
+  const batchId = data.batch_header?.payout_batch_id;
+  let itemStatus = "UNKNOWN";
+  if (batchId) {
+    // PayPal settles most items within a couple seconds; a short poll
+    // (not a blind assumption) is enough to catch outright failures.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const statusRes = await fetch(`${PAYPAL_API}/v1/payments/payouts/${batchId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!statusRes.ok) continue;
+      const statusData = await statusRes.json();
+      const item = statusData.items?.[0];
+      if (item && item.transaction_status && item.transaction_status !== "PENDING") {
+        itemStatus = item.transaction_status;
+        break;
+      }
+      itemStatus = item?.transaction_status || itemStatus;
+    }
+  }
+  return { ...data, item_status: itemStatus };
 }
 
 /** The real payout sweep: scans every install, and for anyone whose
@@ -268,11 +292,29 @@ async function runPayouts(env) {
 
       const installId = key.name.replace(/^install:/, "");
       try {
-        await sendPayPalPayout(env, installId, state.payout_email, unpaid);
+        const outcome = await sendPayPalPayout(env, installId, state.payout_email, unpaid);
+        const status = outcome.item_status;
+
+        if (status === "FAILED" || status === "BLOCKED" || status === "DENIED") {
+          // Money never left the sender's balance -- do NOT mark as paid,
+          // so the sweep retries this install automatically next run.
+          results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "failed", detail: status });
+          await logError(env, "payout_rejected", `payout of $${unpaid.toFixed(2)} to install ${installId} (${state.payout_email})`, `PayPal status: ${status}`);
+          continue;
+        }
+
+        // SUCCESS, PENDING, or UNCLAIMED all mean funds actually left the
+        // sender's balance -- mark paid either way, but flag anything
+        // that isn't a clean SUCCESS for manual follow-up so a typo'd
+        // email doesn't just silently vanish from view.
         state.paid_out_usd = (state.paid_out_usd || 0) + unpaid;
         state.last_payout_at = Date.now() / 1000;
+        state.last_payout_status = status;
         await env.INSTALLS.put(key.name, JSON.stringify(state));
-        results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "sent" });
+        results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "sent", detail: status });
+        if (status !== "SUCCESS") {
+          await logError(env, "payout_needs_review", `payout of $${unpaid.toFixed(2)} to install ${installId} (${state.payout_email}) is not a confirmed SUCCESS`, `PayPal status: ${status} -- check if the email is actually a real PayPal account`);
+        }
       } catch (e) {
         results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "failed", error: e.message });
         await logError(env, "payout_failed", `payout of $${unpaid.toFixed(2)} to install ${installId} failed`, e.message);

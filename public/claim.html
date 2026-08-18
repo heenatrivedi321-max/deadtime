@@ -215,7 +215,7 @@ if (!id) {
       <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
       <div class="step" id="stepEmail"><span class="check"></span> Register payout email</div>
       <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
-      <div class="step"><span class="check"></span> Paid automatically, next monthly batch</div>
+      <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
     </div>
 
     <div class="form-panel">
@@ -224,6 +224,11 @@ if (!id) {
           <label for="email">PayPal email address</label>
           <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
         </div>
+        <div>
+          <label for="emailConfirm">Type it again to confirm</label>
+          <input id="emailConfirm" type="email" placeholder="you@example.com" required autocomplete="off">
+        </div>
+        <div id="emailMismatch" class="status err" style="display:none;">Those don't match — real money goes to whatever's registered here, worth getting right.</div>
         <button type="submit" id="submitBtn">Register for payout</button>
         <div id="status" class="status"></div>
       </form>
@@ -289,6 +294,7 @@ if (!id) {
       }
       if (s.payout_email) {
         document.getElementById('email').value = s.payout_email;
+        document.getElementById('emailConfirm').value = s.payout_email;
         document.getElementById('stepEmail').classList.add('done');
         document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
         document.getElementById('destNote').textContent = s.payout_email;
@@ -310,6 +316,16 @@ if (!id) {
     const btn = document.getElementById('submitBtn');
     const status = document.getElementById('status');
     const email = document.getElementById('email').value.trim();
+    const emailConfirm = document.getElementById('emailConfirm').value.trim();
+    const mismatchNote = document.getElementById('emailMismatch');
+
+    if (email.toLowerCase() !== emailConfirm.toLowerCase()) {
+      mismatchNote.style.display = 'block';
+      document.getElementById('emailConfirm').focus();
+      return;
+    }
+    mismatchNote.style.display = 'none';
+
     btn.disabled = true;
     btn.textContent = 'Registering…';
     try {
