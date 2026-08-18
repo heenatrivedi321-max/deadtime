@@ -407,6 +407,22 @@ async function handleAdvertiserLead(request, env) {
   if (["line", "company", "url"].some((k) => /[<>]/.test(data[k]))) {
     return json({ error: "line, company, and url can't contain < or >" }, 400);
   }
+  // Found by testing, not reading: neither field was validated at all --
+  // a garbage email meant no way to ever reach a paying advertiser, and
+  // a garbage url meant a real, paid, "working" campaign whose sponsor
+  // line points nowhere in a real developer's real terminal.
+  if (!EMAIL_RE.test(data.email)) {
+    return json({ error: "invalid email" }, 400);
+  }
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(data.url);
+  } catch {
+    return json({ error: "url must be a valid, complete URL (e.g. https://example.com)" }, 400);
+  }
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    return json({ error: "url must start with http:// or https://" }, 400);
+  }
   const blocks = Math.max(1, Math.min(1000, parseInt(data.blocks, 10) || 1));
 
   const id = crypto.randomUUID();
