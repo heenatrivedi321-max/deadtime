@@ -77,7 +77,26 @@ function defaultState() {
     current_campaign_id: null,
     paid_out_usd: 0,
     last_payout_at: null,
+    billing_day: null,
+    billed_today: 0,
   };
+}
+
+/** No signup exists anywhere in this system -- an install_id is just a
+ * self-generated UUID, and /line has no way to verify a call actually
+ * came from a real Claude Code session versus a script hitting the
+ * endpoint every ~10 seconds forever. Worked the real numbers: a bot
+ * doing that 24/7 could fully drain any real advertiser's entire paid
+ * campaign in under 10 hours of 100% fake impressions no human ever
+ * saw -- real fraud against a paying customer, not just fake-earnings
+ * farming. A genuine heavy human user, even 10 real hours of active
+ * Claude Code use with real prompts, doesn't come close to this. This
+ * doesn't stop a patient bot staying under the cap, but it puts a hard
+ * ceiling on the fast, crude version of the attack, at a level no real
+ * user will ever hit. */
+const DAILY_BILLABLE_CAP = 2000;
+function todayUTC() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function sponsorRatio(state) {
@@ -176,13 +195,27 @@ async function handleLine(env, installId, eventName) {
   // refreshInterval. So every invocation IS a real activity signal. Bill
   // the OUTGOING line here, based on how long it was genuinely on screen
   // since the last real event -- not an artificial server-side clock.
+  const today = todayUTC();
+  if (state.billing_day !== today) {
+    state.billing_day = today;
+    state.billed_today = 0;
+  }
+
   if (state.current_line !== null && !state.billed_current) {
     const visibleFor = now - state.line_started;
     if (visibleFor >= BILLABLE_THRESHOLD) {
-      state.total_calls += 1;
-      if (state.current_kind === "sponsor") {
-        state.sponsor_calls += 1;
-        await deliverImpression(env, state.current_campaign_id);
+      if (state.billed_today < DAILY_BILLABLE_CAP) {
+        state.total_calls += 1;
+        state.billed_today += 1;
+        if (state.current_kind === "sponsor") {
+          state.sponsor_calls += 1;
+          await deliverImpression(env, state.current_campaign_id);
+        }
+      } else if (state.billed_today === DAILY_BILLABLE_CAP) {
+        // Log once, not on every call past the cap -- a real signal
+        // worth a human looking at, not log spam.
+        state.billed_today += 1;
+        await logError(env, "daily_billable_cap_hit", `install ${installId} hit the ${DAILY_BILLABLE_CAP}/day billable cap`, "either a genuinely extreme real user, or automated polling -- worth a look");
       }
     }
   }
