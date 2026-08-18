@@ -177,12 +177,18 @@
                font-size:clamp(52px,15vw,190px); letter-spacing:-0.03em; line-height:1;
                white-space:nowrap; cursor:default; user-select:none; }
   .mega-base { color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.14); }
+  .mega-shine { position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(242,177,52,.4) 45%, rgba(236,72,153,.4) 50%, rgba(168,85,247,.4) 55%, transparent 70%);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:megaShine 6s ease-in-out infinite; pointer-events:none; }
+  @keyframes megaShine { 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
   .mega-glow { position:absolute; inset:0;
-    background:radial-gradient(circle 220px at var(--mx,50%) var(--my,50%),
+    background:radial-gradient(circle 260px at var(--mx,50%) var(--my,50%),
       #f2b134 0%, #ec4899 30%, #a855f7 55%, transparent 75%);
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
     opacity:0; transition:opacity .4s ease; pointer-events:none; }
   .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
+  .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
   @media (max-width:480px) { .mega-word { font-size:16vw; } }
 
   .demo { margin-bottom:64px; }
@@ -431,6 +437,7 @@
   <div class="mega-wrap reveal">
     <div class="mega-word" id="megaWord" aria-hidden="true">
       <span class="mega-base">Meanwhile</span>
+      <span class="mega-shine">Meanwhile</span>
       <span class="mega-glow" id="megaGlow">Meanwhile</span>
     </div>
   </div>
@@ -600,6 +607,12 @@ if (megaWord) {
     megaWord.style.setProperty('--my', ((y - r.top) / r.height * 100) + '%');
   };
   megaWord.addEventListener('mousemove', (e) => setPos(e.clientX, e.clientY));
+  megaWord.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    if (!t) return;
+    setPos(t.clientX, t.clientY);
+    megaWord.classList.add('touched');
+  }, { passive: true });
   megaWord.addEventListener('touchmove', (e) => {
     const t = e.touches[0];
     if (!t) return;
@@ -607,7 +620,7 @@ if (megaWord) {
     megaWord.classList.add('touched');
   }, { passive: true });
   megaWord.addEventListener('touchend', () => {
-    setTimeout(() => megaWord.classList.remove('touched'), 600);
+    setTimeout(() => megaWord.classList.remove('touched'), 900);
   });
 }
 
