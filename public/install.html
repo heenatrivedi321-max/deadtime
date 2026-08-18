@@ -117,6 +117,30 @@
   .step .body h3 { font-size:15px; font-weight:700; margin-bottom:4px; }
   .step .body p { font-size:14px; color:var(--muted); line-height:1.55; }
 
+  /* ---- platforms ---- */
+  .platforms { margin-bottom:64px; }
+  .platforms-label { color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px; display:block; }
+  .platform-row { display:flex; gap:14px; flex-wrap:wrap; }
+  .platform-card { flex:1; min-width:130px; display:flex; flex-direction:column; align-items:center; gap:8px;
+    text-align:center; text-decoration:none; color:inherit; background:rgba(0,0,0,.4); border:1px solid var(--border);
+    border-radius:14px; padding:20px 14px; transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+  .platform-card.live { border-color:rgba(242,177,52,.4); background:rgba(242,177,52,.05); cursor:pointer; position:relative; overflow:hidden; }
+  .platform-card.live::before { content:''; position:absolute; inset:-1.5px; border-radius:14px; padding:1.5px; z-index:-1;
+    background:linear-gradient(120deg,#f2b134,#f0654a,#ec4899,#f2b134); background-size:250% auto;
+    animation:shimmer 7s linear infinite;
+    -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:.6; }
+  .platform-card.live:hover { transform:translateY(-3px); box-shadow:0 16px 40px -16px rgba(242,177,52,.4); }
+  .platform-card.soon { opacity:.55; }
+  .platform-icon { width:44px; height:44px; border-radius:12px; background:var(--panel); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-size:13px; color:var(--muted); }
+  .platform-icon-live { background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border-color:transparent; }
+  .platform-name { font-size:13px; font-weight:600; }
+  .platform-status { font-size:11px; color:var(--muted); }
+  .platform-status.live { color:var(--gold); font-weight:600; }
+  @media (max-width:480px) { .platform-row { flex-wrap:nowrap; } .platform-card { min-width:0; } }
+
   .demo { margin-bottom:64px; }
   .demo .label { color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px; display:block; }
   .demo-window { position:relative; background:rgba(0,0,0,.5); backdrop-filter:blur(16px); border:1px solid var(--border);
@@ -300,6 +324,27 @@
     <div class="step"><div class="n">3</div><div class="body"><h3>Get paid, automatically</h3><p>Logged against a random ID, never against you — we only know which line was shown, not what you typed. Cross $25, PayPal does the rest.</p></div></div>
   </div>
 
+  <div class="platforms reveal">
+    <span class="platforms-label">works with</span>
+    <div class="platform-row">
+      <a href="connect.html" class="platform-card live">
+        <div class="platform-icon platform-icon-live">CC</div>
+        <div class="platform-name">Claude Code</div>
+        <div class="platform-status live">● connected today</div>
+      </a>
+      <div class="platform-card soon">
+        <div class="platform-icon">Cu</div>
+        <div class="platform-name">Cursor</div>
+        <div class="platform-status">coming soon</div>
+      </div>
+      <div class="platform-card soon">
+        <div class="platform-icon">Co</div>
+        <div class="platform-name">GitHub Copilot</div>
+        <div class="platform-status">coming soon</div>
+      </div>
+    </div>
+  </div>
+
   <div class="demo reveal tilt">
     <span class="label">what shows up while your agent thinks</span>
     <div class="demo-window">
@@ -324,7 +369,7 @@
     <p class="calc-note">We're pre-launch, so this is the ceiling once real advertisers show up — not a balance sitting in an account somewhere. Nobody's earned this yet. Could be you first.</p>
   </div>
 
-  <div class="faq reveal">
+  <div class="faq reveal" id="faq">
     <div class="faq-item open">
       <button class="faq-q" type="button">Does anyone see my code or prompts?<span class="plus">+</span></button>
       <div class="faq-a"><p>No. The only things sent are a random anonymous install ID and which line was shown. Your conversation, code, and file contents never leave your machine — we couldn't sell you out even if we wanted to.</p></div>
