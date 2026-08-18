@@ -379,10 +379,32 @@ async function handleAdvertiserLead(request, env) {
   };
 
   await env.CAMPAIGNS.put(`campaign:${id}`, JSON.stringify(campaign));
-  const indexRaw = await env.CAMPAIGNS.get("index");
-  const index = indexRaw ? JSON.parse(indexRaw) : [];
-  index.push(id);
-  await env.CAMPAIGNS.put("index", JSON.stringify(index));
+
+  // "index" is a single shared KV key, read-modified-and-written back --
+  // if two advertisers submit within the same moment, both can read the
+  // same old array and one write clobbers the other, silently dropping
+  // a real, paid campaign out of every list that matters (delivery,
+  // admin view, reconciliation). campaign:${id} itself is always safe
+  // (its own key), but without being in "index" it's invisible. Retry a
+  // few times with a fresh re-read each attempt, and verify the write
+  // actually landed -- collapses the realistic collision window to
+  // near-zero without needing real compare-and-swap (KV doesn't have
+  // one). The 20-min reconciliation sweep self-heals anything that
+  // still slips through.
+  let indexed = false;
+  for (let attempt = 0; attempt < 4 && !indexed; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 150 * attempt));
+    const indexRaw = await env.CAMPAIGNS.get("index");
+    const index = indexRaw ? JSON.parse(indexRaw) : [];
+    if (!index.includes(id)) index.push(id);
+    await env.CAMPAIGNS.put("index", JSON.stringify(index));
+    const verifyRaw = await env.CAMPAIGNS.get("index");
+    const verifyIndex = verifyRaw ? JSON.parse(verifyRaw) : [];
+    indexed = verifyIndex.includes(id);
+  }
+  if (!indexed) {
+    await logError(env, "campaign_index_write_failed", `campaign ${id} (${campaign.company}) saved but never confirmed in the index after retries`, `campaign:${id} itself is safe -- will self-heal on the next reconciliation sweep, or check manually`);
+  }
 
   return json({ ok: true, campaign_id: id, price_usd: campaign.price_usd });
 }
@@ -570,8 +592,36 @@ async function handleCapturePayPalOrder(request, env) {
  * browser round-trip. Runs on the daily cron alongside payouts, and
  * on demand via /admin/reconcile-orders. */
 async function reconcilePendingOrders(env) {
+  // Self-heal the shared "index" key against the write race described
+  // above the retry logic in handleAdvertiserLead: do a real KV list()
+  // scan (safe here -- this runs every 20 min, not on every request, so
+  // it doesn't touch the same quota risk that ruled out list() for the
+  // hot /line path) and fold in any campaign key that exists but somehow
+  // never made it into the index. This is cheap insurance and it means
+  // reconciliation itself never misses a campaign just because the
+  // index once got clobbered.
   const indexRaw = await env.CAMPAIGNS.get("index");
-  const ids = indexRaw ? JSON.parse(indexRaw) : [];
+  let ids = indexRaw ? JSON.parse(indexRaw) : [];
+  const knownIds = new Set(ids);
+  let healedAny = false;
+  let cursor;
+  do {
+    const page = await env.CAMPAIGNS.list({ prefix: "campaign:", cursor });
+    for (const key of page.keys) {
+      const realId = key.name.replace(/^campaign:/, "");
+      if (!knownIds.has(realId)) {
+        knownIds.add(realId);
+        ids.push(realId);
+        healedAny = true;
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  if (healedAny) {
+    await env.CAMPAIGNS.put("index", JSON.stringify(ids));
+    await logError(env, "campaign_index_healed", `reconciliation found campaign(s) missing from the index and added them back`, JSON.stringify(ids));
+  }
+
   const results = [];
   let scanned = 0;
 
