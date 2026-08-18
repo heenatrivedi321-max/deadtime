@@ -88,10 +88,11 @@
     <tr><td><strong>Which line was shown</strong><br>tip or sponsor, and which sponsor</td><td>Required to calculate what a sponsor owes and what you're owed.</td></tr>
     <tr><td><strong>Timestamps</strong></td><td>Billing is based on how long a line was actually shown — this is the whole point of the "no artificial timers" design.</td></tr>
     <tr><td><strong>Payout email (optional)</strong><br>only if you register one</td><td>Where your PayPal payout gets sent once you cross $25.</td></tr>
+    <tr><td><strong>Daily billable-call count</strong><br>resets every day, tied to your install ID</td><td>A hard daily cap exists to stop automated abuse (a script hammering the endpoint instead of a real Claude Code session) from draining real advertisers' paid campaigns. This is the counter that enforces it.</td></tr>
   </table>
 
   <h2>What we do collect — advertiser side</h2>
-  <p>Company name, destination URL, the ad line text, and an email address, submitted directly through the advertiser form. Payment itself is handled entirely by PayPal — we never see or store your card or bank details; PayPal passes us only a confirmation that payment succeeded.</p>
+  <p>Company name, destination URL, the ad line text, and an email address, submitted directly through the advertiser form. Payment itself is handled entirely by PayPal — we never see or store your card or bank details; PayPal passes us only a confirmation that payment succeeded, along with PayPal's own order/capture/refund reference IDs, which we keep so a refund (see the Terms page) can actually be processed against the right payment.</p>
 
   <h2>Where it's stored</h2>
   <p>Everything lives in Cloudflare KV, a database attached to the Cloudflare Worker that runs this whole service. We don't run our own servers and don't copy this data anywhere else.</p>
@@ -100,6 +101,7 @@
   <ul>
     <li><strong>PayPal</strong> — processes all payments and payouts. See <a href="https://www.paypal.com/us/legalhub/privacy-full" target="_blank" rel="noopener">PayPal's own privacy policy</a> for how they handle your payment data.</li>
     <li><strong>Cloudflare</strong> — hosts the site and the database. Standard infrastructure logs (like any host) may briefly exist at that layer; we don't access or use them beyond debugging.</li>
+    <li><strong>Google Fonts</strong> — this site's typefaces load from Google's servers, which is standard for most of the web but does mean Google sees the request (your IP address, which font, which page) the same way any font CDN would. No cookies, no account link, nothing beyond what loading any external resource inherently reveals. Self-hosting the fonts instead — removing this dependency entirely — is on the list, not done yet.</li>
   </ul>
   <p>We do not sell, rent, or share your data with anyone else, for any reason.</p>
 

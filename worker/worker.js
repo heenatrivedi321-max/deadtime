@@ -705,6 +705,51 @@ async function handleResumeCampaign(request, env) {
   return json({ ok: true, campaign });
 }
 
+/** Backs a real promise on the privacy page: "email us and we'll
+ * remove your data." Before now that meant knowing the right raw
+ * wrangler kv key delete incantation -- technically possible, not
+ * real tooling. This is the real tooling: deletes the install's KV
+ * record outright. The local install_id file, if it still exists on
+ * their machine, would just get treated as a brand-new install on the
+ * next real event (matches how the whole system already treats an
+ * unknown ID -- defaultState(), nothing special needed here). */
+async function handleDeleteInstall(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { id } = data;
+  if (!id) return json({ error: "missing id" }, 400);
+  if (!isValidId(id)) return json({ error: "invalid id" }, 400);
+
+  await env.INSTALLS.delete(`install:${id}`);
+  return json({ ok: true, deleted: id });
+}
+
+/** Same real promise, advertiser side. Doesn't touch CAMPAIGNS's
+ * shared "index" key -- the campaign simply stops existing, and the
+ * self-healing reconciliation sweep only ever ADDS missing entries to
+ * the index, never removes them for existing ones, so a stale id
+ * pointing at nothing just gets silently skipped everywhere it's
+ * read (every read path already checks "if (!raw) continue/return"). */
+async function handleDeleteCampaign(request, env) {
+  if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { campaign_id } = data;
+  if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
+
+  await env.CAMPAIGNS.delete(`campaign:${campaign_id}`);
+  return json({ ok: true, deleted: campaign_id });
+}
+
 async function getPayPalToken(env) {
   const auth = btoa(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`);
   const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
@@ -1133,6 +1178,14 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/admin/resume-campaign") {
       return handleResumeCampaign(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/delete-install") {
+      return handleDeleteInstall(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/delete-campaign") {
+      return handleDeleteCampaign(request, env);
     }
 
     if (request.method === "GET" && url.pathname === "/admin/campaigns") {
