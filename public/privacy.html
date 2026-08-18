@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Meanwhile — privacy policy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" href="logo-192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#07070a; --panel:rgba(255,255,255,0.045); --border:rgba(255,255,255,0.09);
+    --text:#f5f0e6; --muted:#9a9aa4; --gold:#e8c896; --green:#7ee787;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
+         -webkit-font-smoothing:antialiased; min-height:100vh; position:relative; overflow-x:hidden; }
+
+  .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .blob { position:absolute; border-radius:50%; filter:blur(110px); opacity:.18; mix-blend-mode:screen; }
+  .b1 { width:420px; height:420px; background:#14c9a5; top:-160px; left:-140px; animation:float1 26s ease-in-out infinite; }
+  .b2 { width:380px; height:380px; background:#ec4899; bottom:-140px; right:-140px; animation:float2 30s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(50px,60px) scale(1.1); } }
+  @keyframes float2 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-60px,-40px) scale(.95); } }
+
+  .wrap { position:relative; z-index:1; max-width:640px; margin:0 auto; padding:48px 24px 100px; }
+  .back-link { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted);
+               text-decoration:none; margin-bottom:32px; transition:color .2s; }
+  .back-link:hover { color:var(--gold); }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:36px; }
+  .brand img { width:28px; height:28px; }
+  .brand span { font-family:'Fraunces',serif; font-size:16px; font-weight:600; }
+
+  h1 { font-family:'Fraunces',serif; font-size:clamp(28px,6vw,38px); font-weight:700; margin-bottom:10px; letter-spacing:-0.01em; }
+  .updated { font-size:12.5px; color:var(--muted); margin-bottom:8px; }
+  .honest-note { font-size:13px; color:var(--muted); background:var(--panel); border:1px solid var(--border);
+    border-radius:11px; padding:14px 16px; margin:20px 0 40px; line-height:1.6; }
+  .honest-note b { color:var(--text); }
+
+  h2 { font-family:'Fraunces',serif; font-size:19px; font-weight:600; margin:38px 0 12px; }
+  p, li { font-size:14.5px; color:var(--muted); line-height:1.7; margin-bottom:12px; }
+  ul { padding-left:20px; margin-bottom:12px; }
+  strong { color:var(--text); }
+  code { font-family:'JetBrains Mono',monospace; font-size:13px; background:rgba(255,255,255,.06);
+         padding:2px 6px; border-radius:4px; color:var(--gold); }
+  a { color:var(--gold); }
+
+  .never-list { display:flex; flex-direction:column; gap:10px; background:var(--panel); border:1px solid var(--border);
+                border-radius:12px; padding:18px 20px; margin:16px 0 24px; }
+  .never-item { display:flex; gap:10px; font-size:14px; color:var(--text); align-items:flex-start; }
+  .never-item svg { flex-shrink:0; color:var(--green); margin-top:2px; }
+
+  table { width:100%; border-collapse:collapse; margin:16px 0 24px; font-size:13.5px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); color:var(--muted); }
+  th { color:var(--text); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  td strong { color:var(--text); }
+
+  footer { margin-top:56px; color:#5a5a62; font-size:12px; text-align:center; }
+  footer a { color:var(--muted); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div></div>
+<div class="wrap">
+  <a href="install.html" class="back-link">← back to Meanwhile</a>
+  <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: August 18, 2026</p>
+
+  <div class="honest-note">
+    <b>The short, honest version:</b> we built this to need as little of your data as possible. No accounts, no cookies, no analytics scripts, no tracking beyond what's required to bill sponsor impressions correctly. This page describes exactly what the code sends and stores — you can verify it yourself, the client is a short, readable script.
+  </div>
+
+  <h2>What we never collect</h2>
+  <div class="never-list">
+    <div class="never-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Your prompts, your code, or anything in your Claude Code conversation — it never leaves your machine.</div>
+    <div class="never-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Your name, IP-linked identity, or any account information — there is no account.</div>
+    <div class="never-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Browsing data, cookies, or third-party trackers on this website.</div>
+  </div>
+
+  <h2>What we do collect — developer side</h2>
+  <table>
+    <tr><th>Data</th><th>Why</th></tr>
+    <tr><td><strong>Anonymous install ID</strong><br>a random string generated on install, stored in a local file on your machine</td><td>The only way we identify "an install" to track and pay earnings — not tied to your name or email unless you choose to register one.</td></tr>
+    <tr><td><strong>Which line was shown</strong><br>tip or sponsor, and which sponsor</td><td>Required to calculate what a sponsor owes and what you're owed.</td></tr>
+    <tr><td><strong>Timestamps</strong></td><td>Billing is based on how long a line was actually shown — this is the whole point of the "no artificial timers" design.</td></tr>
+    <tr><td><strong>Payout email (optional)</strong><br>only if you register one</td><td>Where your PayPal payout gets sent once you cross $25.</td></tr>
+  </table>
+
+  <h2>What we do collect — advertiser side</h2>
+  <p>Company name, destination URL, the ad line text, and an email address, submitted directly through the advertiser form. Payment itself is handled entirely by PayPal — we never see or store your card or bank details; PayPal passes us only a confirmation that payment succeeded.</p>
+
+  <h2>Where it's stored</h2>
+  <p>Everything lives in Cloudflare KV, a database attached to the Cloudflare Worker that runs this whole service. We don't run our own servers and don't copy this data anywhere else.</p>
+
+  <h2>Third parties</h2>
+  <ul>
+    <li><strong>PayPal</strong> — processes all payments and payouts. See <a href="https://www.paypal.com/us/legalhub/privacy-full" target="_blank" rel="noopener">PayPal's own privacy policy</a> for how they handle your payment data.</li>
+    <li><strong>Cloudflare</strong> — hosts the site and the database. Standard infrastructure logs (like any host) may briefly exist at that layer; we don't access or use them beyond debugging.</li>
+  </ul>
+  <p>We do not sell, rent, or share your data with anyone else, for any reason.</p>
+
+  <h2>Deleting your data</h2>
+  <p>Since there's no account system, we can't offer a self-serve "delete my account" button. Email <a href="mailto:meanwhile@gmail.com">meanwhile@gmail.com</a> with your install ID (or the payout/advertiser email you registered) and we'll remove your data from our database.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If what we collect or how we use it ever changes, we'll update this page first.</p>
+
+  <h2>Contact</h2>
+  <p><a href="mailto:meanwhile@gmail.com">meanwhile@gmail.com</a></p>
+
+  <footer>Meanwhile — <a href="install.html">home</a> · <a href="terms.html">terms of service</a></footer>
+</div>
+</body>
+</html>

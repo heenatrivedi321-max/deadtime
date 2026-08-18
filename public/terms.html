@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Meanwhile — terms of service</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" href="logo-192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#07070a; --panel:rgba(255,255,255,0.045); --border:rgba(255,255,255,0.09);
+    --text:#f5f0e6; --muted:#9a9aa4; --gold:#e8c896;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
+         -webkit-font-smoothing:antialiased; min-height:100vh; position:relative; overflow-x:hidden; }
+
+  .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .blob { position:absolute; border-radius:50%; filter:blur(110px); opacity:.18; mix-blend-mode:screen; }
+  .b1 { width:420px; height:420px; background:#a855f7; top:-160px; right:-140px; animation:float1 26s ease-in-out infinite; }
+  .b2 { width:380px; height:380px; background:#3b82f6; bottom:-140px; left:-140px; animation:float2 30s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-50px,60px) scale(1.1); } }
+  @keyframes float2 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(60px,-40px) scale(.95); } }
+
+  .wrap { position:relative; z-index:1; max-width:640px; margin:0 auto; padding:48px 24px 100px; }
+  .back-link { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted);
+               text-decoration:none; margin-bottom:32px; transition:color .2s; }
+  .back-link:hover { color:var(--gold); }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:36px; }
+  .brand img { width:28px; height:28px; }
+  .brand span { font-family:'Fraunces',serif; font-size:16px; font-weight:600; }
+
+  h1 { font-family:'Fraunces',serif; font-size:clamp(28px,6vw,38px); font-weight:700; margin-bottom:10px; letter-spacing:-0.01em; }
+  .updated { font-size:12.5px; color:var(--muted); margin-bottom:8px; }
+  .honest-note { font-size:13px; color:var(--muted); background:var(--panel); border:1px solid var(--border);
+    border-radius:11px; padding:14px 16px; margin:20px 0 40px; line-height:1.6; }
+  .honest-note b { color:var(--text); }
+
+  h2 { font-family:'Fraunces',serif; font-size:19px; font-weight:600; margin:38px 0 12px; }
+  p, li { font-size:14.5px; color:var(--muted); line-height:1.7; margin-bottom:12px; }
+  ul { padding-left:20px; margin-bottom:12px; }
+  strong { color:var(--text); }
+  code { font-family:'JetBrains Mono',monospace; font-size:13px; background:rgba(255,255,255,.06);
+         padding:2px 6px; border-radius:4px; color:var(--gold); }
+  a { color:var(--gold); }
+
+  footer { margin-top:56px; color:#5a5a62; font-size:12px; text-align:center; }
+  footer a { color:var(--muted); text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div></div>
+<div class="wrap">
+  <a href="install.html" class="back-link">← back to Meanwhile</a>
+  <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
+
+  <h1>Terms of Service</h1>
+  <p class="updated">Last updated: August 18, 2026</p>
+
+  <div class="honest-note">
+    <b>The short, honest version:</b> Meanwhile is a small, early-stage, single-developer product, not a company with a legal team. These terms describe exactly what the code actually does — no more, no less. If something here ever changes, we'll change it here first, not quietly in the code.
+  </div>
+
+  <h2>1. What Meanwhile is</h2>
+  <p>Meanwhile is a status-line integration for Claude Code. Once installed, it shows a small line of text — usually a tip, occasionally a clearly labeled "(sponsored)" line — while Claude Code is working. Developers who run it earn a share of sponsor revenue; companies can pay to have a line shown.</p>
+
+  <h2>2. For developers</h2>
+  <ul>
+    <li>Installing creates a random, anonymous install ID stored locally on your machine. There is no account, no signup, no login.</li>
+    <li>Sponsor lines are billed to advertisers at $2 per 1,000 shown impressions. You receive <strong>50%</strong> of that revenue, tracked against your install ID.</li>
+    <li>We do not guarantee any particular volume of sponsor lines, or any minimum earnings. Sponsor volume depends entirely on real advertiser demand, which may be low or zero at any given time — we are pre-launch as of this writing, and no real advertiser has yet completed a paid campaign.</li>
+    <li>Once your tracked balance crosses <strong>$25</strong>, it is paid automatically to the PayPal email you register — no manual step, no request needed on your part.</li>
+    <li>Your install ID and its balance live only on your machine and in our database. If you delete the local install files without registering a payout email first, we have no way to identify or pay you — there's no username or account recovery to fall back on.</li>
+    <li>You can stop using Meanwhile at any time by removing the <code>statusLine</code> entry from <code>~/.claude/settings.json</code>. Any balance already earned and tied to your install ID remains claimable afterward, provided you still have that ID.</li>
+  </ul>
+
+  <h2>3. For advertisers</h2>
+  <ul>
+    <li>A campaign is purchased in blocks of 1,000 impressions at $2/block, paid via PayPal.</li>
+    <li>Once payment is captured, your campaign is activated automatically and enters real rotation — delivery speed depends entirely on real, organic Claude Code usage across the network at that time. We do not guarantee a delivery timeline.</li>
+    <li>We make no guarantees about clicks, conversions, or any outcome beyond the line actually being shown the number of times purchased.</li>
+    <li>Your line and destination link are shown as submitted; we do not edit ad copy, but we reserve the right to remove or refuse any campaign that is illegal, deceptive, malicious (including anything linking to malware or phishing), or sexually explicit.</li>
+    <li><strong>Refunds:</strong> if your campaign is refused, removed for a policy violation, or the service is discontinued before your purchased impressions are fully delivered, you're entitled to a pro-rated refund for the undelivered portion. We calculate this from the same <code>impressions_delivered</code> / <code>impressions_total</code> numbers shown on your campaign dashboard — nothing hidden. Once impressions are fully delivered, the purchase is final.</li>
+  </ul>
+
+  <h2>4. No warranty</h2>
+  <p>Meanwhile is provided as-is, run by one person as an early-stage product. We don't promise uptime, don't promise the service will exist indefinitely, and don't promise it's free of bugs. If we ever decide to shut the service down, we'll honor outstanding developer balances and refund undelivered advertiser impressions as described above, on a best-effort basis.</p>
+
+  <h2>5. Changes to these terms</h2>
+  <p>If these terms change in a way that affects what you're owed or what's expected of you, we'll update this page and, where we have a way to reach you (a registered payout or advertiser email), let you know.</p>
+
+  <h2>6. Contact</h2>
+  <p>Questions, disputes, refund requests, or anything else: <a href="mailto:meanwhile@gmail.com">meanwhile@gmail.com</a></p>
+
+  <footer>Meanwhile — <a href="install.html">home</a> · <a href="privacy.html">privacy policy</a></footer>
+</div>
+</body>
+</html>
