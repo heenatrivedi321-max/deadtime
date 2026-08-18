@@ -96,6 +96,13 @@
 
   .tilt { transform-style:preserve-3d; transition:transform .15s ease-out; will-change:transform; }
 
+  .os-toggle { display:inline-flex; gap:2px; background:rgba(255,255,255,.04); border:1px solid var(--border);
+               border-radius:100px; padding:3px; margin-bottom:16px; }
+  .os-btn { background:none; border:none; color:var(--muted); font-size:12.5px; font-weight:600;
+            padding:7px 16px; border-radius:100px; cursor:pointer; transition:background .2s, color .2s; }
+  .os-btn.active { background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; }
+  .os-btn:not(.active):hover { color:var(--text); }
+
   .install-box { background:rgba(0,0,0,.55); backdrop-filter:blur(16px); border:1px solid var(--border);
                  border-radius:14px; padding:5px; margin-bottom:16px; display:flex; align-items:center;
                  box-shadow:0 30px 80px -30px rgba(0,0,0,.8); position:relative; }
@@ -311,6 +318,10 @@
   </div>
   <p class="sub reveal">A status line that pays you instead of just sitting there being dead weight. Mostly tips. Occasionally a sponsor — always labeled, never snuck in. Half the money's yours.</p>
 
+  <div class="os-toggle reveal">
+    <button class="os-btn active" data-os="unix" type="button">macOS / Linux</button>
+    <button class="os-btn" data-os="windows" type="button">Windows</button>
+  </div>
   <div class="install-box reveal tilt">
     <code id="installCmd">curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash</code>
     <button id="copyBtn">Copy</button>
@@ -555,6 +566,19 @@ function burstConfetti(x, y) {
       .onfinish = () => p.remove();
   }
 }
+/* ---------- OS install command toggle ---------- */
+const INSTALL_CMDS = {
+  unix: 'curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash',
+  windows: 'irm https://deadtime-server.bean-picker.workers.dev/install.ps1 | iex',
+};
+document.querySelectorAll('.os-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('installCmd').textContent = INSTALL_CMDS[btn.dataset.os];
+  });
+});
+
 document.getElementById('copyBtn').addEventListener('click', (e) => {
   navigator.clipboard.writeText(document.getElementById('installCmd').textContent);
   const btn = e.currentTarget;
