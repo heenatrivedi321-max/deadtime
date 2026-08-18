@@ -504,6 +504,7 @@ function renderOdometer(el, value) {
 async function loadStats() {
   try {
     const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    if (!res.ok) throw new Error('stats unavailable');
     const s = await res.json();
     renderOdometer(document.getElementById('odInstalls'), s.installs);
     renderOdometer(document.getElementById('odCalls'), s.total_calls);
@@ -511,6 +512,7 @@ async function loadStats() {
   } catch (e) {
     renderOdometer(document.getElementById('odInstalls'), 0);
     renderOdometer(document.getElementById('odCalls'), 0);
+    document.getElementById('statRatio').textContent = '–';
   }
 }
 loadStats();
@@ -736,6 +738,7 @@ let lastTotalCalls = null;
 async function pollNetworkActivity() {
   try {
     const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    if (!res.ok) return;
     const s = await res.json();
     if (lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
       const delta = Math.min(5, s.total_calls - lastTotalCalls);

@@ -123,6 +123,24 @@
   .help-note a { color:var(--muted); }
 
   .confetti-piece { position:fixed; z-index:50; pointer-events:none; border-radius:2px; }
+
+  .mega-wrap { width:100vw; margin-left:calc(50% - 50vw); margin-top:40px; margin-bottom:10px;
+               overflow:hidden; display:flex; justify-content:center; padding:20px 0; }
+  .mega-word { position:relative; font-family:'Fraunces',serif; font-weight:700;
+               font-size:clamp(44px,13vw,160px); letter-spacing:-0.03em; line-height:1;
+               white-space:nowrap; cursor:default; user-select:none; }
+  .mega-base { color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.14); }
+  .mega-shine { position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(126,231,135,.4) 45%, rgba(232,200,150,.4) 50%, rgba(94,201,160,.4) 55%, transparent 70%);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:megaShine 6s ease-in-out infinite; pointer-events:none; }
+  @keyframes megaShine { 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+  .mega-glow { position:absolute; inset:0;
+    background:radial-gradient(circle 220px at var(--mx,50%) var(--my,50%), #7ee787 0%, #e8c896 40%, #a855f7 70%, transparent 85%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    opacity:0; transition:opacity .4s ease; pointer-events:none; }
+  .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
+  .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
 </style>
 </head>
 <body>
@@ -192,6 +210,14 @@
   </div>
 
   <p class="help-note reveal">Stuck, or nothing showed up? Nothing was changed except one line in <code>~/.claude/settings.json</code> — you can safely delete that line and try again, or check the <a href="install.html#faq">FAQ on the homepage</a>.</p>
+
+  <div class="mega-wrap">
+    <div class="mega-word" id="megaWord" aria-hidden="true">
+      <span class="mega-base">Meanwhile</span>
+      <span class="mega-shine">Meanwhile</span>
+      <span class="mega-glow">Meanwhile</span>
+    </div>
+  </div>
   <div style="text-align:center; margin-top:24px; font-size:11px; color:#5a5a62;">
     <a href="terms.html" style="color:inherit">terms</a> · <a href="privacy.html" style="color:inherit">privacy</a>
   </div>
@@ -268,6 +294,28 @@ document.getElementById('copyBtn2').addEventListener('click', (e) => {
   btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = original, 1500);
 });
+
+/* ---------- giant interactive wordmark ---------- */
+const megaWord = document.getElementById('megaWord');
+if (megaWord) {
+  const setMegaPos = (x, y) => {
+    const r = megaWord.getBoundingClientRect();
+    megaWord.style.setProperty('--mx', ((x - r.left) / r.width * 100) + '%');
+    megaWord.style.setProperty('--my', ((y - r.top) / r.height * 100) + '%');
+  };
+  megaWord.addEventListener('mousemove', (e) => setMegaPos(e.clientX, e.clientY));
+  megaWord.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchmove', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchend', () => {
+    setTimeout(() => megaWord.classList.remove('touched'), 900);
+  });
+}
 </script>
 </body>
 </html>

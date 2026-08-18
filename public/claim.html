@@ -13,11 +13,19 @@
     --pp-dark:#003087; --pp-light:#0070ba; --pp-glow:#2a9bf0;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:radial-gradient(ellipse 60% 35% at 50% -5%, rgba(232,200,150,.09), transparent),
-         radial-gradient(ellipse 50% 30% at 90% 20%, rgba(168,85,247,.06), transparent), var(--bg);
-         color:var(--text); font-family:'Inter',-apple-system,sans-serif;
-         -webkit-font-smoothing:antialiased; min-height:100vh; }
-  .wrap { max-width:460px; margin:0 auto; padding:56px 24px 80px; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
+         -webkit-font-smoothing:antialiased; min-height:100vh; overflow-x:hidden; }
+
+  .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .blob { position:absolute; border-radius:50%; filter:blur(100px); opacity:.26; mix-blend-mode:screen; }
+  .b1 { width:420px; height:420px; background:#a855f7; top:-150px; right:-130px; animation:float1 24s ease-in-out infinite; }
+  .b2 { width:380px; height:380px; background:#14c9a5; top:40%; left:-140px; animation:float2 28s ease-in-out infinite; }
+  .b3 { width:360px; height:360px; background:#f2b134; bottom:-140px; right:10%; animation:float3 30s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-50px,70px) scale(1.1); } }
+  @keyframes float2 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(60px,40px) scale(.92); } }
+  @keyframes float3 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-40px,-50px) scale(1.08); } }
+
+  .wrap { position:relative; z-index:1; max-width:460px; margin:0 auto; padding:56px 24px 80px; }
 
   .brand { display:flex; align-items:center; gap:10px; margin-bottom:36px; }
   .brand img { width:28px; height:28px; }
@@ -114,17 +122,43 @@
   .note { font-size:12px; color:var(--muted); margin-top:18px; line-height:1.6; padding:14px 16px;
           background:var(--panel); border-radius:8px; border:1px solid var(--border); }
   .no-id { text-align:center; color:var(--muted); font-size:14px; padding:60px 20px; }
+
+  .mega-wrap { width:100vw; margin-left:calc(50% - 50vw); margin-top:24px; overflow:hidden;
+               display:flex; justify-content:center; padding:20px 0; }
+  .mega-word { position:relative; font-family:'Fraunces',serif; font-weight:700;
+               font-size:clamp(40px,13vw,150px); letter-spacing:-0.03em; line-height:1;
+               white-space:nowrap; cursor:default; user-select:none; }
+  .mega-base { color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.14); }
+  .mega-shine { position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(242,177,52,.4) 45%, rgba(63,185,104,.4) 50%, rgba(42,155,240,.4) 55%, transparent 70%);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:megaShine 6s ease-in-out infinite; pointer-events:none; }
+  @keyframes megaShine { 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+  .mega-glow { position:absolute; inset:0;
+    background:radial-gradient(circle 220px at var(--mx,50%) var(--my,50%), #e8c896 0%, #3fb968 40%, #2a9bf0 70%, transparent 85%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    opacity:0; transition:opacity .4s ease; pointer-events:none; }
+  .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
+  .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
   .no-id code { background:var(--panel); padding:3px 7px; border-radius:5px; border:1px solid var(--border); }
   #particles { position:fixed; inset:0; z-index:0; pointer-events:none; }
   .wrap { position:relative; z-index:2; }
 </style>
 </head>
 <body>
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
 <canvas id="particles"></canvas>
 <div class="wrap">
   <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
   <div id="app"></div>
-  <div style="text-align:center; margin-top:40px; font-size:11px; color:#5a5a62;">
+  <div class="mega-wrap">
+    <div class="mega-word" id="megaWord" aria-hidden="true">
+      <span class="mega-base">Meanwhile</span>
+      <span class="mega-shine">Meanwhile</span>
+      <span class="mega-glow">Meanwhile</span>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top:24px; font-size:11px; color:#5a5a62;">
     <a href="terms.html" style="color:inherit">terms</a> · <a href="privacy.html" style="color:inherit">privacy</a>
   </div>
 </div>
@@ -395,6 +429,28 @@ function tick(t) {
 }
 requestAnimationFrame(tick);
 setInterval(() => { if (Math.random() < 0.3) spawnYourPulse(); }, 5000);
+
+/* ---------- giant interactive wordmark ---------- */
+const megaWord = document.getElementById('megaWord');
+if (megaWord) {
+  const setMegaPos = (x, y) => {
+    const r = megaWord.getBoundingClientRect();
+    megaWord.style.setProperty('--mx', ((x - r.left) / r.width * 100) + '%');
+    megaWord.style.setProperty('--my', ((y - r.top) / r.height * 100) + '%');
+  };
+  megaWord.addEventListener('mousemove', (e) => setMegaPos(e.clientX, e.clientY));
+  megaWord.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchmove', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchend', () => {
+    setTimeout(() => megaWord.classList.remove('touched'), 900);
+  });
+}
 </script>
 </body>
 </html>

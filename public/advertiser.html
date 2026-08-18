@@ -25,6 +25,22 @@
                        width:auto; height:auto; transform:translate(-50%,-50%); object-fit:cover; opacity:.45; }
   .hero-video::after { content:''; position:absolute; inset:0;
     background:linear-gradient(180deg, rgba(7,7,10,.4) 0%, rgba(7,7,10,.8) 55%, var(--bg) 100%); }
+
+  .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .blob { position:absolute; border-radius:50%; filter:blur(100px); opacity:.28; mix-blend-mode:screen; }
+  .b1 { width:480px; height:480px; background:#a855f7; top:-160px; right:-140px; animation:float1 24s ease-in-out infinite; }
+  .b2 { width:420px; height:420px; background:#3b82f6; top:35%; left:-160px; animation:float2 28s ease-in-out infinite; }
+  .b3 { width:400px; height:400px; background:#14c9a5; bottom:-150px; right:8%; animation:float3 30s ease-in-out infinite; }
+  .b4 { width:340px; height:340px; background:#ec4899; top:65%; right:-110px; animation:float2 26s ease-in-out infinite reverse; }
+  @keyframes float1 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-60px,80px) scale(1.15); } }
+  @keyframes float2 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(70px,50px) scale(.9); } }
+  @keyframes float3 { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-50px,-60px) scale(1.1); } }
+
+  .bg-shimmer { position:fixed; inset:-20% -20%; z-index:0; pointer-events:none;
+    background:linear-gradient(115deg, transparent 35%, rgba(242,177,52,.05) 47%, rgba(236,72,153,.06) 50%, rgba(59,130,246,.05) 53%, transparent 65%);
+    background-size:250% 250%; animation:bgShimmer 14s ease-in-out infinite; }
+  @keyframes bgShimmer { 0%,100%{ background-position:0% 0%; } 50%{ background-position:100% 100%; } }
+
   .grain { position:fixed; inset:0; z-index:1; pointer-events:none; opacity:.04;
            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
   #particles { position:fixed; inset:0; z-index:1; pointer-events:none; }
@@ -33,11 +49,6 @@
     transform:translate(-50%,-50%); transition:opacity .3s; opacity:0; }
 
   .wrap { position:relative; z-index:2; max-width:620px; margin:0 auto; padding:60px 24px 80px; }
-
-  .logo-intro { display:flex; justify-content:center; margin-bottom:32px; }
-  .logo-intro img { width:64px; height:64px; filter:drop-shadow(0 0 30px rgba(232,200,150,.35));
-                     animation:logoFloat 5s ease-in-out infinite; }
-  @keyframes logoFloat { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-8px); } }
 
   .reveal { opacity:0; transform:translateY(20px) scale(.98); filter:blur(4px);
             transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), filter .8s cubic-bezier(.16,1,.3,1); }
@@ -73,6 +84,27 @@
   .stat .static { font-size:26px; font-weight:800; text-shadow:0 0 20px rgba(232,200,150,.3); }
 
   .tilt { transform-style:preserve-3d; transition:transform .15s ease-out; will-change:transform; }
+
+  /* ---- giant interactive wordmark ---- */
+  .mega-wrap { width:100vw; margin-left:calc(50% - 50vw); margin-top:20px; margin-bottom:20px;
+               overflow:hidden; display:flex; justify-content:center; padding:20px 0; }
+  .mega-word { position:relative; font-family:'Fraunces',serif; font-weight:700;
+               font-size:clamp(52px,15vw,190px); letter-spacing:-0.03em; line-height:1;
+               white-space:nowrap; cursor:default; user-select:none; }
+  .mega-base { color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.14); }
+  .mega-shine { position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(168,85,247,.4) 45%, rgba(59,130,246,.4) 50%, rgba(20,201,165,.4) 55%, transparent 70%);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:megaShine 6s ease-in-out infinite; pointer-events:none; }
+  @keyframes megaShine { 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+  .mega-glow { position:absolute; inset:0;
+    background:radial-gradient(circle 260px at var(--mx,50%) var(--my,50%),
+      #f2b134 0%, #ec4899 30%, #a855f7 55%, transparent 75%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    opacity:0; transition:opacity .4s ease; pointer-events:none; }
+  .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
+  .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
+  @media (max-width:480px) { .mega-word { font-size:16vw; } }
 
   .demo { background:rgba(0,0,0,.6); backdrop-filter:blur(16px); border:1px solid var(--border); border-radius:14px;
           padding:20px 22px; margin-bottom:44px; position:relative; overflow:hidden; box-shadow:0 20px 60px -20px rgba(0,0,0,.7); }
@@ -155,9 +187,9 @@
 <div id="spotlight"></div>
 <div class="grain"></div>
 
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+<div class="bg-shimmer"></div>
 <div class="wrap">
-  <div class="logo-intro reveal in"><img src="logo-192.png" alt="Meanwhile"></div>
-
   <div class="badge reveal"><span class="dot"></span> live · built on Claude Code's official status line</div>
 
   <h1 class="reveal glitch" data-text="Sponsor a developer's status line.">Sponsor a developer's status line.</h1>
@@ -223,6 +255,14 @@
     <div id="status" class="status"></div>
   </form>
 
+  <div class="mega-wrap reveal">
+    <div class="mega-word" id="megaWord" aria-hidden="true">
+      <span class="mega-base">Meanwhile</span>
+      <span class="mega-shine">Meanwhile</span>
+      <span class="mega-glow" id="megaGlow">Meanwhile</span>
+    </div>
+  </div>
+
   <footer class="reveal">
     Meanwhile — nothing patched, open about what we track. <a href="install.html">install it instead →</a>
     <div style="margin-top:10px; font-size:11px;"><a href="terms.html">terms</a> · <a href="privacy.html">privacy</a></div>
@@ -273,11 +313,13 @@ function renderOdometer(el, value) {
 async function loadStats() {
   try {
     const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    if (!res.ok) throw new Error('stats unavailable');
     const s = await res.json();
     renderOdometer(document.getElementById('odCalls'), s.total_calls);
     document.getElementById('statRatio').textContent = Math.round(s.sponsor_ratio * 100) + '%';
   } catch (e) {
     renderOdometer(document.getElementById('odCalls'), 0);
+    document.getElementById('statRatio').textContent = '–';
   }
 }
 loadStats();
@@ -365,6 +407,32 @@ document.querySelectorAll('.tilt').forEach(card => {
     card.style.transform = 'perspective(700px) rotateY(0) rotateX(0) scale(1)';
   });
 });
+
+/* ---------- giant interactive wordmark ---------- */
+const megaWord = document.getElementById('megaWord');
+if (megaWord) {
+  const setPos = (x, y) => {
+    const r = megaWord.getBoundingClientRect();
+    megaWord.style.setProperty('--mx', ((x - r.left) / r.width * 100) + '%');
+    megaWord.style.setProperty('--my', ((y - r.top) / r.height * 100) + '%');
+  };
+  megaWord.addEventListener('mousemove', (e) => setPos(e.clientX, e.clientY));
+  megaWord.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    if (!t) return;
+    setPos(t.clientX, t.clientY);
+    megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (!t) return;
+    setPos(t.clientX, t.clientY);
+    megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchend', () => {
+    setTimeout(() => megaWord.classList.remove('touched'), 900);
+  });
+}
 
 /* ---------- cursor spotlight ---------- */
 const spotlight = document.getElementById('spotlight');
@@ -467,6 +535,7 @@ let lastTotalCalls = null;
 async function pollNetworkActivity() {
   try {
     const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    if (!res.ok) return;
     const s = await res.json();
     if (lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
       const delta = Math.min(5, s.total_calls - lastTotalCalls);
