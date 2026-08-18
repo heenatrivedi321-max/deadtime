@@ -190,6 +190,16 @@ async function handleEarnings(env, installId) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PAYOUT_THRESHOLD_USD = 25;
 
+/** The install ID alone is what /claim?id=... is built around -- and
+ * that ID is meant to be shared (it's in a URL, it gets screenshotted,
+ * pasted into chat, sits in browser history). That's fine for *viewing*
+ * earnings, but if it were also sufficient to *redirect* an existing
+ * payout destination, a leaked ID would let anyone silently steal
+ * someone else's future payouts. So: setting a payout email for the
+ * first time is open (there's nothing to protect yet), but changing an
+ * already-registered one requires proving you know the current value
+ * too -- an install ID alone is no longer enough once real money has a
+ * real destination attached. */
 async function handleRegisterPayout(request, env) {
   let data;
   try {
@@ -197,13 +207,21 @@ async function handleRegisterPayout(request, env) {
   } catch {
     return json({ error: "bad json" }, 400);
   }
-  const { id, email } = data;
+  const { id, email, current_email } = data;
   if (!id || !email) return json({ error: "missing id or email" }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "invalid email" }, 400);
 
   const key = `install:${id}`;
   const raw = await env.INSTALLS.get(key);
   const state = raw ? JSON.parse(raw) : defaultState();
+
+  if (state.payout_email && state.payout_email.toLowerCase() !== email.toLowerCase()) {
+    if (!current_email || current_email.toLowerCase() !== state.payout_email.toLowerCase()) {
+      await logError(env, "payout_email_change_blocked", `install ${id} tried to change payout email without confirming the current one`, `existing: ${state.payout_email}, attempted: ${email}`);
+      return json({ error: "to change an already-registered payout email, you must also provide the current one" }, 403);
+    }
+  }
+
   state.payout_email = email;
   await env.INSTALLS.put(key, JSON.stringify(state));
 

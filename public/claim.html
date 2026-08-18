@@ -172,6 +172,18 @@ const THRESHOLD = 25;
 const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d1117" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>`;
 const ppMark = `<img src="paypal-mark.png" alt="PayPal">`;
 
+/** Never render the full registered email anywhere -- a leaked install
+ * ID would otherwise hand an attacker exactly the value they'd need to
+ * "prove" they know the current email when trying to redirect payouts. */
+function maskEmail(email) {
+  const [user, domain] = email.split('@');
+  if (!domain) return '••••••';
+  const maskedUser = user.length <= 2 ? user[0] + '•' : user[0] + '•'.repeat(Math.min(user.length - 2, 5)) + user[user.length - 1];
+  const [domName, ...domRest] = domain.split('.');
+  const maskedDom = domName.length <= 2 ? domName[0] + '•' : domName[0] + '•'.repeat(Math.min(domName.length - 2, 5)) + domName[domName.length - 1];
+  return `${maskedUser}@${maskedDom}.${domRest.join('.')}`;
+}
+
 if (!id) {
   app.innerHTML = `
     <h1>No install ID found</h1>
@@ -220,8 +232,12 @@ if (!id) {
 
     <div class="form-panel">
       <form id="claimForm">
+        <div id="currentEmailWrap" style="display:none;">
+          <label for="currentEmail">Current registered email (to confirm it's really you)</label>
+          <input id="currentEmail" type="email" placeholder="what's on file now" autocomplete="off">
+        </div>
         <div>
-          <label for="email">PayPal email address</label>
+          <label for="email" id="emailLabel">PayPal email address</label>
           <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
         </div>
         <div>
@@ -278,6 +294,7 @@ if (!id) {
   }
 
   let emailFieldTouched = false;
+  let originalPayoutEmail = null;
   document.getElementById('email').addEventListener('input', () => { emailFieldTouched = true; });
   document.getElementById('emailConfirm').addEventListener('input', () => { emailFieldTouched = true; });
 
@@ -297,13 +314,15 @@ if (!id) {
         document.getElementById('stepThreshold').querySelector('.check').innerHTML = checkIcon;
       }
       if (s.payout_email) {
-        if (!emailFieldTouched) {
-          document.getElementById('email').value = s.payout_email;
-          document.getElementById('emailConfirm').value = s.payout_email;
-        }
+        originalPayoutEmail = s.payout_email;
         document.getElementById('stepEmail').classList.add('done');
         document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
-        document.getElementById('destNote').textContent = s.payout_email;
+        document.getElementById('destNote').textContent = maskEmail(s.payout_email);
+        document.getElementById('emailLabel').textContent = 'New PayPal email address';
+        document.getElementById('email').placeholder = 'only fill in to change it';
+        document.getElementById('email').required = false;
+        document.getElementById('emailConfirm').required = false;
+        document.getElementById('currentEmailWrap').style.display = 'block';
       }
       if (typeof spawnYourPulse === 'function' && lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
         const delta = Math.min(4, s.total_calls - lastTotalCalls);
@@ -323,7 +342,14 @@ if (!id) {
     const status = document.getElementById('status');
     const email = document.getElementById('email').value.trim();
     const emailConfirm = document.getElementById('emailConfirm').value.trim();
+    const currentEmail = document.getElementById('currentEmail').value.trim();
     const mismatchNote = document.getElementById('emailMismatch');
+
+    if (originalPayoutEmail && !email) {
+      status.textContent = 'Already registered — enter a new email above only if you want to change it.';
+      status.className = 'status err';
+      return;
+    }
 
     if (email.toLowerCase() !== emailConfirm.toLowerCase()) {
       mismatchNote.style.display = 'block';
@@ -332,13 +358,24 @@ if (!id) {
     }
     mismatchNote.style.display = 'none';
 
+    if (originalPayoutEmail && originalPayoutEmail.toLowerCase() !== email.toLowerCase() && !currentEmail) {
+      status.textContent = 'Enter the currently registered email above to confirm it\'s really you.';
+      status.className = 'status err';
+      document.getElementById('currentEmail').focus();
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = 'Registering…';
     try {
+      const body = { id, email };
+      if (originalPayoutEmail && originalPayoutEmail.toLowerCase() !== email.toLowerCase()) {
+        body.current_email = currentEmail;
+      }
       const res = await fetch('https://deadtime-server.bean-picker.workers.dev/register-payout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, email }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'failed');
