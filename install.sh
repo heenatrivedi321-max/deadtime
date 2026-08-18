@@ -14,8 +14,16 @@ mkdir -p "$INSTALL_DIR"
 curl -fsSL "$SERVER/statusline.py" -o "$INSTALL_DIR/statusline.py"
 
 if ! python3 -c "import certifi" 2>/dev/null; then
-  echo "deadtime: installing certifi (needed for HTTPS)..."
-  python3 -m pip install --quiet certifi
+  echo "deadtime: installing certifi (helps with HTTPS, not required)..."
+  # Modern Python installs (Homebrew, Debian 12+, Ubuntu 23+) often block a
+  # plain "pip install" by default (PEP 668). Try a few real fallbacks, but
+  # never let this step take down the whole install -- statusline.py works
+  # fine without certifi too, just falls back to the system's own
+  # certificate store instead of a bundled one.
+  python3 -m pip install --quiet certifi 2>/dev/null \
+    || python3 -m pip install --quiet --user certifi 2>/dev/null \
+    || python3 -m pip install --quiet --break-system-packages certifi 2>/dev/null \
+    || echo "deadtime: couldn't install certifi, continuing without it (statusline.py falls back automatically)"
 fi
 
 python3 - "$INSTALL_DIR/statusline.py" <<'PYEOF'

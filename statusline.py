@@ -12,12 +12,18 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-import certifi
+try:
+    import certifi
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    # certifi is a nice-to-have, not a hard requirement -- falls back to
+    # the system's own certificate store, which is normally fine on both
+    # macOS and Linux. Never let a missing package break the status line.
+    SSL_CONTEXT = ssl.create_default_context()
 
 SERVER_URL = "https://deadtime-server.bean-picker.workers.dev"
 INSTALL_ID_FILE = Path.home() / ".deadtime" / "install_id"
 FALLBACK_LINE = "deadtime: agent working..."
-SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 
 def get_install_id() -> str:
@@ -83,9 +89,18 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--claim":
         print_claim_info()
         return
-    event_name = read_event_name()
-    install_id = get_install_id()
-    print(fetch_line(install_id, event_name))
+    # Everything above this line only ever fails quiet and returns a
+    # fallback value -- but get_install_id() touches the filesystem
+    # (permission denied, read-only home dir, disk full are all real
+    # possibilities out in the world), and that was never guarded. The
+    # site's own promise is "never blocks or breaks your terminal" --
+    # this makes that actually true instead of true-in-most-cases.
+    try:
+        event_name = read_event_name()
+        install_id = get_install_id()
+        print(fetch_line(install_id, event_name))
+    except Exception:
+        print(FALLBACK_LINE)
 
 
 if __name__ == "__main__":
