@@ -29,7 +29,7 @@ const IMPRESSIONS_PER_BLOCK = 1000;
 const USD_PER_BLOCK = 2.0;
 const PAYPAL_API = "https://api-m.paypal.com"; // LIVE -- real money, no sandbox fallback configured
 
-const FILL_CEILING = 0.40;
+const FILL_CEILING = 0.6;
 const BILLABLE_THRESHOLD = 10;
 const CPM = 2.0;
 const USER_SHARE = 0.5;
