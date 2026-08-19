@@ -105,6 +105,19 @@
   .step.done .check { background:var(--green); border-color:var(--green); transform:scale(1.15); }
   .step.done { color:var(--text); }
 
+  .badge-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+  .badge-card-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .badge-card-sub { font-size:13px; color:var(--muted); line-height:1.55; margin-bottom:14px; }
+  .badge-preview { display:block; margin-bottom:14px; }
+  .cmd-box { background:rgba(0,0,0,.55); border:1px solid var(--border); border-radius:11px; padding:12px 14px;
+             display:flex; align-items:center; gap:10px; }
+  .cmd-box code { flex:1; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#a8f0c6;
+                   overflow-x:auto; white-space:nowrap; }
+  .cmd-box button { background:rgba(255,255,255,.08); border:1px solid var(--border); color:var(--text);
+                     border-radius:7px; padding:8px 14px; font-size:12.5px; cursor:pointer; white-space:nowrap;
+                     transition:background .2s; flex-shrink:0; }
+  .cmd-box button:hover { background:rgba(255,255,255,.16); }
+
   .form-panel { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:12px;
                 padding:22px; min-height:150px; }
   form { display:flex; flex-direction:column; gap:14px; transition:opacity .3s ease, transform .3s ease; }
@@ -262,6 +275,16 @@ if (!id) {
       <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
     </div>
 
+    <div class="badge-card">
+      <div class="badge-card-label">Show it off</div>
+      <p class="badge-card-sub">A live badge for your GitHub README or profile — updates automatically as you earn, no login needed to view it.</p>
+      <img class="badge-preview" id="badgePreview" src="https://deadtime-server.bean-picker.workers.dev/badge?id=${id}" alt="meanwhile earnings badge" width="132" height="20">
+      <div class="cmd-box">
+        <code id="badgeMarkdown">[![meanwhile](https://deadtime-server.bean-picker.workers.dev/badge?id=${id})](https://deadtime-server.bean-picker.workers.dev/install)</code>
+        <button id="copyBadgeBtn" class="magnetic" type="button">Copy</button>
+      </div>
+    </div>
+
     <div class="form-panel">
       <form id="claimForm">
         <div id="currentEmailWrap" style="display:none;">
@@ -294,6 +317,17 @@ if (!id) {
 
     <p class="note">Payouts run automatically, once a day, straight to your registered PayPal email the moment your balance crosses $${THRESHOLD} — no manual step, no waiting for a batch.</p>
   `;
+
+  const copyBadgeBtn = document.getElementById('copyBadgeBtn');
+  if (copyBadgeBtn) {
+    copyBadgeBtn.addEventListener('click', () => {
+      const text = document.getElementById('badgeMarkdown').textContent;
+      navigator.clipboard.writeText(text);
+      const original = copyBadgeBtn.textContent;
+      copyBadgeBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBadgeBtn.textContent = original; }, 1500);
+    });
+  }
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!prefersReducedMotion) import('./electricborder.js').then(({ initElectricBorder }) => {

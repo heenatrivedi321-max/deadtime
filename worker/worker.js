@@ -257,6 +257,92 @@ async function handleEarnings(env, installId) {
   });
 }
 
+/** Shields.io-style embeddable SVG badge -- "prove your earnings are
+ * real" for a GitHub README/profile. Deliberately public and
+ * unauthenticated, same posture as /earnings: the install ID is
+ * already the only "auth" this whole system has, and a badge is
+ * explicitly meant to be shown to strangers, so there's nothing new
+ * to protect by locking this down. Reuses the exact same earnings
+ * math as /earnings rather than recomputing it a second way, so the
+ * two can never silently drift apart. Cached at the edge for 5
+ * minutes -- a badge embedded in a popular README could get hit far
+ * more often than a real user ever checks their own earnings, and a
+ * badge doesn't need to be second-accurate. */
+function estimateBadgeTextWidth(text) {
+  return Math.round(text.length * 6.5);
+}
+
+function escapeSvgText(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function badgeSvg(label, value, valueColor) {
+  const pad = 10;
+  const labelWidth = estimateBadgeTextWidth(label) + pad * 2;
+  const valueWidth = estimateBadgeTextWidth(value) + pad * 2;
+  const totalWidth = labelWidth + valueWidth;
+  const labelX = labelWidth / 2;
+  const valueX = labelWidth + valueWidth / 2;
+  const labelEsc = escapeSvgText(label);
+  const valueEsc = escapeSvgText(value);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20" role="img" aria-label="${labelEsc}: ${valueEsc}">
+<title>${labelEsc}: ${valueEsc}</title>
+<linearGradient id="s" x2="0" y2="100%">
+<stop offset="0" stop-color="#fff" stop-opacity=".08"/>
+<stop offset="1" stop-opacity=".08"/>
+</linearGradient>
+<clipPath id="r"><rect width="${totalWidth}" height="20" rx="3" fill="#fff"/></clipPath>
+<g clip-path="url(#r)">
+<rect width="${labelWidth}" height="20" fill="#0d0d10"/>
+<rect x="${labelWidth}" width="${valueWidth}" height="20" fill="${valueColor}"/>
+<rect width="${totalWidth}" height="20" fill="url(#s)"/>
+</g>
+<g fill="#fff" text-anchor="middle" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11">
+<text x="${labelX}" y="14" fill="#000" fill-opacity=".3">${labelEsc}</text>
+<text x="${labelX}" y="13">${labelEsc}</text>
+<text x="${valueX}" y="14" fill="#000" fill-opacity=".3">${valueEsc}</text>
+<text x="${valueX}" y="13" fill="#0d0d10">${valueEsc}</text>
+</g>
+</svg>`;
+}
+
+async function handleBadge(env, request) {
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+
+  const cacheKey = new Request(new URL(`/badge?id=${encodeURIComponent(id || "")}`, url.origin).toString());
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  let value = "install the client";
+  let color = "#8c8c96";
+
+  if (id && isValidId(id)) {
+    const raw = await env.INSTALLS.get(`install:${id}`);
+    if (raw) {
+      const state = JSON.parse(raw);
+      const revenue = state.sponsor_calls * (CPM / 1000);
+      const earnings = revenue * USER_SHARE;
+      value = `$${earnings.toFixed(2)}`;
+      color = "#e8c896";
+    } else {
+      value = "no data yet";
+    }
+  }
+
+  const svg = badgeSvg("meanwhile", value, color);
+  const res = new Response(svg, {
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=300",
+      "access-control-allow-origin": "*",
+    },
+  });
+  await cache.put(cacheKey, res.clone());
+  return res;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** The real client only ever generates a standard v4 UUID for install_id.
  * Validating the shape at every entry point rejects garbage before it
@@ -1175,6 +1261,19 @@ export default {
       if (!id) return json({ error: "missing ?id=" }, 400);
       if (!isValidId(id)) return json({ error: "invalid id" }, 400);
       return handleEarnings(env, id);
+    }
+
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/badge") {
+      // HEAD support matters here specifically -- unlike every other GET
+      // endpoint in this file, an embedded <img> badge can plausibly get
+      // probed by link checkers, GitHub's own asset validation, or a
+      // caching proxy issuing HEAD before GET. Found this live: `curl -I`
+      // 404'd because the route only ever matched GET, falling through to
+      // the static-asset catch-all. Real browsers loading an <img> tag
+      // always issue GET, so this never broke the actual feature -- but
+      // it's real, worth fixing rather than leaving as "works for the
+      // only case that matters right now."
+      return handleBadge(env, request);
     }
 
     if (request.method === "POST" && url.pathname === "/advertiser-lead") {
