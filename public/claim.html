@@ -227,9 +227,17 @@ if (!id) {
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-label">Your install ID</div>
-      <div class="id-value">${id}</div>
+    <div class="card electric-border" id="idCard">
+      <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+      <div class="eb-layers">
+        <div class="eb-glow-1"></div>
+        <div class="eb-glow-2"></div>
+        <div class="eb-background-glow"></div>
+      </div>
+      <div class="eb-content">
+        <div class="card-label">Your install ID</div>
+        <div class="id-value">${id}</div>
+      </div>
     </div>
 
     <div class="balance-card electric-border" id="balanceCard">
@@ -291,6 +299,10 @@ if (!id) {
     const balanceCard = document.getElementById('balanceCard');
     if (balanceCard) {
       initElectricBorder(balanceCard, { color: '#f2b134', speed: 1, chaos: 0.1, borderRadius: 12 });
+    }
+    const idCard = document.getElementById('idCard');
+    if (idCard) {
+      initElectricBorder(idCard, { color: '#a855f7', speed: 0.8, chaos: 0.08, borderRadius: 12 });
     }
   });
 

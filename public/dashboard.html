@@ -67,6 +67,21 @@
   .card-value { font-size:16px; font-weight:600; }
   .card-value.mono { font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--muted); word-break:break-all; }
 
+  /* ---- electric border (reactbits.dev), wraps the plain .card panels only --
+     .progress-card already has its own animated gradient border below, so it's
+     deliberately excluded here to avoid stacking two competing border effects. */
+  .electric-border { --electric-light-color: oklch(from var(--electric-border-color, #f2b134) l c h);
+    position:relative; border-radius:inherit; overflow:visible; isolation:isolate; }
+  .eb-canvas-container { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:2; }
+  .eb-canvas { display:block; }
+  .eb-content { position:relative; border-radius:inherit; z-index:1; }
+  .eb-layers { position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0; }
+  .eb-glow-1, .eb-glow-2, .eb-background-glow { position:absolute; inset:0; border-radius:inherit; pointer-events:none; box-sizing:border-box; }
+  .eb-glow-1 { border:2px solid oklch(from var(--electric-border-color, #f2b134) l c h / 0.6); filter:blur(1px); }
+  .eb-glow-2 { border:2px solid var(--electric-light-color); filter:blur(4px); }
+  .eb-background-glow { z-index:-1; transform:scale(1.1); filter:blur(32px); opacity:.3;
+    background:linear-gradient(-30deg, var(--electric-light-color), transparent, var(--electric-border-color, #f2b134)); }
+
   .progress-card { background:linear-gradient(180deg, var(--panel-2), var(--panel)); backdrop-filter:blur(16px);
                     border:1px solid var(--border); border-radius:16px; padding:26px; margin-bottom:20px;
                     position:relative; overflow:hidden; box-shadow:0 30px 70px -30px rgba(0,0,0,.7); }
@@ -208,7 +223,34 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/* This page re-renders every 15s (see load() below), fully rebuilding
+ * app.innerHTML each time -- so the electric-border canvases from the
+ * PREVIOUS render need their rAF loops explicitly stopped before new
+ * ones start, or they'd leak: the old canvas gets detached from the
+ * DOM but the old requestAnimationFrame loop has no way to know that
+ * and keeps calling itself forever, accumulating one more leaked loop
+ * every 15 seconds indefinitely. */
+let ebDestroyers = [];
+function teardownElectricBorders() {
+  ebDestroyers.forEach((destroy) => destroy());
+  ebDestroyers = [];
+}
+function setupElectricBorders() {
+  import('./electricborder.js').then(({ initElectricBorder }) => {
+    [
+      ['ebCardBlocks', '#f2b134'],
+      ['ebCardAmount', '#f2b134'],
+      ['ebCardLine', '#f2b134'],
+      ['ebCardDest', '#f2b134'],
+    ].forEach(([elId, color]) => {
+      const el = document.getElementById(elId);
+      if (el) ebDestroyers.push(initElectricBorder(el, { color, speed: 0.8, chaos: 0.08, borderRadius: 14 }));
+    });
+  });
+}
+
 function render(c) {
+  teardownElectricBorders();
   const pct = c.impressions_total ? Math.min(100, (c.impressions_delivered / c.impressions_total) * 100) : 0;
   const company = escapeHtml(c.company);
   const line = escapeHtml(c.line);
@@ -234,17 +276,33 @@ function render(c) {
     </div>
 
     <div class="grid">
-      <div class="card reveal tilt"><div class="card-label">Blocks purchased</div><div class="card-value">${c.blocks}</div></div>
-      <div class="card reveal tilt"><div class="card-label">Amount</div><div class="card-value">$${c.price_usd.toFixed(2)}</div></div>
+      <div class="card reveal tilt electric-border" id="ebCardBlocks">
+        <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+        <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+        <div class="eb-content"><div class="card-label">Blocks purchased</div><div class="card-value">${c.blocks}</div></div>
+      </div>
+      <div class="card reveal tilt electric-border" id="ebCardAmount">
+        <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+        <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+        <div class="eb-content"><div class="card-label">Amount</div><div class="card-value">$${c.price_usd.toFixed(2)}</div></div>
+      </div>
     </div>
 
-    <div class="card reveal tilt">
-      <div class="card-label">Your line</div>
-      <div class="card-value">${line}</div>
+    <div class="card reveal tilt electric-border" id="ebCardLine">
+      <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+      <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+      <div class="eb-content">
+        <div class="card-label">Your line</div>
+        <div class="card-value">${line}</div>
+      </div>
     </div>
-    <div class="card reveal tilt">
-      <div class="card-label">Destination</div>
-      <div class="card-value mono">${url}</div>
+    <div class="card reveal tilt electric-border" id="ebCardDest">
+      <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+      <div class="eb-layers"><div class="eb-glow-1"></div><div class="eb-glow-2"></div><div class="eb-background-glow"></div></div>
+      <div class="eb-content">
+        <div class="card-label">Destination</div>
+        <div class="card-value mono">${url}</div>
+      </div>
     </div>
 
     <div class="refresh-note reveal in"><span class="refresh-dot"></span> Updates automatically every 15 seconds</div>
@@ -252,6 +310,7 @@ function render(c) {
   renderOdometer(document.getElementById('odDelivered'), c.impressions_delivered);
   armReveals();
   armTilt();
+  setupElectricBorders();
 }
 
 let lastDelivered = null;
@@ -267,6 +326,7 @@ async function load() {
     }
     lastDelivered = c.impressions_delivered;
   } catch (e) {
+    teardownElectricBorders();
     app.innerHTML = `<div class="no-id">No campaign found for this ID.</div>`;
   }
 }
