@@ -7,9 +7,23 @@ set -euo pipefail
 
 SERVER="https://deadtime-server.bean-picker.workers.dev"
 INSTALL_DIR="$HOME/.deadtime-client"
+STATE_DIR="$HOME/.deadtime"
 
 echo "deadtime: installing to $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
+
+# If the install page generated an ID for this browser (so it could
+# remember "you're already set up" the moment you copied the command),
+# it's passed in via MEANWHILE_ID. Adopt it as the real install ID --
+# but only if we don't already have one, so re-running this script never
+# clobbers an existing install's history with a fresh random ID.
+if [ -n "${MEANWHILE_ID:-}" ] && [ ! -f "$STATE_DIR/install_id" ]; then
+  if echo "$MEANWHILE_ID" | grep -qE '^[0-9a-fA-F-]{36}$'; then
+    mkdir -p "$STATE_DIR"
+    printf '%s' "$MEANWHILE_ID" > "$STATE_DIR/install_id"
+    chmod 600 "$STATE_DIR/install_id" 2>/dev/null || true
+  fi
+fi
 
 curl -fsSL "$SERVER/statusline.py" -o "$INSTALL_DIR/statusline.py"
 

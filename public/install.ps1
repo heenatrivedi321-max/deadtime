@@ -7,9 +7,21 @@ $ErrorActionPreference = "Stop"
 
 $Server = "https://deadtime-server.bean-picker.workers.dev"
 $InstallDir = Join-Path $HOME ".deadtime-client"
+$StateDir = Join-Path $HOME ".deadtime"
 
 Write-Host "deadtime: installing to $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+
+# If the install page generated an ID for this browser (so it could
+# remember "you're already set up" the moment you copied the command),
+# it's passed in via $env:MEANWHILE_ID. Adopt it as the real install ID
+# -- but only if we don't already have one, so re-running this script
+# never clobbers an existing install's history with a fresh random ID.
+$stateIdPath = Join-Path $StateDir "install_id"
+if ($env:MEANWHILE_ID -and -not (Test-Path $stateIdPath) -and $env:MEANWHILE_ID -match '^[0-9a-fA-F-]{36}$') {
+    New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
+    Set-Content -Path $stateIdPath -Value $env:MEANWHILE_ID -NoNewline -Encoding utf8
+}
 
 Invoke-WebRequest -Uri "$Server/statusline.py" -OutFile (Join-Path $InstallDir "statusline.py") -UseBasicParsing
 

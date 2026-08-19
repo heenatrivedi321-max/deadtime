@@ -815,16 +815,44 @@ function burstConfetti(x, y) {
       .onfinish = () => p.remove();
   }
 }
-/* ---------- OS install command toggle ---------- */
-const INSTALL_CMDS = {
-  unix: 'curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash',
-  windows: 'irm https://deadtime-server.bean-picker.workers.dev/install.ps1 | iex',
-};
+/* ---------- OS install command toggle ----------
+   The command embeds a browser-generated install ID (MEANWHILE_ID) that
+   install.sh/install.ps1 adopt as the real install ID on first run --
+   so the exact ID this browser remembers is the exact ID the CLI ends
+   up using, not a separate guess. Generated once and cached until the
+   real claim.html confirms it (or it gets promoted at copy-time below),
+   so refreshing the page doesn't hand out a new one each time. */
+function getBrowserInstallId() {
+  try {
+    let id = localStorage.getItem('meanwhile_id') || localStorage.getItem('meanwhile_pending_id');
+    if (id) return id;
+    id = (crypto.randomUUID ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)));
+    localStorage.setItem('meanwhile_pending_id', id);
+    return id;
+  } catch (e) {
+    return null;
+  }
+}
+const browserInstallId = getBrowserInstallId();
+function installCmdFor(os, id) {
+  if (os === 'windows') {
+    return id
+      ? `$env:MEANWHILE_ID="${id}"; irm https://deadtime-server.bean-picker.workers.dev/install.ps1 | iex`
+      : 'irm https://deadtime-server.bean-picker.workers.dev/install.ps1 | iex';
+  }
+  return id
+    ? `MEANWHILE_ID=${id} curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash`
+    : 'curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash';
+}
+if (browserInstallId) {
+  document.getElementById('installCmd').textContent = installCmdFor('unix', browserInstallId);
+}
 document.querySelectorAll('.os-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('installCmd').textContent = INSTALL_CMDS[btn.dataset.os];
+    document.getElementById('installCmd').textContent = installCmdFor(btn.dataset.os, browserInstallId);
   });
 });
 
@@ -844,6 +872,18 @@ document.getElementById('copyBtn').addEventListener('click', (e) => {
   const original = btn.textContent;
   btn.textContent = 'Copied!';
   setTimeout(() => btn.textContent = original, 1500);
+
+  // The copy IS the signal: promote this browser's pending ID to
+  // "remembered" right now, rather than waiting for a later claim.html
+  // visit to confirm it -- matches what actually happens (install.sh
+  // will adopt this exact ID the moment the copied command runs).
+  if (browserInstallId) {
+    try {
+      localStorage.setItem('meanwhile_id', browserInstallId);
+      localStorage.removeItem('meanwhile_pending_id');
+    } catch (err) {}
+    showWelcomeBack(browserInstallId);
+  }
 });
 
 /* ---------- FAQ accordion ---------- */
@@ -1089,15 +1129,17 @@ window.__safeInitWebGL = function (label, fn) {
 };
 
 /* ---------- returning-visitor banner ---------- */
-(function () {
-  let savedId = null;
-  try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) {}
-  if (!savedId) return;
+function showWelcomeBack(id) {
   const banner = document.getElementById('welcomeBack');
   const link = document.getElementById('welcomeBackLink');
   if (!banner || !link) return;
-  link.href = 'claim.html?id=' + encodeURIComponent(savedId);
+  link.href = 'claim.html?id=' + encodeURIComponent(id);
   banner.style.display = 'flex';
+}
+(function () {
+  let savedId = null;
+  try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) {}
+  if (savedId) showWelcomeBack(savedId);
 })();
 
 /* ---------- "Isn't this so cool?!" -- BlurText-style word reveal,
