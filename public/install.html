@@ -302,9 +302,11 @@
 
   .confetti-piece { position:fixed; z-index:50; pointer-events:none; border-radius:2px; }
   .magnetic { transition:transform .2s cubic-bezier(.16,1,.3,1); }
+  #clickSparkCanvas { position:fixed; inset:0; z-index:60; pointer-events:none; }
 </style>
 </head>
 <body>
+<canvas id="clickSparkCanvas"></canvas>
 <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
 <div class="bg-shimmer"></div>
 <div class="hero-video">
@@ -858,6 +860,63 @@ if (strandsBg) {
   }, { threshold: 0.1 });
   io.observe(strandsBg);
 }
+</script>
+<script>
+/* ---------- click spark -- ported from reactbits.dev's Click Spark (pure Canvas 2D, no deps) ---------- */
+(function() {
+  const canvas = document.getElementById('clickSparkCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const sparkColor = '#e8c896';
+  const sparkSize = 10;
+  const sparkRadius = 18;
+  const sparkCount = 8;
+  const duration = 450;
+  let sparks = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function easeOut(t) { return t * (2 - t); }
+
+  function draw(timestamp) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    sparks = sparks.filter((spark) => {
+      const elapsed = timestamp - spark.startTime;
+      if (elapsed >= duration) return false;
+      const progress = elapsed / duration;
+      const eased = easeOut(progress);
+      const distance = eased * sparkRadius;
+      const lineLength = sparkSize * (1 - eased);
+      const x1 = spark.x + distance * Math.cos(spark.angle);
+      const y1 = spark.y + distance * Math.sin(spark.angle);
+      const x2 = spark.x + (distance + lineLength) * Math.cos(spark.angle);
+      const y2 = spark.y + (distance + lineLength) * Math.sin(spark.angle);
+      ctx.strokeStyle = sparkColor;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 1 - progress;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      return true;
+    });
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  window.addEventListener('click', (e) => {
+    const now = performance.now();
+    for (let i = 0; i < sparkCount; i++) {
+      sparks.push({ x: e.clientX, y: e.clientY, angle: (2 * Math.PI * i) / sparkCount, startTime: now });
+    }
+  });
+})();
 </script>
 </body>
 </html>

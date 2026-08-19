@@ -95,6 +95,8 @@
   .look-for { background:var(--panel); border:1px solid var(--border); border-radius:11px; padding:14px 16px;
               font-family:'JetBrains Mono',monospace; font-size:12px; color:#a8f0c6; margin-top:4px; }
   .look-for .tag { color:var(--gold); }
+  .look-for .tt-cursor { animation: textTypeCursorBlink 0.9s step-end infinite; }
+  @keyframes textTypeCursorBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
   .celebrate { text-align:center; margin-top:60px; padding:40px 24px; background:var(--panel);
                border:1px solid var(--border); border-radius:18px; position:relative; overflow:hidden;
@@ -208,7 +210,7 @@
       <div class="gbody">
         <h3>Look at the bottom of the screen</h3>
         <p>While Claude is working on something, glance at the bottom line of your terminal. You'll start seeing little notes show up — and occasionally one marked <span class="tag" style="color:var(--gold)">(sponsored)</span>, which is the one that earns you money.</p>
-        <div class="look-for">meanwhile: The pause is not empty. It's where the next idea is standing.</div>
+        <div class="look-for" id="lookFor">meanwhile: The pause is not empty. It's where the next idea is standing.</div>
       </div>
     </div>
   </div>
@@ -366,6 +368,49 @@ document.querySelectorAll('.magnetic').forEach((el) => {
   });
   el.addEventListener('mouseleave', () => { el.style.transform = ''; });
 });
+</script>
+
+<script>
+/* ---------- typewriter -- ported from reactbits.dev's Text Type (GSAP swapped for CSS cursor blink) ---------- */
+(function() {
+  const el = document.getElementById('lookFor');
+  if (!el) return;
+  const texts = [
+    "meanwhile: The pause is not empty. It's where the next idea is standing.",
+    "meanwhile: The best ideas arrive exactly when you stop chasing them.",
+    "meanwhile: (sponsored) Ramp \u2014 time is money. Save both. -> https://ramp.com"
+  ];
+  const typingSpeed = 42, deletingSpeed = 22, pauseDuration = 1900, textIndexPause = 400;
+  el.innerHTML = '';
+  const textSpan = document.createElement('span');
+  const cursorSpan = document.createElement('span');
+  cursorSpan.className = 'tt-cursor';
+  cursorSpan.textContent = '\u258b';
+  el.appendChild(textSpan);
+  el.appendChild(cursorSpan);
+
+  let textIndex = 0, charIndex = 0, deleting = false;
+  function tick() {
+    const current = texts[textIndex];
+    if (!deleting) {
+      charIndex++;
+      textSpan.textContent = current.slice(0, charIndex);
+      if (charIndex === current.length) { deleting = true; setTimeout(tick, pauseDuration); return; }
+      setTimeout(tick, typingSpeed);
+    } else {
+      charIndex--;
+      textSpan.textContent = current.slice(0, charIndex);
+      if (charIndex === 0) {
+        deleting = false;
+        textIndex = (textIndex + 1) % texts.length;
+        setTimeout(tick, textIndexPause);
+        return;
+      }
+      setTimeout(tick, deletingSpeed);
+    }
+  }
+  tick();
+})();
 </script>
 </body>
 </html>
