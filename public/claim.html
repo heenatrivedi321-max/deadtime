@@ -195,7 +195,12 @@
 
 <script>
 const params = new URLSearchParams(location.search);
-const id = params.get('id');
+// Fall back to this browser's remembered ID if the URL didn't carry one --
+// covers bookmarking this page, retyping the bare URL, or navigating here
+// any way other than the exact ?id= link, without requiring the terminal
+// --claim command to be re-run just to get the link again.
+let id = params.get('id');
+if (!id) { try { id = localStorage.getItem('meanwhile_id'); } catch (e) {} }
 const app = document.getElementById('app');
 const THRESHOLD = 25;
 const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d1117" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>`;
