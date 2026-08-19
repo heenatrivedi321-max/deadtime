@@ -4,6 +4,18 @@
   "description": "A quiet line in your status bar while you code. Occasionally a disclosed sponsor line -- half the revenue is yours.",
   "version": "0.1.0",
   "publisher": "meanwhile-dev",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heenatrivedi321-max/deadtime.git",
+    "directory": "vscode-extension"
+  },
+  "homepage": "https://deadtime-server.bean-picker.workers.dev/install",
+  "bugs": {
+    "url": "https://github.com/heenatrivedi321-max/deadtime/issues"
+  },
+  "keywords": ["status bar", "earnings", "sponsor", "ambient"],
   "engines": {
     "vscode": "^1.85.0"
   },
