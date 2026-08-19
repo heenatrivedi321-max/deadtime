@@ -236,6 +236,7 @@ function teardownElectricBorders() {
   ebDestroyers = [];
 }
 function setupElectricBorders() {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   import('./electricborder.js').then(({ initElectricBorder }) => {
     [
       ['ebCardBlocks', '#f2b134'],
@@ -244,7 +245,12 @@ function setupElectricBorders() {
       ['ebCardDest', '#f2b134'],
     ].forEach(([elId, color]) => {
       const el = document.getElementById(elId);
-      if (el) ebDestroyers.push(initElectricBorder(el, { color, speed: 0.8, chaos: 0.08, borderRadius: 14 }));
+      if (!el) return;
+      try {
+        ebDestroyers.push(initElectricBorder(el, { color, speed: 0.8, chaos: 0.08, borderRadius: 14 }));
+      } catch (e) {
+        console.warn('[meanwhile] ElectricBorder failed:', e);
+      }
     });
   });
 }

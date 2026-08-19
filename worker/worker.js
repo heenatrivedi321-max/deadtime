@@ -85,16 +85,26 @@ function defaultState() {
 /** No signup exists anywhere in this system -- an install_id is just a
  * self-generated UUID, and /line has no way to verify a call actually
  * came from a real Claude Code session versus a script hitting the
- * endpoint every ~10 seconds forever. Worked the real numbers: a bot
- * doing that 24/7 could fully drain any real advertiser's entire paid
- * campaign in under 10 hours of 100% fake impressions no human ever
- * saw -- real fraud against a paying customer, not just fake-earnings
- * farming. A genuine heavy human user, even 10 real hours of active
- * Claude Code use with real prompts, doesn't come close to this. This
- * doesn't stop a patient bot staying under the cap, but it puts a hard
- * ceiling on the fast, crude version of the attack, at a level no real
- * user will ever hit. */
-const DAILY_BILLABLE_CAP = 2000;
+ * endpoint every ~10 seconds forever. This cap was originally 2000,
+ * set when FILL_CEILING was 0.4 -- worth re-deriving now that
+ * FILL_CEILING is 0.8 (raised across two later changes this session),
+ * since this cap and that ceiling directly determine how fast a single
+ * bad-faith install can drain a real advertiser's paid campaign: at the
+ * old 2000/day cap, one malicious install hitting the daily limit could
+ * generate up to 2000*0.8 = 1600 fake sponsor impressions in a single
+ * day -- enough to fully drain any campaign at or under 1600
+ * impressions (a $2 minimum campaign is 1000) before the advertiser's
+ * own dashboard would show anything looking obviously wrong. Tightened
+ * to 500/day: still generous for a genuine heavy user (real coding
+ * involves reading and thinking between prompts, not a new billable
+ * event every single 10-second window for 20+ hours straight), while
+ * cutting one malicious install's max daily drain to 500*0.8 = 400
+ * impressions -- a 4x reduction, no longer enough on its own to fully
+ * drain even the smallest real campaign in a day. Doesn't stop a
+ * patient bot staying under the cap entirely; it puts a hard ceiling on
+ * the fast, crude version of the attack, at a level no real user will
+ * ever hit. */
+const DAILY_BILLABLE_CAP = 500;
 function todayUTC() {
   return new Date().toISOString().slice(0, 10);
 }

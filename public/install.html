@@ -833,11 +833,34 @@ document.querySelectorAll('.magnetic').forEach((el) => {
   el.addEventListener('mouseleave', () => { el.style.transform = ''; });
 });
 </script>
+<script>
+/* Shared by the three WebGL effect scripts below. Two real gaps this
+   closes: (1) none of aurora.js/strands.js/webthreads.js had any
+   try/catch around WebGL2 context creation -- a browser without
+   WebGL2 (older Safari, hardware acceleration disabled, some mobile
+   devices) would throw an uncaught exception and silently kill that
+   one effect with a console error instead of just not showing it.
+   (2) none of them checked prefers-reduced-motion -- Aurora and
+   Strands both now run as permanent full-page animated backgrounds,
+   which is exactly the kind of constant motion that setting exists
+   to let people turn off (vestibular disorders, motion sensitivity),
+   and it's also just wasted GPU/battery for anyone who's said they
+   don't want animation. */
+window.__prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+window.__safeInitWebGL = function (label, fn) {
+  if (window.__prefersReducedMotion) return;
+  try {
+    fn();
+  } catch (e) {
+    console.warn('[meanwhile] ' + label + ' effect failed to initialize, skipping:', e);
+  }
+};
+</script>
 <script type="module">
 import { initStrands } from './strands.js';
 const strandsBg = document.getElementById('strandsBg');
 if (strandsBg) {
-  initStrands(strandsBg, {
+  window.__safeInitWebGL('Strands', () => initStrands(strandsBg, {
     colors: ['#f2b134', '#ec4899', '#a855f7'],
     count: 3,
     speed: 0.4,
@@ -851,29 +874,29 @@ if (strandsBg) {
     saturation: 1.2,
     opacity: 0.32,
     scale: 1.8,
-  });
+  }));
 }
 </script>
 <script type="module">
 import { initAurora } from './aurora.js';
 const heroAurora = document.getElementById('heroAurora');
 if (heroAurora) {
-  initAurora(heroAurora, {
+  window.__safeInitWebGL('Aurora', () => initAurora(heroAurora, {
     colorStops: ['#a855f7', '#3b82f6', '#f2b134'],
     amplitude: 1.1,
     blend: 0.55,
     speed: 0.6,
-  });
+  }));
 }
 </script>
 <script type="module">
 import { initWebThreads } from './webthreads.js';
 const calcBg = document.getElementById('calcWebThreadsBg');
-if (calcBg) {
+if (calcBg && !window.__prefersReducedMotion) {
   const io = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
-        initWebThreads(calcBg, {
+        window.__safeInitWebGL('WebThreads', () => initWebThreads(calcBg, {
           color1: '#f2b134',
           color2: '#ec4899',
           color3: '#ffffff',
@@ -886,7 +909,7 @@ if (calcBg) {
           brightness: 0.5,
           opacity: 0.8,
           mouseStrength: 0.4,
-        });
+        }));
         io.disconnect();
       }
     });
