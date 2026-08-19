@@ -1057,39 +1057,69 @@ async function handleHealth(env) {
  * fine for one person testing, genuinely unsustainable once real
  * visitors are polling this every 8 seconds each (that's exactly what
  * burned through Cloudflare's free-tier daily KV list() quota during
- * testing tonight -- error was real, not hypothetical). Cached for 30s
- * via the Cache API so a burst of visitors shares one scan instead of
- * one each. */
+ * testing earlier this session -- error was real, not hypothetical).
+ *
+ * The 30s Cache API entry alone didn't actually fix it: caches.default
+ * is per-edge-colo, not global, so visitors landing on different
+ * Cloudflare PoPs each get their own cache miss and independently
+ * trigger a fresh scan -- confirmed live, still flooding /admin/errors
+ * with "KV list() limit exceeded" well after that fix shipped. Worse,
+ * once the quota was actually exhausted for the day there was no
+ * fallback: every request just re-threw and got logged, all day, with
+ * nothing served to real visitors.
+ *
+ * Fixed two ways: cache TTL bumped from 30s to 5 minutes (this is a
+ * vanity/ambient stats ticker, not billing-critical -- it doesn't need
+ * near-real-time freshness, and a longer TTL directly cuts list() call
+ * volume), and a durable last-known-good snapshot kept in a single KV
+ * key (one cheap get/put, not a list()) that gets served -- marked
+ * stale -- if the live scan throws for any reason, instead of a hard
+ * 500 with nothing for the visitor to see. */
+const NETWORK_STATS_SNAPSHOT_KEY = "cache:network-stats-snapshot";
+
 async function handleNetworkStats(env, request) {
   const cacheKey = new Request(new URL("/network-stats", request.url).toString(), request);
   const cache = caches.default;
   const cached = await cache.match(cacheKey);
   if (cached) return cached;
 
-  let cursor;
-  let installs = 0;
-  let total = 0;
-  let sponsor = 0;
-  do {
-    const page = await env.INSTALLS.list({ prefix: "install:", cursor });
-    for (const key of page.keys) {
-      const raw = await env.INSTALLS.get(key.name);
-      if (!raw) continue;
-      const state = JSON.parse(raw);
-      installs += 1;
-      total += state.total_calls;
-      sponsor += state.sponsor_calls;
-    }
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
+  let stats;
+  try {
+    let cursor;
+    let installs = 0;
+    let total = 0;
+    let sponsor = 0;
+    do {
+      const page = await env.INSTALLS.list({ prefix: "install:", cursor });
+      for (const key of page.keys) {
+        const raw = await env.INSTALLS.get(key.name);
+        if (!raw) continue;
+        const state = JSON.parse(raw);
+        installs += 1;
+        total += state.total_calls;
+        sponsor += state.sponsor_calls;
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
 
-  const res = json({
-    installs,
-    total_calls: total,
-    sponsor_calls: sponsor,
-    sponsor_ratio: total ? sponsor / total : 0,
-  });
-  res.headers.set("Cache-Control", "public, max-age=30");
+    stats = {
+      installs,
+      total_calls: total,
+      sponsor_calls: sponsor,
+      sponsor_ratio: total ? sponsor / total : 0,
+      stale: false,
+    };
+    await env.INSTALLS.put(NETWORK_STATS_SNAPSHOT_KEY, JSON.stringify(stats));
+  } catch (e) {
+    await logError(env, "network_stats_scan_failed", "falling back to last known good snapshot", e.stack || e.message);
+    const raw = await env.INSTALLS.get(NETWORK_STATS_SNAPSHOT_KEY);
+    stats = raw
+      ? { ...JSON.parse(raw), stale: true }
+      : { installs: 0, total_calls: 0, sponsor_calls: 0, sponsor_ratio: 0, stale: true };
+  }
+
+  const res = json(stats);
+  res.headers.set("Cache-Control", "public, max-age=300");
   await cache.put(cacheKey, res.clone());
   return res;
 }
