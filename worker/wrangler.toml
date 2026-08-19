@@ -23,5 +23,8 @@ id = "828f436d4e784be0b762b54a922c8243"
 binding = "ERRORS"
 id = "83a97e184c3d485ca30e075b48aee2fb"
 
+[ai]
+binding = "AI"
+
 [triggers]
 crons = ["11 6 * * *", "*/20 * * * *"]

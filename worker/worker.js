@@ -24,6 +24,60 @@ const TIPS = [
   "Meanwhile, something is always becoming something else.",
 ];
 
+/** "Give the AI a real voice" -- instead of always picking from the
+ * static TIPS list above, some fraction of non-sponsor lines are
+ * generated fresh by a small, fast model on Cloudflare Workers AI
+ * (no new API key/secret -- it's a native binding on this same
+ * platform), reacting to time-of-day and how active the session's
+ * been today. Deliberately the one feature idea this session that
+ * doesn't need scale to be worth anything -- it has to be good the
+ * very first time a single person sees it, with zero other users,
+ * zero advertisers, zero network effect. */
+const WITTY_MODEL = "@cf/meta/llama-3.2-3b-instruct";
+const WITTY_CHANCE = 0.35;
+const WITTY_TIMEOUT_MS = 2500;
+
+function timeOfDayLabel() {
+  const hour = new Date().getUTCHours();
+  if (hour < 5) return "very late at night, past midnight";
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  if (hour < 21) return "evening";
+  return "late at night";
+}
+
+function activityLabel(state) {
+  const n = state.billed_today || 0;
+  if (n === 0) return "this is their first real pause of the session so far";
+  if (n < 5) return "they've had a few pauses like this already today";
+  if (n < 20) return "they've been at this a good while today";
+  return "they've been grinding for a long stretch today";
+}
+
+/** Never let this be the thing that breaks /line. A timeout, a model
+ * error, a weird/oversized response -- anything at all -- falls back
+ * to null, and the caller falls back to the static TIPS array exactly
+ * like this feature never existed. */
+async function generateWittyLine(env, state) {
+  if (!env.AI) return null;
+  const prompt = `Write exactly ONE short, witty, slightly irreverent one-line message (under 90 characters, no quotes, no emoji, no markdown) for a developer's terminal status bar. It shows while they wait for their AI coding assistant to respond. Context: it's currently ${timeOfDayLabel()} (UTC), and ${activityLabel(state)}. Make it feel like a clever friend glancing over their shoulder -- funny, a little unhinged, never mean, never corporate, never a generic "productivity tip". Do not mention code, files, or anything technical about their work. Reply with ONLY the line itself, nothing else.`;
+
+  try {
+    const aiPromise = env.AI.run(WITTY_MODEL, {
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 60,
+    });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("witty line timeout")), WITTY_TIMEOUT_MS));
+    const result = await Promise.race([aiPromise, timeoutPromise]);
+    let text = (result && result.response ? result.response : "").trim();
+    text = text.replace(/^["'“”]+|["'“”]+$/g, "").trim();
+    if (!text || text.length > 140) return null;
+    return text;
+  } catch (e) {
+    return null;
+  }
+}
+
 const HOUSE_SPONSOR = "(sponsored) deadtime -- get paid while your agent thinks -> deadtime.dev";
 const IMPRESSIONS_PER_BLOCK = 1000;
 const USD_PER_BLOCK = 2.0;
@@ -140,6 +194,10 @@ async function pickLine(env, state) {
   const ratio = sponsorRatio(state);
   const eligible = ratio < FILL_CEILING && Math.random() < FILL_CEILING;
   if (!eligible) {
+    if (Math.random() < WITTY_CHANCE) {
+      const witty = await generateWittyLine(env, state);
+      if (witty) return { kind: "tip", line: witty };
+    }
     return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
   }
 
