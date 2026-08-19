@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.045); --panel-2:rgba(255,255,255,0.07); --border:rgba(255,255,255,0.1);
     --text:#f5f0e6; --muted:#8c8c96; --green:#7ee787; --amber:#e0b054; --red:#e5697a; --gold:#e8c896;
@@ -111,6 +111,8 @@
     opacity:0; transition:opacity .4s ease; pointer-events:none; }
   .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
   .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
+  .mega-word .ml { display:inline-block; font-variation-settings:'opsz' 144, 'wght' var(--w, 700);
+    transition:font-variation-settings .22s cubic-bezier(.16,1,.3,1); }
   .no-id code { background:var(--panel); padding:3px 7px; border-radius:5px; border:1px solid var(--border); }
   .refresh-note { display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; color:var(--muted); text-align:center; margin-top:20px; }
   .refresh-dot { width:5px; height:5px; border-radius:50%; background:var(--green); animation:pulse 2s ease-in-out infinite; }
@@ -399,6 +401,33 @@ if (megaWord) {
   }, { passive: true });
   megaWord.addEventListener('touchend', () => {
     setTimeout(() => megaWord.classList.remove('touched'), 900);
+  });
+
+  /* text-pressure: split into letters across all three layers, weight
+     responds to cursor proximity using Fraunces' real variable wght axis */
+  const megaLayers = megaWord.querySelectorAll('.mega-base, .mega-shine, .mega-glow');
+  const megaLetters = [];
+  megaLayers.forEach((layer, layerIdx) => {
+    const letters = layer.textContent.split('');
+    layer.innerHTML = letters.map((ch) => `<span class="ml">${ch === ' ' ? '&nbsp;' : ch}</span>`).join('');
+    layer.querySelectorAll('.ml').forEach((span, i) => {
+      if (layerIdx === 0) megaLetters.push([span]);
+      else megaLetters[i].push(span);
+    });
+  });
+  megaWord.addEventListener('mousemove', (e) => {
+    megaLetters.forEach((spansAcrossLayers) => {
+      const r = spansAcrossLayers[0].getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const dist = Math.abs(e.clientX - cx);
+      const weight = Math.max(300, 900 - dist * 3.2);
+      spansAcrossLayers.forEach((span) => span.style.setProperty('--w', weight.toFixed(0)));
+    });
+  });
+  megaWord.addEventListener('mouseleave', () => {
+    megaLetters.forEach((spansAcrossLayers) =>
+      spansAcrossLayers.forEach((span) => span.style.removeProperty('--w'))
+    );
   });
 }
 </script>
