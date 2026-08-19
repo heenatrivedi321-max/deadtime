@@ -228,33 +228,36 @@
   .intro-screen { position:relative; z-index:2; width:100%; height:100svh; min-height:560px;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     overflow:hidden; text-align:center; background:var(--bg); }
-  .intro-aurora, .intro-rings { position:absolute; inset:0; pointer-events:none; }
+  .intro-aurora, .intro-rings { position:absolute; inset:0; pointer-events:none; opacity:0; }
   .intro-aurora canvas, .intro-rings canvas { display:block; width:100%; height:100%; }
-  .intro-aurora { opacity:.85; }
-  .intro-rings { mix-blend-mode:screen; opacity:.95; }
+  .intro-aurora { animation:introBgIn 2.4s ease forwards; --intro-bg-target:.85; }
+  .intro-rings { mix-blend-mode:screen; animation:introBgIn 2.4s ease forwards; --intro-bg-target:.95; }
   .intro-content { position:relative; z-index:1; padding:0 24px; }
   .intro-word { font-family:'Fraunces',serif; font-weight:700; letter-spacing:-0.03em; line-height:1;
     font-size:clamp(52px,13vw,168px); display:flex; justify-content:center; flex-wrap:wrap;
     background:none; animation:none; color:var(--text); -webkit-text-fill-color:var(--text); }
   .intro-word .letter { display:inline-block; opacity:0;
     text-shadow:0 4px 40px rgba(0,0,0,.85), 0 2px 8px rgba(0,0,0,.7);
-    animation:introLetterIn .9s cubic-bezier(.16,1,.3,1) forwards; }
-  .intro-sub { margin-top:16px; color:var(--muted); font-size:clamp(14px,2vw,18px); letter-spacing:.02em;
+    animation:introLetterIn 1.15s cubic-bezier(.16,1,.3,1) forwards; }
+  .intro-sub { margin-top:18px; color:var(--muted); font-size:clamp(14px,2vw,18px); letter-spacing:.03em;
     opacity:0; text-shadow:0 2px 12px rgba(0,0,0,.8);
-    animation:introSubIn 1s ease forwards; animation-delay:.7s; }
+    animation:introSubIn 1.3s cubic-bezier(.16,1,.3,1) forwards; animation-delay:1.05s; }
   .intro-scroll-cue { position:absolute; bottom:34px; left:50%; transform:translateX(-50%);
     color:var(--muted); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
-    opacity:0; animation:introCueIn 1s ease forwards 1.4s, introCueFloat 2.4s ease-in-out infinite 1.4s; }
+    opacity:0; animation:introCueIn 1.3s ease forwards 1.9s, introCueFloat 2.6s ease-in-out infinite 1.9s; }
+  @keyframes introBgIn { to { opacity:var(--intro-bg-target); } }
   @keyframes introLetterIn {
-    from { opacity:0; filter:blur(14px); transform:translateY(-36px); }
-    to { opacity:1; filter:blur(0); transform:translateY(0); }
+    0% { opacity:0; filter:blur(18px); transform:translateY(-30px) scale(.92); }
+    60% { filter:blur(2px); }
+    100% { opacity:1; filter:blur(0); transform:translateY(0) scale(1); }
   }
-  @keyframes introSubIn { to { opacity:1; } }
+  @keyframes introSubIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
   @keyframes introCueIn { to { opacity:.6; } }
   @keyframes introCueFloat { 0%,100%{ transform:translate(-50%,0); } 50%{ transform:translate(-50%,8px); } }
   @media (prefers-reduced-motion: reduce) {
     .intro-word .letter, .intro-sub { animation:none !important; opacity:1; filter:none; transform:none; }
     .intro-scroll-cue { animation:none !important; opacity:.6; transform:translateX(-50%); }
+    .intro-aurora, .intro-rings { animation:none !important; opacity:var(--intro-bg-target); }
   }
 
   .demo { margin-bottom:64px; }
