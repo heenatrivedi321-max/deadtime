@@ -202,10 +202,26 @@
   .mega-word .ml { display:inline-block; font-variation-settings:'opsz' 144, 'wght' var(--w, 700);
     transition:font-variation-settings .22s cubic-bezier(.16,1,.3,1); }
 
+  .gradient-text {
+    background-image: linear-gradient(to right, #f2b134, #ec4899, #a855f7, #f2b134);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+    animation: gradientTextMove 4s ease-in-out infinite alternate;
+  }
+  @keyframes gradientTextMove { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+
   .demo { margin-bottom:64px; }
-  .demo .label { color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px; display:block; }
+  .demo-headline { font-size:clamp(22px,4vw,28px); font-weight:700; margin-bottom:10px; letter-spacing:-0.01em; }
+  .demo-sub { font-size:13.5px; color:var(--muted); line-height:1.6; max-width:520px; margin-bottom:18px; }
+  .demo .label { color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px;
+                 display:flex; align-items:center; gap:7px; }
+  .live-pulse { width:7px; height:7px; border-radius:50%; background:#7ee787; box-shadow:0 0 8px rgba(126,231,135,.8);
+                flex-shrink:0; animation:livePulse 1.8s ease-in-out infinite; }
+  @keyframes livePulse { 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.4; transform:scale(.7); } }
   .demo-window { position:relative; background:rgba(0,0,0,.5); backdrop-filter:blur(16px); border:1px solid var(--border);
-                 border-radius:14px; padding:20px 22px 26px; box-shadow:0 30px 80px -30px rgba(0,0,0,.7); overflow:hidden; }
+                 border-radius:14px; padding:20px 22px 26px; box-shadow:0 30px 80px -30px rgba(0,0,0,.7); overflow:hidden;
+                 transition:border-color .3s ease, box-shadow .3s ease; }
+  .demo-window.flash { border-color:rgba(126,231,135,.6); box-shadow:0 30px 80px -30px rgba(0,0,0,.7), 0 0 30px -6px rgba(126,231,135,.5); }
   .demo-window::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; border-radius:50%;
     background:radial-gradient(circle, rgba(232,200,150,.14), transparent 70%); pointer-events:none; }
   .demo-dots { display:flex; gap:6px; margin-bottom:20px; position:relative; z-index:1; }
@@ -213,22 +229,17 @@
   .demo-dots .d1 { background:rgba(217,154,154,.4); }
   .demo-dots .d2 { background:rgba(232,200,150,.4); }
   .demo-dots .d3 { background:rgba(143,214,201,.4); }
-  .demo-line-stage { position:relative; z-index:1; height:1.6em; }
-  .demo-line-item { position:absolute; inset:0; display:flex; align-items:center; gap:9px;
-    font-family:'JetBrains Mono',monospace; font-size:13px; color:#a8f0c6; white-space:nowrap; overflow:hidden;
-    opacity:0; animation:demoCycle 12.9s ease-in-out infinite; }
-  @keyframes demoCycle {
-    0% { opacity:0; transform:translateY(5px); }
-    4% { opacity:1; transform:translateY(0); }
-    28% { opacity:1; transform:translateY(0); }
-    33% { opacity:0; transform:translateY(-5px); }
-    100% { opacity:0; }
-  }
+  .demo-line-stage { position:relative; z-index:1; min-height:1.6em; }
+  .demo-line-item { display:flex; align-items:center; gap:9px;
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:#a8f0c6; line-height:1.5; }
   .demo-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
   .demo-dot-tip { background:var(--teal); box-shadow:0 0 6px rgba(143,214,201,.6); }
   .demo-dot-sponsor { background:var(--gold); box-shadow:0 0 8px rgba(242,177,52,.7); animation:demoDotBreathe 2.4s ease-in-out infinite; }
   @keyframes demoDotBreathe { 0%,100%{ box-shadow:0 0 6px rgba(242,177,52,.5); } 50%{ box-shadow:0 0 12px rgba(242,177,52,.9); } }
   .demo-sponsor-text { color:var(--gold); }
+  .demo-cursor { display:inline-block; width:7px; height:14px; background:#a8f0c6; margin-left:1px;
+                 animation:demoCursorBlink .9s step-end infinite; flex-shrink:0; }
+  @keyframes demoCursorBlink { 0%,100%{ opacity:1; } 50%{ opacity:0; } }
 
   /* ---- looted-time hero scene ---- */
   .loot-scene { position:relative; display:flex; align-items:center; gap:18px; background:rgba(0,0,0,.55); backdrop-filter:blur(16px);
@@ -419,13 +430,13 @@
   </div>
 
   <div class="demo reveal tilt">
-    <span class="label">what shows up while your agent thinks</span>
+    <h2 class="demo-headline gradient-text">Not a static ad. Watch it happen.</h2>
+    <p class="demo-sub">No canned demo, no loop of the same three lines — this is calling the real server, live, right now, the same way an installed client does. One of 100 original lines, or one freshly written by AI on the spot. Refresh this page and you'll almost never see the same thing twice.</p>
+    <span class="label"><span class="live-pulse"></span> live, from the real server — not a mockup</span>
     <div class="demo-window">
       <div class="demo-dots"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
       <div class="demo-line-stage">
-        <div class="demo-line-item" style="animation-delay:0s"><span class="demo-dot demo-dot-tip"></span><span>The pause is not empty. It's where the next idea is standing.</span></div>
-        <div class="demo-line-item" style="animation-delay:4.3s"><span class="demo-dot demo-dot-tip"></span><span>Patience is just thinking you haven't rushed yet.</span></div>
-        <div class="demo-line-item" style="animation-delay:8.6s"><span class="demo-dot demo-dot-sponsor"></span><span class="demo-sponsor-text">(sponsored) example line → example.com</span></div>
+        <div class="demo-line-item" id="demoLiveLine"><span class="demo-dot demo-dot-tip" id="demoDot"></span><span id="demoText"></span><span class="demo-cursor" id="demoCursor"></span></div>
       </div>
     </div>
   </div>
@@ -920,6 +931,68 @@ if (calcBg && !window.__prefersReducedMotion) {
   }, { threshold: 0.1 });
   io.observe(calcBg);
 }
+</script>
+<script>
+/* ---------- live demo -- proves "not a static ad" by actually calling the real server ---------- */
+(function() {
+  const dot = document.getElementById('demoDot');
+  const textEl = document.getElementById('demoText');
+  const cursor = document.getElementById('demoCursor');
+  const windowEl = document.querySelector('.demo-window');
+  if (!textEl) return;
+
+  const STATIC_SPONSOR_EXAMPLE = '(sponsored) example line → example.com';
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let charTimer = null;
+
+  function showLine(text, isSponsor) {
+    clearInterval(charTimer);
+    dot.className = 'demo-dot ' + (isSponsor ? 'demo-dot-sponsor' : 'demo-dot-tip');
+    textEl.className = isSponsor ? 'demo-sponsor-text' : '';
+    windowEl.classList.add('flash');
+    setTimeout(() => windowEl.classList.remove('flash'), 500);
+
+    if (reduceMotion) {
+      textEl.textContent = text;
+      return;
+    }
+    if (cursor) cursor.style.visibility = 'visible';
+    textEl.textContent = '';
+    let i = 0;
+    charTimer = setInterval(() => {
+      i++;
+      textEl.textContent = text.slice(0, i);
+      if (i >= text.length) {
+        clearInterval(charTimer);
+        if (cursor) cursor.style.visibility = 'hidden';
+      }
+    }, 22);
+  }
+
+  let rotation = 0;
+  async function nextLine() {
+    rotation++;
+    // Every 5th rotation shows a static illustration of what a sponsor
+    // line looks like -- a real paying advertiser's actual line showing
+    // up unpredictably in a marketing demo would be a strange place for
+    // someone to first encounter it, so this one part stays a labeled
+    // example rather than live.
+    if (rotation % 5 === 0) {
+      showLine(STATIC_SPONSOR_EXAMPLE, true);
+      return;
+    }
+    try {
+      const res = await fetch('https://deadtime-server.bean-picker.workers.dev/demo-line');
+      const data = await res.json();
+      showLine(data.line || "The pause is not empty. It's where the next idea is standing.", false);
+    } catch (e) {
+      showLine("The pause is not empty. It's where the next idea is standing.", false);
+    }
+  }
+
+  nextLine();
+  setInterval(nextLine, 4500);
+})();
 </script>
 <script>
 /* ---------- click spark -- ported from reactbits.dev's Click Spark (pure Canvas 2D, no deps) ---------- */

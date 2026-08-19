@@ -13,15 +13,112 @@
  * place that can actually be trusted as the source of truth.
  */
 
+/** 100 original lines -- deliberately real rather than generic-poster,
+ * meant to land the way a good line does at 2am when the build finally
+ * passes. Fallback pool for the AI-voice feature below: if that call
+ * ever fails, this is what a user sees instead, so it has to carry the
+ * whole feeling on its own, not read like a placeholder. */
 const TIPS = [
-  "The best ideas arrive exactly when you stop chasing them.",
-  "A river doesn't rush -- it just never stops.",
-  "Somewhere, a bug is quietly being born so you can later find it.",
   "The pause is not empty. It's where the next idea is standing.",
+  "The best ideas arrive exactly when you stop chasing them.",
+  "Somewhere, a bug is quietly being born so you can later find it.",
+  "A river doesn't rush -- it just never stops.",
   "Patience is just thinking you haven't rushed yet.",
   "Every great answer was, for a moment, only a question.",
   "The work happens in the space between two keystrokes.",
   "Meanwhile, something is always becoming something else.",
+  "Nobody sees the version that didn't work. They only see the one that did.",
+  "You've deleted more code than most people will ever write. That's the job.",
+  "The first version is never the truth. It's just the first guess that compiles.",
+  "Somewhere, code you wrote years ago is still quietly keeping a promise.",
+  "Every system you've ever loved was once somebody's messy first draft.",
+  "The bug isn't personal. It never was. It just found you first.",
+  "You don't remember most of what you built. It still remembers how to run.",
+  "Nobody claps when the tests pass. Clap anyway.",
+  "The empty file is the only part of this that's actually scary.",
+  "Every real skill you have started as a error message you didn't understand.",
+  "Somewhere tonight, your code is running and nobody thinks about you at all. Good.",
+  "You are allowed to be proud of something nobody else will ever read.",
+  "The hardest bugs teach you the most about the person who wrote the code.",
+  "Most of what you'll build will be replaced. Build it well anyway.",
+  "You've forgiven more broken builds than most people forgive people.",
+  "It compiled. That's not nothing. That's the whole thing, actually.",
+  "Somewhere, a stranger's problem just got smaller because of something you shipped.",
+  "The comment nobody reads is still a message to someone. Usually future you.",
+  "You learned this entire craft by being wrong, quickly, over and over.",
+  "Nobody becomes good at this without staring at something broken for a while.",
+  "The code you're proudest of, you probably wrote while unsure you could.",
+  "Every clean function used to be a mess that finally made sense.",
+  "You are the only person who will ever know how ugly the first draft was.",
+  "Somewhere, a machine is doing exactly what you told it, patiently, forever.",
+  "It's not that the bug is hiding. It's that you haven't asked it the right question yet.",
+  "You've built things that outlasted the reasons you built them.",
+  "The satisfaction of a passing test is small and real and yours.",
+  "Every senior engineer was once terrified of the thing you're doing right now.",
+  "You don't need to understand everything. You need to understand the next line.",
+  "Somewhere, your work is the reason someone else's day went a little smoother.",
+  "The blinking cursor isn't judging you. It's just waiting, same as you.",
+  "You've solved harder problems than this one. You just don't remember them as hard.",
+  "Nobody warns you that shipping feels like letting go of something you were holding.",
+  "The best code reads like someone was being kind to whoever came next.",
+  "You are allowed to not know. That's most of the job, actually.",
+  "Somewhere, a person you'll never meet is using something you built without thinking about it. That's the goal.",
+  "The gap between what you meant and what you wrote is where you actually live.",
+  "You've made peace with more uncertainty than most people ever have to.",
+  "Every deploy is a small act of trust in your past self.",
+  "The work is slow because the work is real. Both things are true.",
+  "You are not behind. You are exactly as far as today let you get.",
+  "Somewhere, an old version of you would be proud of what you just casually did.",
+  "The quiet ones who ship steadily outlast the loud ones who don't.",
+  "You've built something from literally nothing more times than you give yourself credit for.",
+  "Every crash report is just the machine finally being honest with you.",
+  "The version control history is the only diary that never lies to you.",
+  "You don't need the whole plan. You need the next honest step.",
+  "Somewhere, the fix is smaller than you think it is right now.",
+  "The work you do when nobody's watching is still the work.",
+  "You've earned the right to be tired. Rest counts as progress too.",
+  "Every rabbit hole you fall into teaches you the shape of the warren.",
+  "The code doesn't care how you feel about it. It runs anyway. That's a kind of mercy.",
+  "You are building a thing that didn't exist this morning. Sit with that for a second.",
+  "Somewhere, this exact frustration is the last step before the breakthrough.",
+  "The best debugging tool is still just a person willing to keep looking.",
+  "You've turned confusion into clarity more times than you'll ever count.",
+  "Every good architecture started as someone refusing to accept a mess.",
+  "The stack trace is trying to help you. It's just bad at saying so.",
+  "You don't have to love every part of this to be good at it.",
+  "Somewhere, someone is grateful for an error message you wrote months ago.",
+  "The work that feels invisible is usually the work holding everything up.",
+  "You've made something real out of something that was only ever an idea.",
+  "Every refactor is a small act of respect for whoever reads this next.",
+  "The silence while it loads is not wasted. You're still here, still working.",
+  "You are more capable right now than you were an hour ago. That's just true.",
+  "Somewhere, a test you wrote is quietly protecting a stranger's bad day.",
+  "The thing you're stuck on is smaller than the thing you already solved today.",
+  "You've written code that will outlive the reason you wrote it.",
+  "Every \"it depends\" answer you've given was earned the hard way.",
+  "The build failing is not an ending. It's just the machine asking again.",
+  "You don't need permission to be proud of clean, boring, working code.",
+  "Somewhere, your patience today becomes someone else's easy tomorrow.",
+  "The best engineers you know still Google the basics sometimes. So do you.",
+  "You are closer to done than the file explorer makes it look.",
+  "Every dependency you understand is one less thing that can surprise you.",
+  "The work is the practice. There isn't a version of this without the struggle.",
+  "You've held more complexity in your head than most jobs ever ask of anyone.",
+  "Somewhere, this exact wait is the last quiet second before it clicks.",
+  "The line between stuck and almost-there is thinner than it feels right now.",
+  "You don't have to finish today. You have to still be here tomorrow.",
+  "Every system you maintain is a small promise you keep making, again and again.",
+  "The code that finally works doesn't care how many tries it took.",
+  "You are allowed to step away and come back smarter. That's not failure.",
+  "Somewhere, the thing you built quietly saved someone real time today.",
+  "The best fix is usually simpler than the one you're currently trying.",
+  "You've earned every bit of instinct you now call obvious.",
+  "Every so often, the work goes quiet, and that's when it's actually working.",
+  "You are not just writing code. You're deciding what gets to exist.",
+  "Somewhere, the exact fix you need is one honest look away.",
+  "You've turned \"I have no idea\" into \"I figured it out\" more times than you remember.",
+  "The work doesn't need to be loud to matter. Most of the good stuff is quiet.",
+  "You are still here. After everything today asked of you, you are still here.",
 ];
 
 /** "Give the AI a real voice" -- instead of always picking from the
@@ -208,6 +305,30 @@ async function pickLine(env, state) {
   }
   // no real paid campaigns yet -- house ad keeps the mechanism testable
   return { kind: "sponsor", line: HOUSE_SPONSOR, campaign_id: null };
+}
+
+/** Public, stateless, no install_id, no KV write, no billing -- exists
+ * purely so the homepage can prove "this isn't static" by showing real
+ * rotating content live in front of a visitor who hasn't installed
+ * anything yet. Deliberately never returns a sponsor line (a real
+ * paying campaign showing up unpredictably in a marketing demo would
+ * be a strange thing to stumble into); it's scoped to exactly the part
+ * of the product being shown off here -- the tip/AI-voice rotation --
+ * not the whole billing engine. Same WITTY_CHANCE odds as the real
+ * thing, so what a visitor sees here is honestly representative of
+ * what an installed client actually shows, not a rigged demo. */
+async function handleDemoLine(env) {
+  const fakeState = { billed_today: Math.floor(Math.random() * 12) };
+  let line;
+  if (Math.random() < WITTY_CHANCE) {
+    line = await generateWittyLine(env, fakeState);
+  }
+  if (!line) {
+    line = TIPS[Math.floor(Math.random() * TIPS.length)];
+  }
+  const res = json({ line });
+  res.headers.set("cache-control", "no-store");
+  return res;
 }
 
 /** Called when a sponsor line is actually billed -- attributes the real
@@ -1332,6 +1453,10 @@ export default {
       // it's real, worth fixing rather than leaving as "works for the
       // only case that matters right now."
       return handleBadge(env, request);
+    }
+
+    if (request.method === "GET" && url.pathname === "/demo-line") {
+      return handleDemoLine(env);
     }
 
     if (request.method === "POST" && url.pathname === "/advertiser-lead") {
