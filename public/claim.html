@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Meanwhile — register your payout email</title>
+<title>Meanwhile — your dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <style>
@@ -73,9 +73,18 @@
   .id-value { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); word-break:break-all; }
 
   .balance-card { background:linear-gradient(180deg, var(--panel-2), var(--panel)); border:1px solid var(--border);
-                   border-radius:12px; padding:24px 22px; margin-bottom:20px; }
-  .balance-card .amount { font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:700; color:var(--text); }
-  .balance-card .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
+                   border-radius:16px; padding:30px 26px; margin-bottom:20px; }
+  .balance-card .amount { font-family:'JetBrains Mono',monospace; font-size:56px; font-weight:700; color:var(--text); line-height:1; }
+  .balance-card .lbl { font-size:12px; color:var(--muted); margin-top:6px; }
+  .balance-breakdown { font-size:12.5px; color:var(--muted); margin-top:10px; display:flex; align-items:center; gap:6px; }
+  .balance-breakdown .dot { width:5px; height:5px; border-radius:50%; background:var(--green); flex-shrink:0;
+                             box-shadow:0 0 6px rgba(63,185,104,.7); animation:livePulseDot 1.8s ease-in-out infinite; }
+  @keyframes livePulseDot { 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+
+  /* ---- odometer digit-roll, same technique as the advertiser dashboard ---- */
+  .digit-wrap { display:inline-block; height:1em; overflow:hidden; vertical-align:top; }
+  .digit-strip { display:flex; flex-direction:column; transition:transform 1s cubic-bezier(.22,1,.36,1); }
+  .digit-strip span { height:1em; line-height:1; display:flex; align-items:center; justify-content:center; }
 
   /* ---- electric border (reactbits.dev), wraps the real earnings amount ---- */
   .electric-border { --electric-light-color: oklch(from var(--electric-border-color, #f2b134) l c h);
@@ -229,8 +238,31 @@ if (!id) {
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Secured to your anonymous install ID
     </div>
-    <h1>Register your payout email</h1>
-    <p class="sub">Once your balance crosses $${THRESHOLD}, PayPal sends it to you automatically the next day — no manual step, no monthly wait.</p>
+    <h1>Your dashboard</h1>
+    <p class="sub">Live earnings from this install — updates automatically as sponsor lines are shown, no refresh needed.</p>
+
+    <div class="balance-card electric-border" id="balanceCard">
+      <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+      <div class="eb-layers">
+        <div class="eb-glow-1"></div>
+        <div class="eb-glow-2"></div>
+        <div class="eb-background-glow"></div>
+      </div>
+      <div class="eb-content">
+        <div class="amount" id="amount">–</div>
+        <div class="lbl">current balance</div>
+        <div class="balance-breakdown" id="balanceBreakdown"><span class="dot"></span> loading activity…</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div class="progress-note" id="progressNote">loading…</div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
+      <div class="step" id="stepEmail"><span class="check"></span> Register payout email</div>
+      <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
+      <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
+    </div>
 
     <div class="destination">
       <div class="pp-badge-wrap">
@@ -258,28 +290,6 @@ if (!id) {
       </div>
     </div>
 
-    <div class="balance-card electric-border" id="balanceCard">
-      <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
-      <div class="eb-layers">
-        <div class="eb-glow-1"></div>
-        <div class="eb-glow-2"></div>
-        <div class="eb-background-glow"></div>
-      </div>
-      <div class="eb-content">
-        <div class="amount" id="amount">–</div>
-        <div class="lbl">current balance</div>
-        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-        <div class="progress-note" id="progressNote">loading…</div>
-      </div>
-    </div>
-
-    <div class="steps">
-      <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
-      <div class="step" id="stepEmail"><span class="check"></span> Register payout email</div>
-      <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
-      <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
-    </div>
-
     <div class="badge-card">
       <div class="badge-card-label">Show it off</div>
       <p class="badge-card-sub">A live badge for your GitHub README or profile — updates automatically as you earn, no login needed to view it.</p>
@@ -290,6 +300,7 @@ if (!id) {
       </div>
     </div>
 
+    <div class="card-label" style="margin-top:4px;">Payout settings</div>
     <div class="form-panel">
       <form id="claimForm">
         <div id="currentEmailWrap" style="display:none;">
@@ -381,13 +392,41 @@ if (!id) {
   document.getElementById('email').addEventListener('input', () => { emailFieldTouched = true; });
   document.getElementById('emailConfirm').addEventListener('input', () => { emailFieldTouched = true; });
 
+  /* same odometer digit-roll technique as the advertiser dashboard --
+     non-digit characters ($ and .) just render flat, only the digits
+     roll, so this works fine on a dollar amount as-is. */
+  function renderOdometer(el, text) {
+    const chars = text.split('');
+    el.innerHTML = chars.map(ch => {
+      if (isNaN(parseInt(ch, 10))) return `<span>${ch}</span>`;
+      const strip = Array.from({ length: 10 }, (_, n) => `<span>${n}</span>`).join('');
+      return `<span class="digit-wrap"><span class="digit-strip" data-target="${ch}">${strip}</span></span>`;
+    }).join('');
+    requestAnimationFrame(() => {
+      el.querySelectorAll('.digit-strip').forEach(strip => {
+        strip.style.transform = `translateY(-${strip.dataset.target}em)`;
+      });
+    });
+  }
+
   let lastTotalCalls = null;
+  let lastAmountText = null;
   async function loadBalance() {
     try {
       const res = await fetch(`https://deadtime-server.bean-picker.workers.dev/earnings?id=${id}`);
       const s = await res.json();
       const amt = s.user_earnings || 0;
-      document.getElementById('amount').textContent = '$' + amt.toFixed(2);
+      const amountText = '$' + amt.toFixed(2);
+      if (amountText !== lastAmountText) {
+        renderOdometer(document.getElementById('amount'), amountText);
+        lastAmountText = amountText;
+      }
+      const totalCalls = s.total_calls || 0;
+      const sponsorCalls = s.sponsor_calls || 0;
+      const ratio = totalCalls > 0 ? Math.round((sponsorCalls / totalCalls) * 100) : 0;
+      document.getElementById('balanceBreakdown').innerHTML = totalCalls > 0
+        ? `<span class="dot"></span> ${totalCalls} line${totalCalls === 1 ? '' : 's'} shown · ${sponsorCalls} sponsored (${ratio}%)`
+        : `<span class="dot"></span> no lines shown yet — open Claude Code to start`;
       const pct = Math.min(100, (amt / THRESHOLD) * 100);
       document.getElementById('progressFill').style.width = pct + '%';
       document.getElementById('progressNote').textContent =
