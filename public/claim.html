@@ -145,6 +145,7 @@
   .no-id code { background:var(--panel); padding:3px 7px; border-radius:5px; border:1px solid var(--border); }
   #particles { position:fixed; inset:0; z-index:0; pointer-events:none; }
   .wrap { position:relative; z-index:2; }
+  .magnetic { transition:transform .2s cubic-bezier(.16,1,.3,1); }
 </style>
 </head>
 <body>
@@ -247,7 +248,7 @@ if (!id) {
           <input id="emailConfirm" type="email" placeholder="you@example.com" required autocomplete="off">
         </div>
         <div id="emailMismatch" class="status err" style="display:none;">Those don't match — real money goes to whatever's registered here, worth getting right.</div>
-        <button type="submit" id="submitBtn">Register for payout</button>
+        <button type="submit" id="submitBtn" class="magnetic">Register for payout</button>
         <div id="status" class="status"></div>
       </form>
       <div class="success-state" id="successState">
@@ -539,6 +540,19 @@ if (megaWord) {
     );
   });
 }
+</script>
+
+<script>
+/* ---------- magnetic buttons -- nudge toward cursor within proximity ---------- */
+document.querySelectorAll('.magnetic').forEach((el) => {
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2);
+    const dy = e.clientY - (r.top + r.height / 2);
+    el.style.transform = `translate(${dx * 0.25}px, ${dy * 0.25}px)`;
+  });
+  el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+});
 </script>
 </body>
 </html>

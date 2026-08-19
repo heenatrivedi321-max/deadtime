@@ -146,6 +146,7 @@
   .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
   .mega-word .ml { display:inline-block; font-variation-settings:'opsz' 144, 'wght' var(--w, 700);
     transition:font-variation-settings .22s cubic-bezier(.16,1,.3,1); }
+  .magnetic { transition:transform .2s cubic-bezier(.16,1,.3,1); }
 </style>
 </head>
 <body>
@@ -178,7 +179,7 @@
         <p>This line tells your computer to go fetch the small program and set it up. You're not installing an app or creating an account — just adding one setting.</p>
         <div class="cmd-box">
           <code id="cmd2">curl -fsSL https://deadtime-server.bean-picker.workers.dev/install_copilot.sh | bash</code>
-          <button id="copyBtn2">Copy</button>
+          <button id="copyBtn2" class="magnetic">Copy</button>
         </div>
       </div>
     </div>
@@ -349,6 +350,19 @@ if (megaWord) {
     );
   });
 }
+</script>
+
+<script>
+/* ---------- magnetic buttons -- nudge toward cursor within proximity ---------- */
+document.querySelectorAll('.magnetic').forEach((el) => {
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2);
+    const dy = e.clientY - (r.top + r.height / 2);
+    el.style.transform = `translate(${dx * 0.25}px, ${dy * 0.25}px)`;
+  });
+  el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+});
 </script>
 </body>
 </html>

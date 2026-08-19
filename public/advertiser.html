@@ -177,6 +177,7 @@
   footer a:hover { color:var(--gold); }
 
   .confetti-piece { position:fixed; z-index:50; pointer-events:none; border-radius:2px; }
+  .magnetic { transition:transform .2s cubic-bezier(.16,1,.3,1); }
 </style>
 </head>
 <body>
@@ -252,7 +253,7 @@
         <option value="25">25 blocks — $50 — 25,000 impressions</option>
       </select>
     </div>
-    <button type="submit" id="submitBtn">Continue to PayPal</button>
+    <button type="submit" id="submitBtn" class="magnetic">Continue to PayPal</button>
     <div class="note">You'll approve the exact charge on PayPal's own page — nothing is charged until you do. The moment it clears, your ad goes live automatically.</div>
     <div id="status" class="status"></div>
   </form>
@@ -576,6 +577,19 @@ async function pollNetworkActivity() {
 pollNetworkActivity();
 setInterval(pollNetworkActivity, 8000);
 setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
+</script>
+
+<script>
+/* ---------- magnetic buttons -- nudge toward cursor within proximity ---------- */
+document.querySelectorAll('.magnetic').forEach((el) => {
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width / 2);
+    const dy = e.clientY - (r.top + r.height / 2);
+    el.style.transform = `translate(${dx * 0.25}px, ${dy * 0.25}px)`;
+  });
+  el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+});
 </script>
 </body>
 </html>
