@@ -219,6 +219,9 @@
   .apple-line .word { display:inline-block; opacity:0; transform:translateY(0.4em); filter:blur(6px);
                        transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1), filter .7s cubic-bezier(.16,1,.3,1); }
   .apple-line.in .word { opacity:1; transform:translateY(0); filter:blur(0); }
+  .apple-line.scramble-target { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; color:#7a7a82;
+                                 letter-spacing:0.01em; transition:color .5s ease, letter-spacing .5s ease; }
+  .apple-line.scramble-target.resolved { font-family:'Fraunces',serif; color:var(--text); letter-spacing:-0.02em; }
 
   .demo { margin-bottom:64px; }
   .demo-headline { font-family:'Fraunces',serif; font-size:clamp(34px,7vw,72px); font-weight:700; margin-bottom:18px;
@@ -415,8 +418,8 @@
   </div>
 
   <div class="apple-statement">
-    <p class="apple-line" data-apple-reveal>Every other app in your life wants your money.</p>
-    <p class="apple-line emphasis" data-apple-reveal>This one gives you money instead.</p>
+    <p class="apple-line" data-apple-reveal>Every other thing in your life wants your money.</p>
+    <p class="apple-line emphasis" data-apple-reveal id="moneyLine">This one gives you money instead.</p>
   </div>
 
   <div class="platforms reveal">
@@ -446,7 +449,7 @@
   </div>
 
   <div class="apple-statement" style="padding-bottom:10px;">
-    <p class="apple-line emphasis" data-apple-reveal>Zero cold ads.</p>
+    <p class="apple-line emphasis scramble-target" data-scramble-reveal id="coldAdsLine">Zero cold ads.</p>
   </div>
 
   <div class="demo reveal tilt">
@@ -542,10 +545,54 @@ const appleIo = new IntersectionObserver((entries) => {
     if (e.isIntersecting) {
       e.target.classList.add('in');
       appleIo.unobserve(e.target);
+      if (e.target.id === 'moneyLine' && !window.__prefersReducedMotion) {
+        const wordCount = e.target.querySelectorAll('.word').length;
+        const settleMs = wordCount * 55 + 700;
+        setTimeout(() => {
+          const r = e.target.getBoundingClientRect();
+          burstConfetti(r.left + r.width / 2, r.top + r.height / 2);
+        }, settleMs);
+      }
     }
   });
 }, { threshold: 0.4 });
 document.querySelectorAll('.apple-line[data-apple-reveal]').forEach((el) => appleIo.observe(el));
+
+/* ---------- "Zero cold ads." -- static decoding into signal ---------- */
+(function () {
+  const el = document.getElementById('coldAdsLine');
+  if (!el) return;
+  const finalText = el.textContent.trim();
+  if (window.__prefersReducedMotion) { el.classList.add('resolved'); return; }
+  const noise = '!<>-_\\/[]{}=+*^?#·';
+  let started = false;
+  function scramble() {
+    started = true;
+    const len = finalText.length;
+    let resolved = 0, frame = 0;
+    const timer = setInterval(() => {
+      frame++;
+      let out = '';
+      for (let i = 0; i < len; i++) {
+        if (i < resolved || finalText[i] === ' ') out += finalText[i];
+        else out += noise[Math.floor(Math.random() * noise.length)];
+      }
+      el.textContent = out;
+      if (frame % 2 === 0 && resolved < len) resolved++;
+      if (resolved >= len) {
+        clearInterval(timer);
+        el.textContent = finalText;
+        el.classList.add('resolved');
+      }
+    }, 35);
+  }
+  const scrambleIo = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting && !started) { scrambleIo.unobserve(e.target); scramble(); }
+    });
+  }, { threshold: 0.5 });
+  scrambleIo.observe(el);
+})();
 
 /* ---------- earnings calculator ---------- */
 const ROTATE_SECONDS = 20, FILL_CEILING = 0.8, CPM = 2.0, USER_SHARE = 0.5;
