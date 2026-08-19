@@ -66,6 +66,19 @@
   .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
+  /* ---- returning-visitor banner: shown only when this browser has a
+     remembered install ID (set by claim.html after a real balance
+     lookup succeeds), so someone who already installed doesn't land
+     back on a "go install this" pitch with no memory of them ---- */
+  .welcome-back { display:none; align-items:center; gap:10px; flex-wrap:wrap;
+    background:linear-gradient(100deg, rgba(126,231,135,.1), rgba(232,200,150,.08));
+    border:1px solid rgba(126,231,135,.28); border-radius:14px; padding:12px 16px; margin-bottom:22px;
+    font-size:13.5px; color:var(--text); }
+  .welcome-back .dot { width:7px; height:7px; border-radius:50%; background:#7ee787; box-shadow:0 0 8px rgba(126,231,135,.8);
+    flex-shrink:0; animation:livePulse 1.8s ease-in-out infinite; }
+  .welcome-back a { color:#e8c896; font-weight:600; text-decoration:none; border-bottom:1px solid rgba(232,200,150,.4); }
+  .welcome-back a:hover { border-bottom-color:#e8c896; }
+
   .h1-wrap { position:relative; margin-bottom:24px; }
   h1 { font-family:'Fraunces',serif; font-size:clamp(36px,6.5vw,56px); font-weight:600; font-optical-sizing:auto;
        letter-spacing:-0.02em; line-height:1.08; position:relative;
@@ -454,6 +467,11 @@
 
 <div class="wrap">
   <div class="badge reveal"><span class="dot"></span> live on Cloudflare</div>
+
+  <div class="welcome-back" id="welcomeBack">
+    <span class="dot"></span> Welcome back — you're already installed and earning.
+    <a href="claim.html" id="welcomeBackLink">Check your balance →</a>
+  </div>
 
   <div class="h1-wrap">
     <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.<span class="sheen" aria-hidden="true">Get paid while your agent thinks.</span></h1>
@@ -1069,6 +1087,18 @@ window.__safeInitWebGL = function (label, fn) {
     console.warn('[meanwhile] ' + label + ' effect failed to initialize, skipping:', e);
   }
 };
+
+/* ---------- returning-visitor banner ---------- */
+(function () {
+  let savedId = null;
+  try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) {}
+  if (!savedId) return;
+  const banner = document.getElementById('welcomeBack');
+  const link = document.getElementById('welcomeBackLink');
+  if (!banner || !link) return;
+  link.href = 'claim.html?id=' + encodeURIComponent(savedId);
+  banner.style.display = 'flex';
+})();
 
 /* ---------- "Isn't this so cool?!" -- BlurText-style word reveal,
    triggered once it scrolls into view after the live demo ---------- */

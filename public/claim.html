@@ -407,6 +407,7 @@ if (!id) {
         for (let i = 0; i < delta; i++) setTimeout(spawnYourPulse, i * 250);
       }
       lastTotalCalls = s.total_calls;
+      try { localStorage.setItem('meanwhile_id', id); } catch (e) {}
     } catch (e) {
       document.getElementById('progressNote').textContent = 'Could not reach server';
     }
