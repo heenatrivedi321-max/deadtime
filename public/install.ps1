@@ -12,16 +12,16 @@ $StateDir = Join-Path $HOME ".deadtime"
 Write-Host "deadtime: installing to $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-# If the install page generated an ID for this browser (so it could
-# remember "you're already set up" the moment you copied the command),
-# it's passed in via $env:MEANWHILE_ID. Adopt it as the real install ID
-# -- but only if we don't already have one, so re-running this script
-# never clobbers an existing install's history with a fresh random ID.
+# Generate the real install ID right here, on the device, the moment an
+# install actually happens -- not guessed ahead of time by the website.
+# Only if one doesn't already exist, so re-running this script never
+# clobbers an existing install's history with a fresh random ID.
 $stateIdPath = Join-Path $StateDir "install_id"
-if ($env:MEANWHILE_ID -and -not (Test-Path $stateIdPath) -and $env:MEANWHILE_ID -match '^[0-9a-fA-F-]{36}$') {
-    New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
-    Set-Content -Path $stateIdPath -Value $env:MEANWHILE_ID -NoNewline -Encoding utf8
+New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
+if (-not (Test-Path $stateIdPath)) {
+    ([guid]::NewGuid().ToString()) | Set-Content -Path $stateIdPath -NoNewline -Encoding utf8
 }
+$InstallId = (Get-Content -Path $stateIdPath -Raw).Trim()
 
 Invoke-WebRequest -Uri "$Server/statusline.py" -OutFile (Join-Path $InstallDir "statusline.py") -UseBasicParsing
 
@@ -83,3 +83,16 @@ Write-Host "deadtime: wired into $SettingsPath"
 Write-Host "deadtime: installed. Restart Claude Code (close and reopen your terminal) to see it live."
 Write-Host "deadtime: to check earnings or register a payout email later, run:"
 Write-Host "  $PythonCmd `"$scriptPath`" --claim"
+
+# Open the browser straight to the claim page -- same pattern as
+# `gh auth login` / `vercel login` / `wrangler login`. This is the only
+# honest way for the website to know an install actually happened: it
+# fires because this script really did just write a real install ID,
+# not because someone merely copied a command. Never let a headless/
+# remote (RDP without a session, CI) environment fail the install over this.
+$ClaimUrl = "$Server/claim.html?id=$InstallId"
+try {
+    Start-Process $ClaimUrl | Out-Null
+} catch {
+    Write-Host "deadtime: open this to see your live balance: $ClaimUrl"
+}
