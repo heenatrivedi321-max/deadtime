@@ -634,12 +634,50 @@ async function sendPayPalPayout(env, installId, email, amountUsd) {
   return { ...data, item_status: itemStatus };
 }
 
+const PAYOUT_LOCK_KEY = "payout_sweep_lock";
+const PAYOUT_LOCK_TTL_SECONDS = 600;
+
 /** The real payout sweep: scans every install, and for anyone whose
  * unpaid balance has crossed the threshold, actually sends the money.
  * paid_out_usd tracks what's already been sent so nobody gets double-paid
  * on the next run. Called both by the manual admin endpoint and by the
- * scheduled() cron trigger -- same one real algorithm, two triggers. */
+ * scheduled() cron trigger -- same one real algorithm, two triggers.
+ *
+ * That "two triggers" is exactly the danger: if a manual /admin/run-payouts
+ * call ever overlaps with the daily cron (or two manual calls overlap),
+ * both invocations would read the same paid_out_usd before either writes
+ * it back -- real double payments, real money, sent twice. KV has no
+ * compare-and-swap, so a plain check-then-set lock still has a real gap
+ * (verified live: two truly concurrent calls both see no lock and both
+ * proceed). Closing that as tightly as KV allows: write a unique token,
+ * wait, then re-read and only continue if the value read back is still
+ * the exact token this call wrote. If another run's write landed in
+ * that window, this call sees a different value and backs off instead
+ * of both proceeding. Not a cryptographic guarantee -- Durable Objects
+ * would be the airtight version -- but this closes the realistic gap
+ * (two calls within a fraction of a second of each other) rather than
+ * leaving it wide open, and this endpoint is admin-token-gated and
+ * human-triggered, not something under adversarial pressure. */
 async function runPayouts(env) {
+  const myToken = crypto.randomUUID();
+  const existingLock = await env.INSTALLS.get(PAYOUT_LOCK_KEY);
+  if (existingLock) {
+    return { ok: false, error: "payout sweep already in progress", locked_at: existingLock };
+  }
+  await env.INSTALLS.put(PAYOUT_LOCK_KEY, myToken, { expirationTtl: PAYOUT_LOCK_TTL_SECONDS });
+  await new Promise((r) => setTimeout(r, 250));
+  const confirmedLock = await env.INSTALLS.get(PAYOUT_LOCK_KEY);
+  if (confirmedLock !== myToken) {
+    return { ok: false, error: "payout sweep already in progress (lost race)", locked_at: confirmedLock };
+  }
+  try {
+    return await runPayoutsLocked(env);
+  } finally {
+    await env.INSTALLS.delete(PAYOUT_LOCK_KEY);
+  }
+}
+
+async function runPayoutsLocked(env) {
   const results = [];
   let cursor;
   do {
