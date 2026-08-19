@@ -238,7 +238,7 @@
     background:none; animation:none; color:var(--text); -webkit-text-fill-color:var(--text); }
   .intro-word .letter { display:inline-block; opacity:0;
     text-shadow:0 4px 40px rgba(0,0,0,.85), 0 2px 8px rgba(0,0,0,.7);
-    animation:introLetterIn 1.15s cubic-bezier(.16,1,.3,1) forwards; }
+    animation:blurTextIn 1.15s cubic-bezier(.16,1,.3,1) forwards; }
   .intro-sub { margin-top:18px; color:var(--muted); font-size:clamp(14px,2vw,18px); letter-spacing:.03em;
     opacity:0; text-shadow:0 2px 12px rgba(0,0,0,.8);
     animation:introSubIn 1.3s cubic-bezier(.16,1,.3,1) forwards; animation-delay:1.05s; }
@@ -246,10 +246,11 @@
     color:var(--muted); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
     opacity:0; animation:introCueIn 1.3s ease forwards 1.9s, introCueFloat 2.6s ease-in-out infinite 1.9s; }
   @keyframes introBgIn { to { opacity:var(--intro-bg-target); } }
-  @keyframes introLetterIn {
-    0% { opacity:0; filter:blur(18px); transform:translateY(-30px) scale(.92); }
-    60% { filter:blur(2px); }
-    100% { opacity:1; filter:blur(0); transform:translateY(0) scale(1); }
+  /* reactbits.dev's BlurText recipe: blur(10px)/y:-50 -> blur(5px)/opacity:.5/y:5 -> blur(0)/opacity:1/y:0 */
+  @keyframes blurTextIn {
+    0% { opacity:0; filter:blur(10px); transform:translateY(-50px); }
+    50% { opacity:.5; filter:blur(5px); transform:translateY(5px); }
+    100% { opacity:1; filter:blur(0); transform:translateY(0); }
   }
   @keyframes introSubIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
   @keyframes introCueIn { to { opacity:.6; } }
@@ -258,6 +259,18 @@
     .intro-word .letter, .intro-sub { animation:none !important; opacity:1; filter:none; transform:none; }
     .intro-scroll-cue { animation:none !important; opacity:.6; transform:translateX(-50%); }
     .intro-aurora, .intro-rings { animation:none !important; opacity:var(--intro-bg-target); }
+  }
+
+  /* ---- reusable BlurText-style word reveal (reactbits.dev), for the
+     "Isn't this so cool?!" reaction line after the live demo ---- */
+  .cool-line-wrap { text-align:center; padding:8px 24px 56px; }
+  .blur-text { display:flex; flex-wrap:wrap; justify-content:center; gap:0 .3em; }
+  .blur-text .segment { display:inline-block; opacity:0; }
+  .blur-text.play .segment { animation:blurTextIn .7s cubic-bezier(.4,0,.2,1) forwards; }
+  .cool-line { font-family:'Fraunces',serif; font-weight:600; font-style:italic; letter-spacing:-0.01em;
+    font-size:clamp(22px,4vw,36px); color:var(--muted); }
+  @media (prefers-reduced-motion: reduce) {
+    .blur-text .segment { animation:none !important; opacity:1; }
   }
 
   .demo { margin-bottom:64px; }
@@ -510,6 +523,10 @@
         <div class="demo-line-item" id="demoLiveLine"><span class="demo-dot demo-dot-tip" id="demoDot"></span><span id="demoText"></span><span class="demo-cursor" id="demoCursor"></span></div>
       </div>
     </div>
+  </div>
+
+  <div class="cool-line-wrap">
+    <p class="blur-text cool-line" id="coolLine" aria-label="Isn't this so cool?!"></p>
   </div>
 
   <div class="calc reveal tilt" id="calc">
@@ -1003,6 +1020,24 @@ window.__safeInitWebGL = function (label, fn) {
     console.warn('[meanwhile] ' + label + ' effect failed to initialize, skipping:', e);
   }
 };
+
+/* ---------- "Isn't this so cool?!" -- BlurText-style word reveal,
+   triggered once it scrolls into view after the live demo ---------- */
+(function () {
+  const el = document.getElementById('coolLine');
+  if (!el) return;
+  const text = "Isn't this so cool?!";
+  const words = text.split(' ');
+  el.innerHTML = words.map((w, i) =>
+    `<span class="segment" style="animation-delay:${i * 150}ms">${w}</span>`
+  ).join(' ');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) { el.classList.add('play'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.6 });
+  io.observe(el);
+})();
 
 /* ---------- intro: letter-by-letter reveal of "Meanwhile" ----------
    Pure CSS @keyframes animation per letter (animation-delay staggered
