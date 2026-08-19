@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
 <link rel="apple-touch-icon" href="logo-192.png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.045); --border:rgba(255,255,255,0.09);
     --text:#f5f0e6; --muted:#9a9aa4; --gold:#e8c896; --green:#7ee787;
@@ -59,6 +59,29 @@
 
   footer { margin-top:56px; color:#5a5a62; font-size:12px; text-align:center; }
   footer a { color:var(--muted); text-decoration:none; }
+
+  .reveal { opacity:0; transform:translateY(14px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1); }
+  .reveal.in { opacity:1; transform:translateY(0); }
+
+  .mega-wrap { width:100vw; margin-left:calc(50% - 50vw); margin-top:48px; margin-bottom:10px;
+               overflow:hidden; display:flex; justify-content:center; padding:20px 0; }
+  .mega-word { position:relative; font-family:'Fraunces',serif; font-weight:700;
+               font-size:clamp(36px,10vw,110px); letter-spacing:-0.03em; line-height:1;
+               white-space:nowrap; cursor:default; user-select:none; }
+  .mega-base { color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.14); }
+  .mega-shine { position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(126,231,135,.4) 45%, rgba(232,200,150,.4) 50%, rgba(236,72,153,.4) 55%, transparent 70%);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:megaShine 6s ease-in-out infinite; pointer-events:none; }
+  @keyframes megaShine { 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+  .mega-glow { position:absolute; inset:0;
+    background:radial-gradient(circle 200px at var(--mx,50%) var(--my,50%), #7ee787 0%, #e8c896 40%, #ec4899 70%, transparent 85%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    opacity:0; transition:opacity .4s ease; pointer-events:none; }
+  .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
+  .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
+  .mega-word .ml { display:inline-block; font-variation-settings:'opsz' 144, 'wght' var(--w, 700);
+    transition:font-variation-settings .22s cubic-bezier(.16,1,.3,1); }
 </style>
 </head>
 <body>
@@ -67,21 +90,21 @@
   <a href="install.html" class="back-link">← back to Meanwhile</a>
   <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
 
-  <h1>Privacy Policy</h1>
+  <h1 class="reveal">Privacy Policy</h1>
   <p class="updated">Last updated: August 18, 2026</p>
 
-  <div class="honest-note">
+  <div class="honest-note reveal">
     <b>The short, honest version:</b> we built this to need as little of your data as possible. No accounts, no cookies, no analytics scripts, no tracking beyond what's required to bill sponsor impressions correctly. This page describes exactly what the code sends and stores — you can verify it yourself, the client is a short, readable script.
   </div>
 
-  <h2>What we never collect</h2>
+  <h2 class="reveal">What we never collect</h2>
   <div class="never-list">
     <div class="never-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Your prompts, your code, or anything in your Claude Code conversation — it never leaves your machine.</div>
     <div class="never-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Your name, IP-linked identity, or any account information — there is no account.</div>
     <div class="never-item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Browsing data, cookies, or third-party trackers on this website.</div>
   </div>
 
-  <h2>What we do collect — developer side</h2>
+  <h2 class="reveal">What we do collect — developer side</h2>
   <table>
     <tr><th>Data</th><th>Why</th></tr>
     <tr><td><strong>Anonymous install ID</strong><br>a random string generated on install, stored in a local file on your machine</td><td>The only way we identify "an install" to track and pay earnings — not tied to your name or email unless you choose to register one.</td></tr>
@@ -91,13 +114,13 @@
     <tr><td><strong>Daily billable-call count</strong><br>resets every day, tied to your install ID</td><td>A hard daily cap exists to stop automated abuse (a script hammering the endpoint instead of a real Claude Code session) from draining real advertisers' paid campaigns. This is the counter that enforces it.</td></tr>
   </table>
 
-  <h2>What we do collect — advertiser side</h2>
+  <h2 class="reveal">What we do collect — advertiser side</h2>
   <p>Company name, destination URL, the ad line text, and an email address, submitted directly through the advertiser form. Payment itself is handled entirely by PayPal — we never see or store your card or bank details; PayPal passes us only a confirmation that payment succeeded, along with PayPal's own order/capture/refund reference IDs, which we keep so a refund (see the Terms page) can actually be processed against the right payment.</p>
 
-  <h2>Where it's stored</h2>
+  <h2 class="reveal">Where it's stored</h2>
   <p>Everything lives in Cloudflare KV, a database attached to the Cloudflare Worker that runs this whole service. We don't run our own servers and don't copy this data anywhere else.</p>
 
-  <h2>Third parties</h2>
+  <h2 class="reveal">Third parties</h2>
   <ul>
     <li><strong>PayPal</strong> — processes all payments and payouts. See <a href="https://www.paypal.com/us/legalhub/privacy-full" target="_blank" rel="noopener">PayPal's own privacy policy</a> for how they handle your payment data.</li>
     <li><strong>Cloudflare</strong> — hosts the site and the database. Standard infrastructure logs (like any host) may briefly exist at that layer; we don't access or use them beyond debugging.</li>
@@ -105,16 +128,88 @@
   </ul>
   <p>We do not sell, rent, or share your data with anyone else, for any reason.</p>
 
-  <h2>Deleting your data</h2>
+  <h2 class="reveal">Deleting your data</h2>
   <p>Since there's no account system, we can't offer a self-serve "delete my account" button. Email <a href="mailto:meanwhile@gmail.com">meanwhile@gmail.com</a> with your install ID (or the payout/advertiser email you registered) and we'll remove your data from our database.</p>
 
-  <h2>Changes to this policy</h2>
+  <h2 class="reveal">Changes to this policy</h2>
   <p>If what we collect or how we use it ever changes, we'll update this page first.</p>
 
-  <h2>Contact</h2>
+  <h2 class="reveal">Contact</h2>
   <p><a href="mailto:meanwhile@gmail.com">meanwhile@gmail.com</a></p>
+
+  <div class="mega-wrap">
+    <div class="mega-word" id="megaWord" aria-hidden="true">
+      <span class="mega-base">Meanwhile</span>
+      <span class="mega-shine">Meanwhile</span>
+      <span class="mega-glow">Meanwhile</span>
+    </div>
+  </div>
 
   <footer>Meanwhile — <a href="install.html">home</a> · <a href="terms.html">terms of service</a></footer>
 </div>
+
+<script>
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('in'), i * 40);
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.15 });
+revealEls.forEach(el => io.observe(el));
+setTimeout(() => revealEls.forEach((el, i) => {
+  if (el.getBoundingClientRect().top < window.innerHeight) {
+    setTimeout(() => el.classList.add('in'), i * 50);
+  }
+}), 50);
+
+const megaWord = document.getElementById('megaWord');
+if (megaWord) {
+  const setMegaPos = (x, y) => {
+    const r = megaWord.getBoundingClientRect();
+    megaWord.style.setProperty('--mx', ((x - r.left) / r.width * 100) + '%');
+    megaWord.style.setProperty('--my', ((y - r.top) / r.height * 100) + '%');
+  };
+  megaWord.addEventListener('mousemove', (e) => setMegaPos(e.clientX, e.clientY));
+  megaWord.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchmove', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchend', () => {
+    setTimeout(() => megaWord.classList.remove('touched'), 900);
+  });
+
+  const megaLayers = megaWord.querySelectorAll('.mega-base, .mega-shine, .mega-glow');
+  const megaLetters = [];
+  megaLayers.forEach((layer, layerIdx) => {
+    const letters = layer.textContent.split('');
+    layer.innerHTML = letters.map((ch) => `<span class="ml">${ch === ' ' ? '&nbsp;' : ch}</span>`).join('');
+    layer.querySelectorAll('.ml').forEach((span, i) => {
+      if (layerIdx === 0) megaLetters.push([span]);
+      else megaLetters[i].push(span);
+    });
+  });
+  megaWord.addEventListener('mousemove', (e) => {
+    megaLetters.forEach((spansAcrossLayers) => {
+      const r = spansAcrossLayers[0].getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const dist = Math.abs(e.clientX - cx);
+      const weight = Math.max(300, 900 - dist * 3.2);
+      spansAcrossLayers.forEach((span) => span.style.setProperty('--w', weight.toFixed(0)));
+    });
+  });
+  megaWord.addEventListener('mouseleave', () => {
+    megaLetters.forEach((spansAcrossLayers) =>
+      spansAcrossLayers.forEach((span) => span.style.removeProperty('--w'))
+    );
+  });
+}
+</script>
 </body>
 </html>

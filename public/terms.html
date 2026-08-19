@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
 <link rel="apple-touch-icon" href="logo-192.png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.045); --border:rgba(255,255,255,0.09);
     --text:#f5f0e6; --muted:#9a9aa4; --gold:#e8c896;
@@ -49,6 +49,29 @@
 
   footer { margin-top:56px; color:#5a5a62; font-size:12px; text-align:center; }
   footer a { color:var(--muted); text-decoration:none; }
+
+  .reveal { opacity:0; transform:translateY(14px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1); }
+  .reveal.in { opacity:1; transform:translateY(0); }
+
+  .mega-wrap { width:100vw; margin-left:calc(50% - 50vw); margin-top:48px; margin-bottom:10px;
+               overflow:hidden; display:flex; justify-content:center; padding:20px 0; }
+  .mega-word { position:relative; font-family:'Fraunces',serif; font-weight:700;
+               font-size:clamp(36px,10vw,110px); letter-spacing:-0.03em; line-height:1;
+               white-space:nowrap; cursor:default; user-select:none; }
+  .mega-base { color:transparent; -webkit-text-stroke:1.5px rgba(255,255,255,.14); }
+  .mega-shine { position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(168,85,247,.4) 45%, rgba(232,200,150,.4) 50%, rgba(59,130,246,.4) 55%, transparent 70%);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    animation:megaShine 6s ease-in-out infinite; pointer-events:none; }
+  @keyframes megaShine { 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+  .mega-glow { position:absolute; inset:0;
+    background:radial-gradient(circle 200px at var(--mx,50%) var(--my,50%), #a855f7 0%, #e8c896 40%, #3b82f6 70%, transparent 85%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    opacity:0; transition:opacity .4s ease; pointer-events:none; }
+  .mega-word:hover .mega-glow, .mega-word.touched .mega-glow { opacity:1; }
+  .mega-word:hover .mega-shine, .mega-word.touched .mega-shine { opacity:0; }
+  .mega-word .ml { display:inline-block; font-variation-settings:'opsz' 144, 'wght' var(--w, 700);
+    transition:font-variation-settings .22s cubic-bezier(.16,1,.3,1); }
 </style>
 </head>
 <body>
@@ -57,17 +80,17 @@
   <a href="install.html" class="back-link">← back to Meanwhile</a>
   <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
 
-  <h1>Terms of Service</h1>
+  <h1 class="reveal">Terms of Service</h1>
   <p class="updated">Last updated: August 18, 2026</p>
 
-  <div class="honest-note">
+  <div class="honest-note reveal">
     <b>The short, honest version:</b> Meanwhile is a small, early-stage, single-developer product, not a company with a legal team. These terms describe exactly what the code actually does — no more, no less. If something here ever changes, we'll change it here first, not quietly in the code.
   </div>
 
-  <h2>1. What Meanwhile is</h2>
+  <h2 class="reveal">1. What Meanwhile is</h2>
   <p>Meanwhile is a status-line integration for Claude Code. Once installed, it shows a small line of text — usually a tip, occasionally a clearly labeled "(sponsored)" line — while Claude Code is working. Developers who run it earn a share of sponsor revenue; companies can pay to have a line shown.</p>
 
-  <h2>2. For developers</h2>
+  <h2 class="reveal">2. For developers</h2>
   <ul>
     <li>Installing creates a random, anonymous install ID stored locally on your machine. There is no account, no signup, no login.</li>
     <li>Sponsor lines are billed to advertisers at $2 per 1,000 shown impressions. You receive <strong>50%</strong> of that revenue, tracked against your install ID.</li>
@@ -77,7 +100,7 @@
     <li>You can stop using Meanwhile at any time by removing the <code>statusLine</code> entry from <code>~/.claude/settings.json</code>. Any balance already earned and tied to your install ID remains claimable afterward, provided you still have that ID.</li>
   </ul>
 
-  <h2>3. For advertisers</h2>
+  <h2 class="reveal">3. For advertisers</h2>
   <ul>
     <li>A campaign is purchased in blocks of 1,000 impressions at $2/block, paid via PayPal.</li>
     <li>Once payment is captured, your campaign is activated automatically and enters real rotation — delivery speed depends entirely on real, organic Claude Code usage across the network at that time. We do not guarantee a delivery timeline.</li>
@@ -86,16 +109,88 @@
     <li><strong>Refunds:</strong> if your campaign is refused, removed for a policy violation, or the service is discontinued before your purchased impressions are fully delivered, you're entitled to a pro-rated refund for the undelivered portion. We calculate this from the same <code>impressions_delivered</code> / <code>impressions_total</code> numbers shown on your campaign dashboard — nothing hidden. Once impressions are fully delivered, the purchase is final.</li>
   </ul>
 
-  <h2>4. No warranty</h2>
+  <h2 class="reveal">4. No warranty</h2>
   <p>Meanwhile is provided as-is, run by one person as an early-stage product. We don't promise uptime, don't promise the service will exist indefinitely, and don't promise it's free of bugs. If we ever decide to shut the service down, we'll honor outstanding developer balances and refund undelivered advertiser impressions as described above, on a best-effort basis.</p>
 
-  <h2>5. Changes to these terms</h2>
+  <h2 class="reveal">5. Changes to these terms</h2>
   <p>If these terms change in a way that affects what you're owed or what's expected of you, we'll update this page and, where we have a way to reach you (a registered payout or advertiser email), let you know.</p>
 
-  <h2>6. Contact</h2>
+  <h2 class="reveal">6. Contact</h2>
   <p>Questions, disputes, refund requests, or anything else: <a href="mailto:meanwhile@gmail.com">meanwhile@gmail.com</a></p>
+
+  <div class="mega-wrap">
+    <div class="mega-word" id="megaWord" aria-hidden="true">
+      <span class="mega-base">Meanwhile</span>
+      <span class="mega-shine">Meanwhile</span>
+      <span class="mega-glow">Meanwhile</span>
+    </div>
+  </div>
 
   <footer>Meanwhile — <a href="install.html">home</a> · <a href="privacy.html">privacy policy</a></footer>
 </div>
+
+<script>
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('in'), i * 40);
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.15 });
+revealEls.forEach(el => io.observe(el));
+setTimeout(() => revealEls.forEach((el, i) => {
+  if (el.getBoundingClientRect().top < window.innerHeight) {
+    setTimeout(() => el.classList.add('in'), i * 50);
+  }
+}), 50);
+
+const megaWord = document.getElementById('megaWord');
+if (megaWord) {
+  const setMegaPos = (x, y) => {
+    const r = megaWord.getBoundingClientRect();
+    megaWord.style.setProperty('--mx', ((x - r.left) / r.width * 100) + '%');
+    megaWord.style.setProperty('--my', ((y - r.top) / r.height * 100) + '%');
+  };
+  megaWord.addEventListener('mousemove', (e) => setMegaPos(e.clientX, e.clientY));
+  megaWord.addEventListener('touchstart', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchmove', (e) => {
+    const t = e.touches[0]; if (!t) return;
+    setMegaPos(t.clientX, t.clientY); megaWord.classList.add('touched');
+  }, { passive: true });
+  megaWord.addEventListener('touchend', () => {
+    setTimeout(() => megaWord.classList.remove('touched'), 900);
+  });
+
+  const megaLayers = megaWord.querySelectorAll('.mega-base, .mega-shine, .mega-glow');
+  const megaLetters = [];
+  megaLayers.forEach((layer, layerIdx) => {
+    const letters = layer.textContent.split('');
+    layer.innerHTML = letters.map((ch) => `<span class="ml">${ch === ' ' ? '&nbsp;' : ch}</span>`).join('');
+    layer.querySelectorAll('.ml').forEach((span, i) => {
+      if (layerIdx === 0) megaLetters.push([span]);
+      else megaLetters[i].push(span);
+    });
+  });
+  megaWord.addEventListener('mousemove', (e) => {
+    megaLetters.forEach((spansAcrossLayers) => {
+      const r = spansAcrossLayers[0].getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const dist = Math.abs(e.clientX - cx);
+      const weight = Math.max(300, 900 - dist * 3.2);
+      spansAcrossLayers.forEach((span) => span.style.setProperty('--w', weight.toFixed(0)));
+    });
+  });
+  megaWord.addEventListener('mouseleave', () => {
+    megaLetters.forEach((spansAcrossLayers) =>
+      spansAcrossLayers.forEach((span) => span.style.removeProperty('--w'))
+    );
+  });
+}
+</script>
 </body>
 </html>
