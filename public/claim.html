@@ -76,6 +76,19 @@
                    border-radius:12px; padding:24px 22px; margin-bottom:20px; }
   .balance-card .amount { font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:700; color:var(--text); }
   .balance-card .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
+
+  /* ---- electric border (reactbits.dev), wraps the real earnings amount ---- */
+  .electric-border { --electric-light-color: oklch(from var(--electric-border-color, #f2b134) l c h);
+    position:relative; border-radius:inherit; overflow:visible; isolation:isolate; }
+  .eb-canvas-container { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:2; }
+  .eb-canvas { display:block; }
+  .eb-content { position:relative; border-radius:inherit; z-index:1; }
+  .eb-layers { position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0; }
+  .eb-glow-1, .eb-glow-2, .eb-background-glow { position:absolute; inset:0; border-radius:inherit; pointer-events:none; box-sizing:border-box; }
+  .eb-glow-1 { border:2px solid oklch(from var(--electric-border-color, #f2b134) l c h / 0.6); filter:blur(1px); }
+  .eb-glow-2 { border:2px solid var(--electric-light-color); filter:blur(4px); }
+  .eb-background-glow { z-index:-1; transform:scale(1.1); filter:blur(32px); opacity:.3;
+    background:linear-gradient(-30deg, var(--electric-light-color), transparent, var(--electric-border-color, #f2b134)); }
   .progress-track { height:6px; background:var(--border); border-radius:100px; margin-top:18px; overflow:hidden; position:relative; }
   .progress-fill { height:100%; background:linear-gradient(90deg,#f2b134,#ec4899); border-radius:100px; transition:width .6s ease; position:relative; overflow:hidden; }
   .progress-fill::after { content:''; position:absolute; inset:0; width:40%;
@@ -219,11 +232,19 @@ if (!id) {
       <div class="id-value">${id}</div>
     </div>
 
-    <div class="balance-card">
-      <div class="amount" id="amount">–</div>
-      <div class="lbl">current balance</div>
-      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-      <div class="progress-note" id="progressNote">loading…</div>
+    <div class="balance-card electric-border" id="balanceCard">
+      <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+      <div class="eb-layers">
+        <div class="eb-glow-1"></div>
+        <div class="eb-glow-2"></div>
+        <div class="eb-background-glow"></div>
+      </div>
+      <div class="eb-content">
+        <div class="amount" id="amount">–</div>
+        <div class="lbl">current balance</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div class="progress-note" id="progressNote">loading…</div>
+      </div>
     </div>
 
     <div class="steps">
@@ -265,6 +286,13 @@ if (!id) {
 
     <p class="note">Payouts run automatically, once a day, straight to your registered PayPal email the moment your balance crosses $${THRESHOLD} — no manual step, no waiting for a batch.</p>
   `;
+
+  import('./electricborder.js').then(({ initElectricBorder }) => {
+    const balanceCard = document.getElementById('balanceCard');
+    if (balanceCard) {
+      initElectricBorder(balanceCard, { color: '#f2b134', speed: 1, chaos: 0.1, borderRadius: 12 });
+    }
+  });
 
   function flyOrbToBadge(fromEl) {
     const orb = document.getElementById('orb');
