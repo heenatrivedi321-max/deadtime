@@ -27,12 +27,14 @@
 
   .wrap { position:relative; z-index:1; max-width:1040px; margin:0 auto; padding:56px 24px 80px; }
   .intro-col { max-width:460px; }
-  .dashboard-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:22px; align-items:start; margin-top:8px; }
-  .main-col, .side-col { min-width:0; }
+  /* auto-fit reflows the row on its own as space shrinks -- 4 cards wide
+     on desktop, 2, then 1 on a phone -- instead of one fixed breakpoint
+     that collapses everything to a stack at once. */
+  .dashboard-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+                     gap:18px; align-items:start; margin-top:8px; }
+  .dashboard-grid > * { min-width:0; }
+  .span-all { grid-column:1 / -1; }
   .dashboard-footer { max-width:460px; margin-top:0; }
-  @media (max-width:800px) {
-    .dashboard-grid { grid-template-columns:1fr; }
-  }
 
   .brand { display:flex; align-items:center; gap:10px; margin-bottom:36px; }
   .brand img { width:28px; height:28px; }
@@ -113,7 +115,8 @@
   @keyframes progressShine { 0%{ transform:translateX(-120%); } 100%{ transform:translateX(350%); } }
   .progress-note { font-size:12px; color:var(--muted); margin-top:8px; }
 
-  .steps { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+  .steps { display:flex; flex-direction:column; gap:12px; background:var(--panel); border:1px solid var(--border);
+            border-radius:12px; padding:20px 22px; margin-bottom:0; }
   .step { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
   .step .check { flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
                   display:flex; align-items:center; justify-content:center;
@@ -251,92 +254,88 @@ if (!id) {
     </div>
 
     <div class="dashboard-grid">
-      <div class="main-col">
-        <div class="balance-card electric-border" id="balanceCard">
-          <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
-          <div class="eb-layers">
-            <div class="eb-glow-1"></div>
-            <div class="eb-glow-2"></div>
-            <div class="eb-background-glow"></div>
-          </div>
-          <div class="eb-content">
-            <div class="amount" id="amount">–</div>
-            <div class="lbl">current balance</div>
-            <div class="balance-breakdown" id="balanceBreakdown"><span class="dot"></span> loading activity…</div>
-            <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-            <div class="progress-note" id="progressNote">loading…</div>
-          </div>
+      <div class="balance-card electric-border span-all" id="balanceCard">
+        <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+        <div class="eb-layers">
+          <div class="eb-glow-1"></div>
+          <div class="eb-glow-2"></div>
+          <div class="eb-background-glow"></div>
         </div>
-
-        <div class="badge-card">
-          <div class="badge-card-label">Show it off</div>
-          <p class="badge-card-sub">A live badge for your GitHub README or profile — updates automatically as you earn, no login needed to view it.</p>
-          <img class="badge-preview" id="badgePreview" src="https://deadtime-server.bean-picker.workers.dev/badge?id=${id}" alt="meanwhile earnings badge" width="132" height="20">
-          <div class="cmd-box">
-            <code id="badgeMarkdown">[![meanwhile](https://deadtime-server.bean-picker.workers.dev/badge?id=${id})](https://deadtime-server.bean-picker.workers.dev/install)</code>
-            <button id="copyBadgeBtn" class="magnetic" type="button">Copy</button>
-          </div>
+        <div class="eb-content">
+          <div class="amount" id="amount">–</div>
+          <div class="lbl">current balance</div>
+          <div class="balance-breakdown" id="balanceBreakdown"><span class="dot"></span> loading activity…</div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+          <div class="progress-note" id="progressNote">loading…</div>
         </div>
       </div>
 
-      <div class="side-col">
-        <div class="steps">
-          <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
-          <div class="step" id="stepEmail"><span class="check"></span> Register payout email</div>
-          <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
-          <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
-        </div>
+      <div class="steps">
+        <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
+        <div class="step" id="stepEmail"><span class="check"></span> Register payout email</div>
+        <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
+        <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
+      </div>
 
-        <div class="destination">
-          <div class="pp-badge-wrap">
-            <div class="pp-ring-idle"></div>
-            <div class="pp-ring" id="ppRing"></div>
-            <div class="pp-badge" id="ppBadge">${ppMark}</div>
-          </div>
-          <div class="dest-text">
-            <div class="dest-label">Payout destination</div>
-            <div class="dest-value">PayPal</div>
-            <div class="dest-note" id="destNote">Not connected yet</div>
-          </div>
+      <div class="destination">
+        <div class="pp-badge-wrap">
+          <div class="pp-ring-idle"></div>
+          <div class="pp-ring" id="ppRing"></div>
+          <div class="pp-badge" id="ppBadge">${ppMark}</div>
         </div>
-
-        <div class="card electric-border" id="idCard">
-          <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
-          <div class="eb-layers">
-            <div class="eb-glow-1"></div>
-            <div class="eb-glow-2"></div>
-            <div class="eb-background-glow"></div>
-          </div>
-          <div class="eb-content">
-            <div class="card-label">Your install ID</div>
-            <div class="id-value">${id}</div>
-          </div>
+        <div class="dest-text">
+          <div class="dest-label">Payout destination</div>
+          <div class="dest-value">PayPal</div>
+          <div class="dest-note" id="destNote">Not connected yet</div>
         </div>
+      </div>
 
-        <div class="card-label" style="margin-top:4px;">Payout settings</div>
-        <div class="form-panel">
-          <form id="claimForm">
-            <div id="currentEmailWrap" style="display:none;">
-              <label for="currentEmail">Current registered email (to confirm it's really you)</label>
-              <input id="currentEmail" type="email" placeholder="what's on file now" autocomplete="off">
-            </div>
-            <div>
-              <label for="email" id="emailLabel">PayPal email address</label>
-              <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
-            </div>
-            <div>
-              <label for="emailConfirm">Type it again to confirm</label>
-              <input id="emailConfirm" type="email" placeholder="you@example.com" required autocomplete="off">
-            </div>
-            <div id="emailMismatch" class="status err" style="display:none;">Those don't match — real money goes to whatever's registered here, worth getting right.</div>
-            <button type="submit" id="submitBtn" class="magnetic">Register for payout</button>
-            <div id="status" class="status"></div>
-          </form>
-          <div class="success-state" id="successState">
-            <div class="success-check">${checkIcon.replace('11','20').replace('11','20')}</div>
-            <div class="success-title">Connected to PayPal</div>
-            <div class="success-detail" id="successDetail"></div>
+      <div class="card electric-border" id="idCard">
+        <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
+        <div class="eb-layers">
+          <div class="eb-glow-1"></div>
+          <div class="eb-glow-2"></div>
+          <div class="eb-background-glow"></div>
+        </div>
+        <div class="eb-content">
+          <div class="card-label">Your install ID</div>
+          <div class="id-value">${id}</div>
+        </div>
+      </div>
+
+      <div class="badge-card">
+        <div class="badge-card-label">Show it off</div>
+        <p class="badge-card-sub">A live badge for your GitHub README or profile — updates automatically as you earn, no login needed to view it.</p>
+        <img class="badge-preview" id="badgePreview" src="https://deadtime-server.bean-picker.workers.dev/badge?id=${id}" alt="meanwhile earnings badge" width="132" height="20">
+        <div class="cmd-box">
+          <code id="badgeMarkdown">[![meanwhile](https://deadtime-server.bean-picker.workers.dev/badge?id=${id})](https://deadtime-server.bean-picker.workers.dev/install)</code>
+          <button id="copyBadgeBtn" class="magnetic" type="button">Copy</button>
+        </div>
+      </div>
+
+      <div class="form-panel span-all">
+        <div class="card-label">Payout settings</div>
+        <form id="claimForm">
+          <div id="currentEmailWrap" style="display:none;">
+            <label for="currentEmail">Current registered email (to confirm it's really you)</label>
+            <input id="currentEmail" type="email" placeholder="what's on file now" autocomplete="off">
           </div>
+          <div>
+            <label for="email" id="emailLabel">PayPal email address</label>
+            <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
+          </div>
+          <div>
+            <label for="emailConfirm">Type it again to confirm</label>
+            <input id="emailConfirm" type="email" placeholder="you@example.com" required autocomplete="off">
+          </div>
+          <div id="emailMismatch" class="status err" style="display:none;">Those don't match — real money goes to whatever's registered here, worth getting right.</div>
+          <button type="submit" id="submitBtn" class="magnetic">Register for payout</button>
+          <div id="status" class="status"></div>
+        </form>
+        <div class="success-state" id="successState">
+          <div class="success-check">${checkIcon.replace('11','20').replace('11','20')}</div>
+          <div class="success-title">Connected to PayPal</div>
+          <div class="success-detail" id="successDetail"></div>
         </div>
       </div>
     </div>
