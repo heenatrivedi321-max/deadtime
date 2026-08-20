@@ -26,5 +26,13 @@ id = "83a97e184c3d485ca30e075b48aee2fb"
 [ai]
 binding = "AI"
 
+[[durable_objects.bindings]]
+name = "CAMPAIGN_COUNTER"
+class_name = "CampaignCounter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CampaignCounter"]
+
 [triggers]
 crons = ["11 6 * * *", "*/20 * * * *"]

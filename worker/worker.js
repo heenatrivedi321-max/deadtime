@@ -332,44 +332,87 @@ async function handleDemoLine(env) {
 }
 
 /** Called when a sponsor line is actually billed -- attributes the real
- * impression to its campaign and exhausts it once the paid block runs out. */
-/** Real, known limitation, not hidden: this is a read-increment-write on
- * a single shared key, and Workers KV has no atomic increment or
- * compare-and-swap. Two concurrent deliveries for the same popular
- * campaign (entirely realistic once there's real traffic -- this is
- * the ONE key every delivery of that campaign touches, from any user,
- * anywhere) can race, and one write can clobber the other's increment.
- * Retrying with a fresh re-read each attempt meaningfully narrows the
- * collision window, but doesn't close it -- proven directly tonight
- * with the campaign-index bug that an immediate read-back can't be
- * trusted either, since KV itself is eventually consistent. A fully
- * atomic fix needs Cloudflare Durable Objects; this is the honest
- * best-effort mitigation on the current KV-only architecture. */
+ * impression to its campaign and exhausts it once the paid block runs out.
+ *
+ * Used to be a read-increment-write straight against the shared KV key,
+ * with a retry-and-verify best-effort mitigation. Stress-tested that
+ * directly: 20 concurrent deliveries to one campaign landed only 2 of the
+ * 20 increments -- 90% lost under real concurrency, confirming the code's
+ * own comment ("narrows the window, doesn't close it") was true, and
+ * worse than it sounded. KV has no compare-and-swap, so no amount of
+ * retrying fixes this on KV alone.
+ *
+ * Now routes through a CampaignCounter Durable Object instead, one DO
+ * instance per campaign (via idFromName). Durable Objects serialize
+ * requests to the same instance automatically -- at most one `fetch` is
+ * ever being handled at a time for a given campaign, so the increment
+ * genuinely can't race with itself, no retry-and-hope needed. The DO
+ * mirrors the result back into the KV campaign record so every existing
+ * read path (getActiveCampaigns, handleCampaignStatus, the admin list)
+ * keeps working unchanged. */
 async function deliverImpression(env, campaignId) {
   if (!campaignId) return;
-  const key = `campaign:${campaignId}`;
-  let done = false;
-  for (let attempt = 0; attempt < 3 && !done; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 60 * attempt));
-    const raw = await env.CAMPAIGNS.get(key);
-    if (!raw) return;
+  try {
+    const id = env.CAMPAIGN_COUNTER.idFromName(campaignId);
+    const stub = env.CAMPAIGN_COUNTER.get(id);
+    const res = await stub.fetch("https://campaign-counter/deliver", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ campaignId }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      await logError(env, "campaign_counter_do_failed", `delivering impression for campaign ${campaignId}`, `status ${res.status}: ${detail}`);
+    }
+  } catch (e) {
+    await logError(env, "campaign_counter_do_failed", `delivering impression for campaign ${campaignId}`, e.message);
+  }
+}
+
+/** One instance per campaign (Durable Objects key by idFromName(campaignId)
+ * in deliverImpression above), so every delivery for the SAME campaign --
+ * the actual point of contention -- funnels through the same single-
+ * threaded instance and is processed strictly one at a time. Different
+ * campaigns get different instances and don't contend with each other at
+ * all, which is exactly the right granularity: the race was always
+ * per-campaign, never global. */
+export class CampaignCounter {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request) {
+    let data;
+    try {
+      data = await request.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "bad json" }), { status: 400 });
+    }
+    const { campaignId } = data;
+    if (!campaignId) return new Response(JSON.stringify({ error: "missing campaignId" }), { status: 400 });
+
+    const key = `campaign:${campaignId}`;
+    const raw = await this.env.CAMPAIGNS.get(key);
+    if (!raw) return new Response(JSON.stringify({ error: "campaign not found" }), { status: 404 });
     const campaign = JSON.parse(raw);
-    const expected = campaign.impressions_delivered + 1;
-    campaign.impressions_delivered = expected;
-    if (campaign.impressions_delivered >= campaign.impressions_total) {
+
+    // This instance's own durable storage is the running count once it
+    // exists -- seeded from KV the first time this campaign is ever
+    // delivered to, authoritative from then on, so a stale KV read never
+    // overwrites a count this DO already advanced past.
+    let delivered = await this.state.storage.get("impressions_delivered");
+    if (delivered === undefined) delivered = campaign.impressions_delivered || 0;
+    delivered += 1;
+    await this.state.storage.put("impressions_delivered", delivered);
+
+    campaign.impressions_delivered = delivered;
+    if (delivered >= campaign.impressions_total) {
       campaign.status = "exhausted";
     }
-    await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+    await this.env.CAMPAIGNS.put(key, JSON.stringify(campaign));
 
-    // Best-effort check, not proof -- KV's own eventual consistency
-    // means this can still be wrong. What it reliably prevents is the
-    // real mistake above: blindly looping N times would have added N
-    // to the counter for one real impression. This only re-attempts
-    // (fresh read, +1 relative to whatever's actually there now) if
-    // the write doesn't look like it landed.
-    const verifyRaw = await env.CAMPAIGNS.get(key);
-    const verifyCampaign = verifyRaw ? JSON.parse(verifyRaw) : null;
-    done = !!verifyCampaign && verifyCampaign.impressions_delivered >= expected;
+    return new Response(JSON.stringify({ ok: true, impressions_delivered: delivered, status: campaign.status }));
   }
 }
 
