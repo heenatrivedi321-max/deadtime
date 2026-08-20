@@ -149,6 +149,26 @@
   .versus-col.old .versus-row span:last-child { color:#9a9aa4; }
   .versus-col.new .versus-row span:last-child { color:var(--text); }
 
+  /* ---- the river: a full-bleed generative visualization of real
+     network activity. Ambient particles drift left to right at all
+     times; a gold flare only ever happens because /network-stats just
+     showed a genuine new sponsor call somewhere on the real network --
+     same "real event drives the visual" discipline as every other
+     canvas on this site, just as its own dedicated moment instead of
+     a background layer. ---- */
+  .river-section { margin:64px 0 8px; text-align:center; }
+  .river-section h2 { margin-bottom:10px; }
+  .river-sub { font-size:14.5px; color:var(--muted); max-width:460px; margin:0 auto; line-height:1.6; }
+  .river-wrap { position:relative; width:100vw; margin-left:calc(50% - 50vw); height:260px; margin-top:28px; margin-bottom:56px; overflow:hidden; }
+  .river-wrap::before { content:''; position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:linear-gradient(90deg, var(--bg) 0%, transparent 14%, transparent 86%, var(--bg) 100%); }
+  #riverCanvas { display:block; width:100%; height:100%; }
+  .river-overlay { position:absolute; inset:0; z-index:1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; pointer-events:none; text-align:center; }
+  .river-number { font-family:'JetBrains Mono',monospace; font-size:clamp(34px,7vw,54px); font-weight:800;
+    color:var(--text); text-shadow:0 0 30px rgba(232,200,150,.4); }
+  .river-label { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.09em; margin-top:6px; }
+
   /* ---- returning-visitor banner: shown only when this browser has a
      remembered install ID (set by claim.html after a real balance
      lookup succeeds), so someone who already installed doesn't land
@@ -674,6 +694,18 @@
     </div>
   </div>
 
+  <div class="river-section reveal">
+    <h2 class="blur-heading">Somewhere, right now.</h2>
+    <p class="river-sub">Every gold flare below is real — a sponsor line landing on a real developer's screen, somewhere on the network, this second.</p>
+  </div>
+  <div class="river-wrap">
+    <canvas id="riverCanvas"></canvas>
+    <div class="river-overlay">
+      <div class="river-number" id="riverTotal">–</div>
+      <div class="river-label">quiet moments served, network-wide, live</div>
+    </div>
+  </div>
+
   <div class="demo reveal tilt">
     <h2 class="demo-headline blur-heading">Not a static ad. Watch it happen.</h2>
     <p class="demo-sub">Not a mockup. This is the real server, live, right now.</p>
@@ -1157,6 +1189,106 @@ pollNetworkActivity();
 setInterval(pollNetworkActivity, 8000);
 // gentle occasional ambient pulse so the network doesn't feel dead between real events
 setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
+</script>
+
+<script>
+/* ---------- the river ----------
+ * A dedicated visual moment, not a background layer. Particles drift
+ * left to right at all times (ambient, ~40% opacity) so it's never
+ * dead-looking -- but a particle only ever flares gold because
+ * /network-stats just reported a genuine new sponsor call somewhere
+ * on the real network since the last poll. Same real-event-drives-
+ * the-visual discipline as the constellation canvases elsewhere on
+ * this site, deliberately given its own full-bleed section here
+ * instead of staying a corner decoration. */
+(function () {
+  const canvas = document.getElementById('riverCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    W = canvas.width = rect.width;
+    H = canvas.height = rect.height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const PALETTE = ['232,200,150', '236,72,153', '168,85,247', '59,130,246', '20,201,165'];
+  const PARTICLE_COUNT = 90;
+  const particles = Array.from({ length: PARTICLE_COUNT }, () => ({
+    x: Math.random() * (W || 800),
+    y: Math.random() * (H || 260),
+    speed: 0.15 + Math.random() * 0.5,
+    r: 1 + Math.random() * 2,
+    color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+    flareUntil: 0,
+  }));
+
+  function flareRandomParticles(count) {
+    for (let i = 0; i < count; i++) {
+      const p = particles[Math.floor(Math.random() * particles.length)];
+      p.flareUntil = performance.now() + 1400 + Math.random() * 600;
+    }
+  }
+
+  function tick(t) {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      p.x += p.speed;
+      if (p.x > W + 20) { p.x = -20; p.y = Math.random() * H; }
+
+      const flaring = t < p.flareUntil;
+      const alpha = flaring ? 0.9 : 0.25;
+      const radius = flaring ? p.r * 2.6 : p.r;
+      if (flaring) {
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = `rgba(${p.color},0.9)`;
+      }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p.color},${alpha})`;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  function renderRiverOdometer(el, value) {
+    const chars = String(value).split('');
+    el.innerHTML = chars.map((ch) => {
+      if (isNaN(parseInt(ch, 10))) return `<span>${ch}</span>`;
+      const strip = Array.from({ length: 10 }, (_, n) => `<span>${n}</span>`).join('');
+      return `<span class="digit-wrap"><span class="digit-strip" data-target="${ch}">${strip}</span></span>`;
+    }).join('');
+    requestAnimationFrame(() => {
+      el.querySelectorAll('.digit-strip').forEach((strip) => {
+        strip.style.transform = `translateY(-${strip.dataset.target}em)`;
+      });
+    });
+  }
+
+  let lastTotal = null;
+  let lastRendered = null;
+  async function pollRiver() {
+    try {
+      const res = await fetch('https://trymeanwhile.online/network-stats');
+      if (!res.ok) return;
+      const s = await res.json();
+      if (s.total_calls !== lastRendered) {
+        renderRiverOdometer(document.getElementById('riverTotal'), s.total_calls);
+        lastRendered = s.total_calls;
+      }
+      if (lastTotal !== null && s.total_calls > lastTotal) {
+        flareRandomParticles(Math.min(6, s.total_calls - lastTotal));
+      }
+      lastTotal = s.total_calls;
+    } catch (e) { /* stay quiet, the river keeps flowing regardless */ }
+  }
+  pollRiver();
+  setInterval(pollRiver, 8000);
+})();
 </script>
 
 <script>
