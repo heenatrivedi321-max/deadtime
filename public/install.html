@@ -98,12 +98,19 @@
      usefully signals "this part changes" rather than blending in. */
   .rotating-word { display:inline-block; position:relative; overflow:hidden;
     -webkit-text-fill-color:var(--gold); color:var(--gold); }
-  .rw-char { display:inline-block; transform:translateY(100%); opacity:0;
-    transition:transform .45s cubic-bezier(.16,1,.3,1), opacity .4s cubic-bezier(.16,1,.3,1); }
-  .rw-char.rw-enter { transform:translateY(0); opacity:1; }
-  .rw-char.rw-exit { transform:translateY(-120%); opacity:0; }
+  /* Plain CSS @keyframes, not a transition gated by a class toggled after
+     a double requestAnimationFrame -- the exact bug already found and
+     fixed once this session in the intro reveal: if a tick gets delayed
+     or suspended, the toggle never fires and the word stays invisible
+     forever. An animation starts the instant its class is applied,
+     nothing external has to "arm" it first. */
+  .rw-char { display:inline-block; opacity:1; transform:translateY(0); }
+  .rw-char.rw-entering { animation:rwEnter .45s cubic-bezier(.16,1,.3,1) both; }
+  .rw-char.rw-exiting { animation:rwExit .32s cubic-bezier(.4,0,.2,1) both; }
+  @keyframes rwEnter { from { opacity:0; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
+  @keyframes rwExit { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(-120%); } }
   @media (prefers-reduced-motion: reduce) {
-    .rw-char { transition:none; }
+    .rw-char.rw-entering, .rw-char.rw-exiting { animation:none; }
   }
   h1.glitch::before, h1.glitch::after { content:attr(data-text); position:absolute; inset:0;
     background:none; -webkit-text-fill-color:initial; clip-path:inset(0 0 0 0); }
@@ -1141,13 +1148,8 @@ function showWelcomeBack(id) {
 
   function renderWord(word, animateIn) {
     el.innerHTML = word.split('').map((ch, i) =>
-      `<span class="rw-char${animateIn ? '' : ' rw-enter'}" style="transition-delay:${i * 22}ms">${ch}</span>`
+      `<span class="rw-char${animateIn ? ' rw-entering' : ''}" style="animation-delay:${i * 22}ms">${ch}</span>`
     ).join('');
-    if (animateIn) {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.querySelectorAll('.rw-char').forEach((c) => c.classList.add('rw-enter'));
-      }));
-    }
   }
   renderWord(words[0], false);
 
@@ -1156,9 +1158,8 @@ function showWelcomeBack(id) {
   function rotate() {
     const chars = el.querySelectorAll('.rw-char');
     chars.forEach((c, i) => {
-      c.style.transitionDelay = (i * 18) + 'ms';
-      c.classList.remove('rw-enter');
-      c.classList.add('rw-exit');
+      c.style.animationDelay = (i * 18) + 'ms';
+      c.classList.add('rw-exiting');
     });
     setTimeout(() => {
       idx = (idx + 1) % words.length;
