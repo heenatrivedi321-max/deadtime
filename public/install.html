@@ -621,9 +621,9 @@
   <p class="loot-note reveal">Just for effect — your real number's <a href="#calc" style="color:var(--gold)">below ↓</a>.</p>
 
   <div class="stats reveal">
-    <div class="stat"><div class="odometer" id="odInstalls"></div><div class="lbl">installs</div></div>
-    <div class="stat"><div class="odometer" id="odCalls"></div><div class="lbl">lines served</div></div>
-    <div class="stat"><div class="pct" id="statRatio">–</div><div class="lbl">sponsor rate</div></div>
+    <div class="stat"><div class="pct">100%</div><div class="lbl">sponsor lines disclosed</div></div>
+    <div class="stat"><div class="pct">$0</div><div class="lbl">to install, ever</div></div>
+    <div class="stat"><div class="pct"><a href="https://github.com/heenatrivedi321-max/deadtime" style="color:inherit;text-decoration:none;">open</a></div><div class="lbl">source, on GitHub</div></div>
   </div>
 
   <div class="steps reveal">
@@ -837,36 +837,6 @@ function updateCalc() {
 hoursSlider.addEventListener('input', updateCalc);
 updateCalc();
 
-/* ---------- odometer ---------- */
-function renderOdometer(el, value) {
-  const digits = String(value).split('');
-  el.innerHTML = digits.map(d => {
-    if (isNaN(parseInt(d))) return `<span>${d}</span>`;
-    const strip = Array.from({length:10}, (_,n) => `<span>${n}</span>`).join('');
-    return `<span class="digit-wrap"><span class="digit-strip" data-target="${d}">${strip}</span></span>`;
-  }).join('');
-  requestAnimationFrame(() => {
-    el.querySelectorAll('.digit-strip').forEach(strip => {
-      const target = parseInt(strip.dataset.target);
-      strip.style.transform = `translateY(-${target}em)`;
-    });
-  });
-}
-async function loadStats() {
-  try {
-    const res = await fetch('https://trymeanwhile.online/network-stats');
-    if (!res.ok) throw new Error('stats unavailable');
-    const s = await res.json();
-    renderOdometer(document.getElementById('odInstalls'), s.installs);
-    renderOdometer(document.getElementById('odCalls'), s.total_calls);
-    document.getElementById('statRatio').textContent = Math.round(s.sponsor_ratio * 100) + '%';
-  } catch (e) {
-    renderOdometer(document.getElementById('odInstalls'), 0);
-    renderOdometer(document.getElementById('odCalls'), 0);
-    document.getElementById('statRatio').textContent = '–';
-  }
-}
-loadStats();
 
 /* ---------- illustrative loot counter ----------
  * Purely decorative -- ticks up to sell the idea, then resets. The real
