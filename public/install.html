@@ -9,20 +9,35 @@
      isn't actually real) and, if it checks out, send them straight to
      their dashboard instead of the marketing homepage. Placed first so
      the flash of the homepage before redirecting is as short as
-     possible for a real returning connected user. -->
+     possible for a real returning connected user.
+
+     Also listens live for the moment someone actually installs while
+     this exact tab is still open on the homepage. install.sh already
+     auto-opens a NEW tab to the dashboard once install really
+     succeeds, and that tab saves the id to localStorage -- browsers
+     fire a native "storage" event on every OTHER open tab of the same
+     site the instant that happens. No polling, no timer, no extra
+     server call to invent: just reacting to the same save that new
+     tab was already doing. -->
 <script>
 (function () {
-  var savedId;
-  try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) { return; }
-  if (!savedId) return;
-  fetch('https://trymeanwhile.online/earnings?id=' + encodeURIComponent(savedId))
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (data) {
-      if (data && !data.error) {
-        location.replace('claim.html?id=' + encodeURIComponent(savedId));
-      }
-    })
-    .catch(function () {});
+  function checkAndMaybeRedirect() {
+    var savedId;
+    try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) { return; }
+    if (!savedId) return;
+    fetch('https://trymeanwhile.online/earnings?id=' + encodeURIComponent(savedId))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && !data.error) {
+          location.replace('claim.html?id=' + encodeURIComponent(savedId));
+        }
+      })
+      .catch(function () {});
+  }
+  checkAndMaybeRedirect();
+  window.addEventListener('storage', function (e) {
+    if (e.key === 'meanwhile_id' && e.newValue) checkAndMaybeRedirect();
+  });
 })();
 </script>
 <title>Meanwhile — get paid while your agent thinks</title>
