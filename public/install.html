@@ -212,6 +212,12 @@
   .platform-name { font-size:13px; font-weight:600; }
   .platform-status { font-size:11px; color:var(--muted); }
   .platform-status.live { color:var(--gold); font-weight:600; }
+  .platform-connect-btn { margin-top:6px; padding:6px 14px; border-radius:100px; font-size:11px; font-weight:700;
+    background:rgba(242,177,52,.14); border:1px solid rgba(242,177,52,.4); color:var(--gold);
+    transition:background .2s ease, transform .2s ease, box-shadow .2s ease; white-space:nowrap; }
+  .platform-card.live:hover .platform-connect-btn { background:rgba(242,177,52,.26); transform:translateY(-1px);
+    box-shadow:0 6px 16px -6px rgba(242,177,52,.5); }
+  .platform-connect-btn.soon { background:rgba(255,255,255,.05); border-color:var(--border); color:var(--muted); font-weight:600; }
   @media (max-width:480px) { .platform-row { flex-wrap:nowrap; } .platform-card { min-width:0; } }
 
   /* ---- giant interactive wordmark, breaks out of the 640px column ---- */
@@ -588,21 +594,25 @@
         <div class="platform-icon"><img src="logo-claude-code.png" alt="Claude Code" loading="lazy"></div>
         <div class="platform-name">Claude Code</div>
         <div class="platform-status live">● connected today</div>
+        <span class="platform-connect-btn">Connect now →</span>
       </a>
       <div class="platform-card soon">
         <div class="platform-icon"><img src="logo-cursor.svg" alt="Cursor" loading="lazy"></div>
         <div class="platform-name">Cursor</div>
         <div class="platform-status">coming soon</div>
+        <span class="platform-connect-btn soon">Coming soon</span>
       </div>
       <a href="connect-copilot.html" class="platform-card live">
         <div class="platform-icon on-white"><img src="logo-github-copilot.png" alt="GitHub Copilot" loading="lazy"></div>
         <div class="platform-name">GitHub Copilot</div>
         <div class="platform-status live">● live</div>
+        <span class="platform-connect-btn">Connect now →</span>
       </a>
       <a href="connect-vscode.html" class="platform-card live">
-        <div class="platform-icon">VS</div>
+        <div class="platform-icon on-white"><img src="logo-vscode.png" alt="VS Code" loading="lazy"></div>
         <div class="platform-name">VS Code</div>
         <div class="platform-status live">● live</div>
+        <span class="platform-connect-btn">Connect now →</span>
       </a>
     </div>
   </div>
