@@ -1493,26 +1493,33 @@ async function reconcilePendingOrders(env) {
   // reconciliation itself never misses a campaign just because the
   // index once got clobbered.
   const indexRaw = await env.CAMPAIGNS.get("index");
-  let ids = indexRaw ? JSON.parse(indexRaw) : [];
-  const knownIds = new Set(ids);
-  let healedAny = false;
+  const knownIds = new Set(indexRaw ? JSON.parse(indexRaw) : []);
+  const missingIds = [];
   let cursor;
   do {
     const page = await env.CAMPAIGNS.list({ prefix: "campaign:", cursor });
     for (const key of page.keys) {
       const realId = key.name.replace(/^campaign:/, "");
-      if (!knownIds.has(realId)) {
-        knownIds.add(realId);
-        ids.push(realId);
-        healedAny = true;
-      }
+      if (!knownIds.has(realId)) missingIds.push(realId);
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+  const healedAny = missingIds.length > 0;
   if (healedAny) {
-    await env.CAMPAIGNS.put("index", JSON.stringify(ids));
-    await logError(env, "campaign_index_healed", `reconciliation found campaign(s) missing from the index and added them back`, JSON.stringify(ids));
+    // Used to be a single unprotected put here -- the exact same shared-
+    // key race as everywhere else "index" gets written, just rarer since
+    // this only runs every 20 min. Routes through the same retry-and-
+    // verify helper now, re-reading the index fresh at write time rather
+    // than trusting the copy read at the start of this scan (which could
+    // be stale by the time a slow full campaign: scan finishes).
+    await updateCampaignIndex(env, (index) => {
+      const merged = new Set(index);
+      for (const id of missingIds) merged.add(id);
+      return [...merged];
+    }, (index) => missingIds.every((id) => index.includes(id)));
+    await logError(env, "campaign_index_healed", `reconciliation found campaign(s) missing from the index and added them back`, JSON.stringify(missingIds));
   }
+  const ids = [...new Set([...knownIds, ...missingIds])];
 
   const results = [];
   let scanned = 0;
