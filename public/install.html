@@ -2,6 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- As early as possible, before fonts/CSS/anything else loads: if this
+     browser has a remembered install ID, verify it against the real
+     server (not just trust localStorage -- a stale or tampered value
+     should never silently take someone to a dashboard for an ID that
+     isn't actually real) and, if it checks out, send them straight to
+     their dashboard instead of the marketing homepage. Placed first so
+     the flash of the homepage before redirecting is as short as
+     possible for a real returning connected user. -->
+<script>
+(function () {
+  var savedId;
+  try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) { return; }
+  if (!savedId) return;
+  fetch('https://trymeanwhile.online/earnings?id=' + encodeURIComponent(savedId))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (data && !data.error) {
+        location.replace('claim.html?id=' + encodeURIComponent(savedId));
+      }
+    })
+    .catch(function () {});
+})();
+</script>
 <title>Meanwhile — get paid while your agent thinks</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
