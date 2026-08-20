@@ -1,6 +1,7 @@
 name = "deadtime-server"
 main = "worker.js"
 compatibility_date = "2026-01-01"
+workers_dev = true
 
 [assets]
 directory = "../public"
@@ -33,6 +34,10 @@ class_name = "CampaignCounter"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["CampaignCounter"]
+
+[[routes]]
+pattern = "trymeanwhile.online"
+custom_domain = true
 
 [triggers]
 crons = ["11 6 * * *", "*/20 * * * *"]

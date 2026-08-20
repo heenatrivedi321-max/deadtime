@@ -306,9 +306,9 @@ if (!id) {
       <div class="badge-card">
         <div class="badge-card-label">Show it off</div>
         <p class="badge-card-sub">A live badge for your GitHub README or profile — updates automatically as you earn, no login needed to view it.</p>
-        <img class="badge-preview" id="badgePreview" src="https://deadtime-server.bean-picker.workers.dev/badge?id=${id}" alt="meanwhile earnings badge" width="132" height="20">
+        <img class="badge-preview" id="badgePreview" src="https://trymeanwhile.online/badge?id=${id}" alt="meanwhile earnings badge" width="132" height="20">
         <div class="cmd-box">
-          <code id="badgeMarkdown">[![meanwhile](https://deadtime-server.bean-picker.workers.dev/badge?id=${id})](https://deadtime-server.bean-picker.workers.dev/install)</code>
+          <code id="badgeMarkdown">[![meanwhile](https://trymeanwhile.online/badge?id=${id})](https://trymeanwhile.online/install)</code>
           <button id="copyBadgeBtn" class="magnetic" type="button">Copy</button>
         </div>
       </div>
@@ -429,7 +429,7 @@ if (!id) {
   let lastAmountText = null;
   async function loadBalance() {
     try {
-      const res = await fetch(`https://deadtime-server.bean-picker.workers.dev/earnings?id=${id}`);
+      const res = await fetch(`https://trymeanwhile.online/earnings?id=${id}`);
       const s = await res.json();
       const amt = s.user_earnings || 0;
       const amountText = '$' + amt.toFixed(2);
@@ -511,7 +511,7 @@ if (!id) {
       if (originalPayoutEmail && originalPayoutEmail.toLowerCase() !== email.toLowerCase()) {
         body.current_email = currentEmail;
       }
-      const res = await fetch('https://deadtime-server.bean-picker.workers.dev/register-payout', {
+      const res = await fetch('https://trymeanwhile.online/register-payout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

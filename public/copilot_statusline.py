@@ -24,7 +24,7 @@ try:
 except ImportError:
     SSL_CONTEXT = ssl.create_default_context()
 
-SERVER_URL = "https://deadtime-server.bean-picker.workers.dev"
+SERVER_URL = "https://trymeanwhile.online"
 INSTALL_ID_FILE = Path.home() / ".deadtime" / "install_id"
 FALLBACK_LINE = "deadtime: agent working..."
 

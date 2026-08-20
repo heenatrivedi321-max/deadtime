@@ -371,7 +371,7 @@ async function pickLine(env, state) {
   if (state.pending_jackpot_win) {
     const amount = state.pending_jackpot_win.amount;
     delete state.pending_jackpot_win;
-    return { kind: "jackpot", line: `deadtime: you just won $${amount.toFixed(2)} from the Meanwhile Jackpot -- check your email, it's already sent -> deadtime-server.bean-picker.workers.dev/jackpot` };
+    return { kind: "jackpot", line: `deadtime: you just won $${amount.toFixed(2)} from the Meanwhile Jackpot -- check your email, it's already sent -> trymeanwhile.online/jackpot` };
   }
 
   // The Heartbeat: tagged for everyone real-active in the last 24h at

@@ -11,7 +11,7 @@
 # why -- check https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks
 set -euo pipefail
 
-SERVER="https://deadtime-server.bean-picker.workers.dev"
+SERVER="https://trymeanwhile.online"
 INSTALL_DIR="$HOME/.deadtime-client"
 
 echo "deadtime: installing to $INSTALL_DIR"

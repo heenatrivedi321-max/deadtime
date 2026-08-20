@@ -21,7 +21,7 @@ except ImportError:
     # macOS and Linux. Never let a missing package break the status line.
     SSL_CONTEXT = ssl.create_default_context()
 
-SERVER_URL = "https://deadtime-server.bean-picker.workers.dev"
+SERVER_URL = "https://trymeanwhile.online"
 INSTALL_ID_FILE = Path.home() / ".deadtime" / "install_id"
 FALLBACK_LINE = "deadtime: agent working..."
 

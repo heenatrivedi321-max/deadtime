@@ -5,7 +5,7 @@
 # instead of bash and Windows paths instead of Unix ones.
 $ErrorActionPreference = "Stop"
 
-$Server = "https://deadtime-server.bean-picker.workers.dev"
+$Server = "https://trymeanwhile.online"
 $InstallDir = Join-Path $HOME ".deadtime-client"
 $StateDir = Join-Path $HOME ".deadtime"
 

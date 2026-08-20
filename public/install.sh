@@ -5,7 +5,7 @@
 # setting.
 set -euo pipefail
 
-SERVER="https://deadtime-server.bean-picker.workers.dev"
+SERVER="https://trymeanwhile.online"
 INSTALL_DIR="$HOME/.deadtime-client"
 STATE_DIR="$HOME/.deadtime"
 

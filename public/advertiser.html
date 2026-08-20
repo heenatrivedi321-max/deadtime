@@ -315,7 +315,7 @@ function renderOdometer(el, value) {
 
 async function loadStats() {
   try {
-    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const res = await fetch('https://trymeanwhile.online/network-stats');
     if (!res.ok) throw new Error('stats unavailable');
     const s = await res.json();
     renderOdometer(document.getElementById('odCalls'), s.total_calls);
@@ -327,7 +327,7 @@ async function loadStats() {
 }
 loadStats();
 
-const API = 'https://deadtime-server.bean-picker.workers.dev';
+const API = 'https://trymeanwhile.online';
 
 document.getElementById('adForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -564,7 +564,7 @@ requestAnimationFrame(tick);
 let lastTotalCalls = null;
 async function pollNetworkActivity() {
   try {
-    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const res = await fetch('https://trymeanwhile.online/network-stats');
     if (!res.ok) return;
     const s = await res.json();
     if (lastTotalCalls !== null && s.total_calls > lastTotalCalls) {

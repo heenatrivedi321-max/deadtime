@@ -322,7 +322,7 @@ function render(c) {
 let lastDelivered = null;
 async function load() {
   try {
-    const res = await fetch(`https://deadtime-server.bean-picker.workers.dev/campaign-status?id=${id}`);
+    const res = await fetch(`https://trymeanwhile.online/campaign-status?id=${id}`);
     if (!res.ok) throw new Error('not found');
     const c = await res.json();
     render(c);

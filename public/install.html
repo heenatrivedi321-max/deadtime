@@ -514,7 +514,7 @@
     <button class="os-btn" data-os="windows" type="button">Windows</button>
   </div>
   <div class="install-box reveal tilt">
-    <code id="installCmd">curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash</code>
+    <code id="installCmd">curl -fsSL https://trymeanwhile.online/install.sh | bash</code>
     <button id="copyBtn" class="magnetic">Copy</button>
   </div>
   <p class="install-note reveal">Free, forever — this pays <em>you</em>, it never charges you. No account, no card, not now, not ever. One line to remove from <code>~/.claude/settings.json</code> if you ever want out.</p>
@@ -794,7 +794,7 @@ function renderOdometer(el, value) {
 }
 async function loadStats() {
   try {
-    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const res = await fetch('https://trymeanwhile.online/network-stats');
     if (!res.ok) throw new Error('stats unavailable');
     const s = await res.json();
     renderOdometer(document.getElementById('odInstalls'), s.installs);
@@ -854,8 +854,8 @@ function burstConfetti(x, y) {
    (see those files); this page finds out the honest way, by the
    installer opening the browser straight to claim.html when it's done. */
 const INSTALL_CMDS = {
-  unix: 'curl -fsSL https://deadtime-server.bean-picker.workers.dev/install.sh | bash',
-  windows: 'irm https://deadtime-server.bean-picker.workers.dev/install.ps1 | iex',
+  unix: 'curl -fsSL https://trymeanwhile.online/install.sh | bash',
+  windows: 'irm https://trymeanwhile.online/install.ps1 | iex',
 };
 document.querySelectorAll('.os-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1074,7 +1074,7 @@ requestAnimationFrame(tick);
 let lastTotalCalls = null;
 async function pollNetworkActivity() {
   try {
-    const res = await fetch('https://deadtime-server.bean-picker.workers.dev/network-stats');
+    const res = await fetch('https://trymeanwhile.online/network-stats');
     if (!res.ok) return;
     const s = await res.json();
     if (lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
@@ -1393,7 +1393,7 @@ if (calcBg && !window.__prefersReducedMotion) {
       return;
     }
     try {
-      const res = await fetch('https://deadtime-server.bean-picker.workers.dev/demo-line');
+      const res = await fetch('https://trymeanwhile.online/demo-line');
       const data = await res.json();
       showLine(data.line || "The pause is not empty. It's where the next idea is standing.", false);
     } catch (e) {
