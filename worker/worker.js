@@ -1554,11 +1554,24 @@ async function reconcilePendingOrders(env) {
         }
       } else if (orderData.status === "COMPLETED") {
         // Rare: PayPal shows it already captured but our activation
-        // step never ran (e.g. the Worker died mid-request).
-        const activated = await activateCampaign(env, id);
+        // step never ran (e.g. the Worker died mid-request). Real money
+        // already moved here -- found while auditing that this call was
+        // missing the capture ID entirely, which meant this specific
+        // recovery path would activate the campaign without ever
+        // recording the payment in the house ledger (so it couldn't
+        // fund the jackpot) and without ever setting
+        // paypal_capture_id (so it could never be refunded through
+        // handleRefundCampaign either, only by hand in the PayPal
+        // dashboard). Same field path captureAndActivateOrder already
+        // uses to pull it out of a capture response, works the same way
+        // on this GET-order response since it's the same resource shape.
+        const captureId = orderData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+        const activated = await activateCampaign(env, id, captureId);
         results.push({ campaign_id: id, status: activated ? "recovered_and_activated" : "activation_failed" });
         if (!activated) {
           await logError(env, "reconcile_activation_failed", `campaign ${id}, order ${campaign.paypal_order_id} already COMPLETED on PayPal's side`, "");
+        } else if (!captureId) {
+          await logError(env, "reconcile_no_capture_id", `campaign ${id}, order ${campaign.paypal_order_id} recovered as COMPLETED but no capture id found in the order response`, JSON.stringify(orderData));
         }
       } else {
         // CREATED / PAYER_ACTION_REQUIRED -- advertiser genuinely
