@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
 <link rel="apple-touch-icon" href="logo-192.png">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,100..900&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.08);
@@ -271,8 +271,9 @@
   .intro-aurora { animation:introBgIn 2.4s ease forwards; --intro-bg-target:.85; }
   .intro-rings { mix-blend-mode:screen; animation:introBgIn 2.4s ease forwards; --intro-bg-target:.95; }
   .intro-content { position:relative; z-index:1; padding:0 24px; }
-  .intro-word { font-family:'Fraunces',serif; font-weight:700; letter-spacing:-0.03em; line-height:1;
-    font-size:clamp(52px,13vw,168px); display:flex; justify-content:center; flex-wrap:wrap;
+  .intro-word { font-family:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    font-weight:600; letter-spacing:-0.02em; line-height:1;
+    font-size:clamp(48px,12vw,152px); display:flex; justify-content:center; flex-wrap:wrap;
     background:none; animation:none; color:var(--text); -webkit-text-fill-color:var(--text); }
   .intro-word .letter { display:inline-block; opacity:0;
     text-shadow:0 4px 40px rgba(0,0,0,.85), 0 2px 8px rgba(0,0,0,.7);
