@@ -599,7 +599,7 @@
     <button class="os-btn" data-os="windows" type="button">Windows</button>
   </div>
   <div class="install-box reveal tilt">
-    <code id="installCmd">curl -fsSL https://trymeanwhile.online/install.sh | bash</code>
+    <code id="installCmd">curl -fsSL trymeanwhile.online/go | bash</code>
     <button id="copyBtn" class="magnetic">Copy</button>
   </div>
   <p class="install-note reveal">Free, forever. This pays <em>you</em> — it never charges you. One line to remove if you ever want out.</p>
@@ -950,8 +950,8 @@ function burstConfetti(x, y) {
    (see those files); this page finds out the honest way, by the
    installer opening the browser straight to claim.html when it's done. */
 const INSTALL_CMDS = {
-  unix: 'curl -fsSL https://trymeanwhile.online/install.sh | bash',
-  windows: 'irm https://trymeanwhile.online/install.ps1 | iex',
+  unix: 'curl -fsSL trymeanwhile.online/go | bash',
+  windows: 'irm trymeanwhile.online/go.ps1 | iex',
 };
 document.querySelectorAll('.os-btn').forEach(btn => {
   btn.addEventListener('click', () => {

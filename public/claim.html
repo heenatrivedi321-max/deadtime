@@ -284,7 +284,7 @@ function renderNameGate() {
         body: JSON.stringify({ id, name }),
       });
       if (!res.ok) throw new Error('failed');
-      renderDashboard(name);
+      goToNextOnboardingStep(name);
     } catch (err) {
       document.getElementById('nameStatus').textContent = 'Something went wrong — try again.';
       document.getElementById('nameStatus').className = 'status err';
@@ -294,15 +294,71 @@ function renderNameGate() {
   });
 }
 
+function renderEmailGate(name) {
+  app.innerHTML = `
+    <div class="name-gate">
+      <h1>One more thing, ${name}.</h1>
+      <p class="sub">Add your PayPal email so we know where to send it. Cross $${THRESHOLD}, it's sent automatically.</p>
+      <form id="emailGateForm" style="flex-direction:column;">
+        <input id="emailGateInput" type="email" placeholder="you@example.com" required autocomplete="email">
+        <input id="emailGateConfirm" type="email" placeholder="type it again to confirm" required autocomplete="off">
+        <button type="submit" class="magnetic">Save and see my dashboard</button>
+      </form>
+      <div id="emailGateStatus" class="status"></div>
+      <p style="margin-top:14px;"><a href="#" id="skipEmailGate" style="color:var(--muted); font-size:13px; text-decoration:underline;">Skip for now — I'll add it later</a></p>
+    </div>
+  `;
+  document.getElementById('skipEmailGate').addEventListener('click', (e) => {
+    e.preventDefault();
+    renderDashboard(name);
+  });
+  document.getElementById('emailGateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('emailGateInput').value.trim();
+    const confirm = document.getElementById('emailGateConfirm').value.trim();
+    const status = document.getElementById('emailGateStatus');
+    if (email.toLowerCase() !== confirm.toLowerCase()) {
+      status.textContent = "Those don't match — worth getting right, real money goes here.";
+      status.className = 'status err';
+      return;
+    }
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('https://trymeanwhile.online/register-payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'failed');
+      renderDashboard(name);
+    } catch (err) {
+      status.textContent = 'Something went wrong — check the email and try again.';
+      status.className = 'status err';
+      btn.disabled = false;
+      btn.textContent = 'Save and see my dashboard';
+    }
+  });
+}
+
+let knownPayoutEmail = null;
+function goToNextOnboardingStep(name) {
+  if (!knownPayoutEmail) { renderEmailGate(name); return; }
+  renderDashboard(name);
+}
+
 async function initDashboardFlow() {
   let existingName = null;
   try {
     const res = await fetch(`https://trymeanwhile.online/earnings?id=${id}`);
     const s = await res.json();
     existingName = s.name || null;
+    knownPayoutEmail = s.payout_email || null;
   } catch (e) {}
   if (!existingName) { renderNameGate(); return; }
-  renderDashboard(existingName);
+  goToNextOnboardingStep(existingName);
 }
 
 if (!id) {

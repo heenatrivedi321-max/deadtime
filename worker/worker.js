@@ -2000,6 +2000,19 @@ export default {
       if (url.pathname === "/dashboard") {
         return env.ASSETS.fetch(new Request(new URL("/dashboard.html", url), request));
       }
+      // Short, typeable aliases for the real install scripts -- the whole
+      // point is a command someone can read once and retype without
+      // copy-paste, same spirit as `curl sh.rustup.rs | sh`. Same file,
+      // same source of truth, just a shorter door to it.
+      if (url.pathname === "/go") {
+        return env.ASSETS.fetch(new Request(new URL("/install.sh", url), request));
+      }
+      if (url.pathname === "/go.ps1") {
+        return env.ASSETS.fetch(new Request(new URL("/install.ps1", url), request));
+      }
+      if (url.pathname === "/go-copilot") {
+        return env.ASSETS.fetch(new Request(new URL("/install_copilot.sh", url), request));
+      }
       return env.ASSETS.fetch(request);
     }
 
