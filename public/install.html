@@ -22,6 +22,11 @@
 <script>
 (function () {
   function checkAndMaybeRedirect() {
+    // A link from the dashboard back to this homepage (e.g. its logo)
+    // carries ?stay=1 specifically to skip this redirect -- otherwise
+    // a connected user could never actually see the homepage again,
+    // just bounce straight back to the dashboard they came from.
+    if (location.search.indexOf('stay=1') !== -1) return;
     var savedId;
     try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) { return; }
     if (!savedId) return;
