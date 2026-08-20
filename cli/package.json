@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Get paid while your AI coding agent thinks. Wires a disclosed status line into Claude Code / Copilot CLI.",
   "bin": {
-    "meanwhile": "./bin/meanwhile.js"
+    "meanwhile": "bin/meanwhile.js"
   },
   "engines": {
     "node": ">=18"
@@ -12,7 +12,7 @@
   "homepage": "https://trymeanwhile.online",
   "repository": {
     "type": "git",
-    "url": "https://github.com/heenatrivedi321-max/deadtime"
+    "url": "git+https://github.com/heenatrivedi321-max/deadtime.git"
   },
   "keywords": [
     "claude-code",
