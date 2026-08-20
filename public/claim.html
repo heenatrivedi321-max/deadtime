@@ -310,7 +310,7 @@ function renderEmailGate(name) {
   `;
   document.getElementById('skipEmailGate').addEventListener('click', (e) => {
     e.preventDefault();
-    renderDashboard(name);
+    renderDashboard(name, null);
   });
   document.getElementById('emailGateForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -333,7 +333,7 @@ function renderEmailGate(name) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'failed');
-      renderDashboard(name);
+      renderDashboard(name, email);
     } catch (err) {
       status.textContent = 'Something went wrong — check the email and try again.';
       status.className = 'status err';
@@ -346,7 +346,7 @@ function renderEmailGate(name) {
 let knownPayoutEmail = null;
 function goToNextOnboardingStep(name) {
   if (!knownPayoutEmail) { renderEmailGate(name); return; }
-  renderDashboard(name);
+  renderDashboard(name, knownPayoutEmail);
 }
 
 async function initDashboardFlow() {
@@ -370,7 +370,8 @@ if (!id) {
   initDashboardFlow();
 }
 
-function renderDashboard(userName) {
+function renderDashboard(userName, payoutEmail) {
+  const isConnected = !!payoutEmail;
   app.innerHTML = `
     <div class="secure-badge">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -400,7 +401,7 @@ function renderDashboard(userName) {
 
       <div class="steps">
         <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
-        <div class="step" id="stepEmail"><span class="check"></span> Register payout email</div>
+        <div class="step${isConnected ? ' done' : ''}" id="stepEmail"><span class="check">${isConnected ? checkIcon : ''}</span> Register payout email</div>
         <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
         <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
       </div>
@@ -414,8 +415,9 @@ function renderDashboard(userName) {
         <div class="dest-text">
           <div class="dest-label">Payout destination</div>
           <div class="dest-value">PayPal</div>
-          <div class="dest-note" id="destNote">Not connected yet</div>
+          <div class="dest-note" id="destNote">${isConnected ? maskEmail(payoutEmail) : 'Not connected yet'}</div>
         </div>
+        ${isConnected ? `<button type="button" id="changeEmailBtn" class="magnetic" style="background:none; border:none; color:var(--muted); font-size:12.5px; text-decoration:underline; cursor:pointer; flex-shrink:0;">Change</button>` : ''}
       </div>
 
       <div class="badge-card">
@@ -428,23 +430,23 @@ function renderDashboard(userName) {
         </div>
       </div>
 
-      <div class="form-panel span-all">
+      <div class="form-panel span-all" id="payoutFormPanel" style="${isConnected ? 'display:none;' : ''}">
         <div class="card-label">Payout settings</div>
         <form id="claimForm">
-          <div id="currentEmailWrap" style="display:none;">
+          <div id="currentEmailWrap" style="display:${isConnected ? 'block' : 'none'};">
             <label for="currentEmail">Current registered email (to confirm it's really you)</label>
             <input id="currentEmail" type="email" placeholder="what's on file now" autocomplete="off">
           </div>
           <div>
-            <label for="email" id="emailLabel">PayPal email address</label>
-            <input id="email" type="email" placeholder="you@example.com" required autocomplete="email">
+            <label for="email" id="emailLabel">${isConnected ? 'New PayPal email address' : 'PayPal email address'}</label>
+            <input id="email" type="email" placeholder="${isConnected ? 'only fill in to change it' : 'you@example.com'}" ${isConnected ? '' : 'required'} autocomplete="email">
           </div>
           <div>
             <label for="emailConfirm">Type it again to confirm</label>
-            <input id="emailConfirm" type="email" placeholder="you@example.com" required autocomplete="off">
+            <input id="emailConfirm" type="email" placeholder="you@example.com" ${isConnected ? '' : 'required'} autocomplete="off">
           </div>
           <div id="emailMismatch" class="status err" style="display:none;">Those don't match — real money goes to whatever's registered here, worth getting right.</div>
-          <button type="submit" id="submitBtn" class="magnetic">Register for payout</button>
+          <button type="submit" id="submitBtn" class="magnetic">${isConnected ? 'Update payout email' : 'Register for payout'}</button>
           <div id="status" class="status"></div>
         </form>
         <div class="success-state" id="successState">
@@ -525,9 +527,18 @@ function renderDashboard(userName) {
   }
 
   let emailFieldTouched = false;
-  let originalPayoutEmail = null;
+  let originalPayoutEmail = payoutEmail || null;
   document.getElementById('email').addEventListener('input', () => { emailFieldTouched = true; });
   document.getElementById('emailConfirm').addEventListener('input', () => { emailFieldTouched = true; });
+
+  const changeEmailBtn = document.getElementById('changeEmailBtn');
+  if (changeEmailBtn) {
+    changeEmailBtn.addEventListener('click', () => {
+      document.getElementById('payoutFormPanel').style.display = 'block';
+      changeEmailBtn.style.display = 'none';
+      document.getElementById('email').focus();
+    });
+  }
 
   /* same odometer digit-roll technique as the advertiser dashboard --
      non-digit characters ($ and .) just render flat, only the digits
@@ -572,16 +583,15 @@ function renderDashboard(userName) {
         document.getElementById('stepThreshold').classList.add('done');
         document.getElementById('stepThreshold').querySelector('.check').innerHTML = checkIcon;
       }
-      if (s.payout_email) {
+      // Safety net only -- the initial render already reflects payout_email
+      // correctly (passed straight into renderDashboard, no flash). This
+      // just catches drift if the value changed since that first render,
+      // without clobbering the form mid-edit.
+      if (s.payout_email && !originalPayoutEmail) {
         originalPayoutEmail = s.payout_email;
         document.getElementById('stepEmail').classList.add('done');
         document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
         document.getElementById('destNote').textContent = maskEmail(s.payout_email);
-        document.getElementById('emailLabel').textContent = 'New PayPal email address';
-        document.getElementById('email').placeholder = 'only fill in to change it';
-        document.getElementById('email').required = false;
-        document.getElementById('emailConfirm').required = false;
-        document.getElementById('currentEmailWrap').style.display = 'block';
       }
       if (typeof spawnYourPulse === 'function' && lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
         const delta = Math.min(4, s.total_calls - lastTotalCalls);
