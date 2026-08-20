@@ -38,7 +38,7 @@
   .reveal.in { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
   .tilt { transform-style:preserve-3d; transition:transform .15s ease-out; will-change:transform; }
 
-  .brand { display:flex; align-items:center; gap:10px; margin-bottom:36px; }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:36px; text-decoration:none; color:inherit; width:fit-content; }
   .brand img { width:28px; height:28px; filter:drop-shadow(0 0 20px rgba(232,200,150,.3)); animation:logoFloat 5s ease-in-out infinite; }
   @keyframes logoFloat { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
   .brand span { font-family:'Fraunces',serif; font-size:16px; font-weight:600; }
@@ -131,6 +131,18 @@
   .no-id code { background:var(--panel); padding:3px 7px; border-radius:5px; border:1px solid var(--border); }
   .refresh-note { display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; color:var(--muted); text-align:center; margin-top:20px; }
   .refresh-dot { width:5px; height:5px; border-radius:50%; background:var(--green); animation:pulse 2s ease-in-out infinite; }
+
+  .tech-details { font-size:12px; color:#5a5a62; margin-top:24px; }
+  .tech-details summary { cursor:pointer; color:var(--muted); list-style:none; display:inline-flex; align-items:center; gap:5px; }
+  .tech-details summary::-webkit-details-marker { display:none; }
+  .tech-details summary::before { content:'▸'; font-size:9px; transition:transform .2s; }
+  .tech-details[open] summary::before { transform:rotate(90deg); }
+  .tech-details .id-value { margin-top:10px; font-family:'JetBrains Mono',monospace; word-break:break-all; }
+
+  .reorder-cta { display:inline-flex; align-items:center; gap:8px; background:linear-gradient(135deg,var(--gold),#d99a9a);
+    color:#1a1408; font-weight:700; font-size:13.5px; padding:11px 20px; border-radius:10px; text-decoration:none;
+    margin-top:16px; transition:transform .2s ease, box-shadow .2s ease; }
+  .reorder-cta:hover { transform:translateY(-1px); box-shadow:0 10px 24px -8px rgba(232,200,150,.5); }
 </style>
 </head>
 <body>
@@ -140,7 +152,7 @@
 <div class="grain"></div>
 
 <div class="wrap">
-  <div class="brand reveal in"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
+  <a class="brand reveal in" href="install.html?stay=1"><img src="logo-192.png" alt=""><span>Meanwhile</span></a>
   <div id="app"><div class="no-id">Loading…</div></div>
   <div class="mega-wrap">
     <div class="mega-word" id="megaWord" aria-hidden="true">
@@ -195,6 +207,18 @@ function armReveals() {
       setTimeout(() => el.classList.add('in'), i * 70);
     }
   }), 50);
+}
+
+function armMagnetic() {
+  document.querySelectorAll('.magnetic').forEach((el) => {
+    el.addEventListener('mousemove', (e) => {
+      const r = el.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2);
+      const dy = e.clientY - (r.top + r.height / 2);
+      el.style.transform = `translate(${dx * 0.25}px, ${dy * 0.25}px)`;
+    });
+    el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+  });
 }
 
 function armTilt() {
@@ -261,12 +285,20 @@ function render(c) {
   const company = escapeHtml(c.company);
   const line = escapeHtml(c.line);
   const url = escapeHtml(c.url);
+  const greeting = {
+    pending_payment: `Almost there, ${company}.`,
+    active: `Live right now, ${company}.`,
+    exhausted: `That's a wrap, ${company}.`,
+  }[c.status] || company;
+  const reorderCta = c.status === 'exhausted'
+    ? `<a class="reorder-cta magnetic" href="advertiser.html">Buy another block →</a>`
+    : '';
   app.innerHTML = `
     <div class="status-badge reveal ${c.status === 'pending_payment' ? 'pending' : c.status}">
       <span class="dot"></span> ${STATUS_LABEL[c.status] || c.status}
     </div>
-    <h1 class="reveal">${company}</h1>
-    <p class="sub reveal">Campaign ID: <span style="font-family:'JetBrains Mono',monospace">${c.id}</span></p>
+    <h1 class="reveal">${greeting}</h1>
+    <p class="sub reveal">Live delivery for your sponsor line — updates automatically, no refresh needed.</p>
 
     <div class="progress-card reveal tilt">
       <div class="progress-numbers">
@@ -279,6 +311,7 @@ function render(c) {
         c.status === 'exhausted' ? 'This campaign has fully delivered its purchased impressions.' :
         `${(c.impressions_total - c.impressions_delivered).toLocaleString()} impressions remaining`
       }</div>
+      ${reorderCta}
     </div>
 
     <div class="grid">
@@ -312,10 +345,17 @@ function render(c) {
     </div>
 
     <div class="refresh-note reveal in"><span class="refresh-dot"></span> Updates automatically every 15 seconds</div>
+
+    <details class="tech-details">
+      <summary>Technical details</summary>
+      <div class="card-label">Campaign ID</div>
+      <div class="id-value">${c.id}</div>
+    </details>
   `;
   renderOdometer(document.getElementById('odDelivered'), c.impressions_delivered);
   armReveals();
   armTilt();
+  armMagnetic();
   setupElectricBorders();
 }
 
