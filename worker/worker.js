@@ -185,6 +185,22 @@ const BILLABLE_THRESHOLD = 10;
 const CPM = 2.0;
 const USER_SHARE = 0.5;
 
+/** ---- The Meanwhile Jackpot ----
+ * Once a month, one currently-active developer with a registered payout
+ * email gets a real, unannounced payout, delivered the same way a tip or
+ * sponsor line is -- it just shows up in their status line. Funded ONLY
+ * from the house's own already-collected share of real revenue (half of
+ * every captured campaign payment, tracked in ledger:house_revenue_total
+ * below) -- never a promise against money that hasn't actually come in
+ * yet. If the pool is too small, the draw is skipped for that month,
+ * full stop, logged plainly. This is the whole point of tracking the
+ * ledger at all: a jackpot that could ever pay out more than the house
+ * has actually earned is a liability wearing a party hat. */
+const JACKPOT_MIN_POOL_USD = 50; // don't even attempt a draw below this
+const JACKPOT_PAYOUT_FRACTION = 0.5; // pay out at most half the pool -- never drain it in one draw
+const JACKPOT_MAX_PAYOUT_USD = 500; // hard ceiling regardless of pool size
+const JACKPOT_MIN_CALLS = 10; // a fresh test install can't win -- needs real usage
+
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -260,6 +276,46 @@ function todayUTC() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** House revenue ledger -- half of every REAL captured campaign payment
+ * (never a pending/created order, only an actual PayPal capture) lands
+ * here. Same retry-and-verify pattern as the campaign index write
+ * above, since this is another single shared KV key with no compare-
+ * and-swap: read, modify, write, then re-read to confirm it landed,
+ * retrying a few times if not. Getting this number wrong in either
+ * direction is a real problem -- too high risks a jackpot payout the
+ * house hasn't actually earned; too low just means an overly cautious
+ * jackpot, the safe direction to fail in. */
+async function adjustHouseLedger(env, field, deltaUsd) {
+  const key = `ledger:${field}`;
+  let done = false;
+  for (let attempt = 0; attempt < 4 && !done; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 150 * attempt));
+    const raw = await env.CAMPAIGNS.get(key);
+    const current = raw ? parseFloat(raw) : 0;
+    const next = Math.round((current + deltaUsd) * 100) / 100;
+    await env.CAMPAIGNS.put(key, String(next));
+    const verify = await env.CAMPAIGNS.get(key);
+    done = verify !== null && parseFloat(verify) === next;
+  }
+  if (!done) {
+    await logError(env, "house_ledger_write_unconfirmed", `adjusting ${field} by ${deltaUsd}`, `write never verified after retries -- check ledger:${field} manually`);
+  }
+}
+
+async function getHouseLedger(env) {
+  const [revenueRaw, jackpotPaidRaw] = await Promise.all([
+    env.CAMPAIGNS.get("ledger:house_revenue_total"),
+    env.CAMPAIGNS.get("ledger:jackpot_paid_total"),
+  ]);
+  const revenueTotal = revenueRaw ? parseFloat(revenueRaw) : 0;
+  const jackpotPaidTotal = jackpotPaidRaw ? parseFloat(jackpotPaidRaw) : 0;
+  // The house's own share is half of real revenue -- the other half was
+  // always the developers'. What's actually available to give away via
+  // the jackpot is that share, minus whatever's already been given away.
+  const availablePool = Math.round((revenueTotal * (1 - USER_SHARE) - jackpotPaidTotal) * 100) / 100;
+  return { revenueTotal, jackpotPaidTotal, availablePool };
+}
+
 function sponsorRatio(state) {
   if (state.total_calls === 0) return 0;
   return state.sponsor_calls / state.total_calls;
@@ -288,6 +344,15 @@ async function getActiveCampaigns(env) {
 }
 
 async function pickLine(env, state) {
+  // A jackpot win takes priority over everything else and is shown
+  // exactly once -- consumed and cleared right here, the same object
+  // the caller persists right after.
+  if (state.pending_jackpot_win) {
+    const amount = state.pending_jackpot_win.amount;
+    delete state.pending_jackpot_win;
+    return { kind: "jackpot", line: `deadtime: you just won $${amount.toFixed(2)} from the Meanwhile Jackpot -- check your email, it's already sent -> deadtime-server.bean-picker.workers.dev/jackpot` };
+  }
+
   const ratio = sponsorRatio(state);
   const eligible = ratio < FILL_CEILING && Math.random() < FILL_CEILING;
   if (!eligible) {
@@ -476,6 +541,7 @@ async function handleEarnings(env, installId) {
     gross_revenue: revenue,
     user_earnings: revenue * USER_SHARE,
     payout_email: state.payout_email || null,
+    jackpot_won_total: state.jackpot_won_total || 0,
   });
 }
 
@@ -772,6 +838,140 @@ async function runPayoutsLocked(env) {
   return { ok: true, processed: results.length, results };
 }
 
+/** One-way hash for the public jackpot log -- winners are identified by
+ * this, never by their raw install ID. That ID is effectively a
+ * password (it's what /register-payout trusts), so publishing it next
+ * to "this person just won $X" would be handing out exactly what's
+ * needed to try hijacking their payout destination. */
+async function hashForPublicLog(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+
+/** Every install with a registered payout email and real usage (not a
+ * fresh test install doing nothing) is a candidate. Uses real
+ * cryptographic randomness, not Math.random -- this is a public,
+ * independently-checkable draw, not an internal implementation detail. */
+async function pickJackpotWinner(env) {
+  const eligible = [];
+  let cursor;
+  do {
+    const page = await env.INSTALLS.list({ prefix: "install:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.INSTALLS.get(key.name);
+      if (!raw) continue;
+      const state = JSON.parse(raw);
+      if (state.payout_email && state.total_calls >= JACKPOT_MIN_CALLS) {
+        eligible.push({ installId: key.name.replace(/^install:/, ""), email: state.payout_email });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  if (eligible.length === 0) return null;
+
+  const randomValue = crypto.getRandomValues(new Uint32Array(1))[0];
+  const index = randomValue % eligible.length;
+  return { winner: eligible[index], candidateCount: eligible.length, randomValue, index };
+}
+
+/** The actual monthly draw. Guarded so it can only ever run once per
+ * calendar month (checked via jackpot:last_draw_month), whether it's
+ * triggered by the daily cron landing on the 1st or a manual admin
+ * call. Every exit path is honest about what happened -- skipped for
+ * too small a pool, skipped for no eligible winner, or a real payout --
+ * never a silent no-op that looks like success. */
+async function runJackpotDraw(env) {
+  const monthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const lastDrawMonth = await env.CAMPAIGNS.get("jackpot:last_draw_month");
+  if (lastDrawMonth === monthKey) {
+    return { ok: true, skipped: "already drawn this month" };
+  }
+
+  const ledger = await getHouseLedger(env);
+  if (ledger.availablePool < JACKPOT_MIN_POOL_USD) {
+    await env.CAMPAIGNS.put("jackpot:last_draw_month", monthKey);
+    await logError(env, "jackpot_skipped", `no draw this month -- pool is $${ledger.availablePool.toFixed(2)}, needs at least $${JACKPOT_MIN_POOL_USD}`, JSON.stringify(ledger));
+    return { ok: true, skipped: "pool too small", pool_usd: ledger.availablePool };
+  }
+
+  const draw = await pickJackpotWinner(env);
+  if (!draw) {
+    await env.CAMPAIGNS.put("jackpot:last_draw_month", monthKey);
+    await logError(env, "jackpot_skipped", "no eligible installs this month", `pool was $${ledger.availablePool.toFixed(2)}, just no one qualified`);
+    return { ok: true, skipped: "no eligible installs" };
+  }
+
+  const amount = Math.min(JACKPOT_MAX_PAYOUT_USD, Math.round(ledger.availablePool * JACKPOT_PAYOUT_FRACTION * 100) / 100);
+
+  let outcome;
+  try {
+    outcome = await sendPayPalPayout(env, draw.winner.installId, draw.winner.email, amount);
+  } catch (e) {
+    await logError(env, "jackpot_payout_failed", `jackpot payout of $${amount} to install ${draw.winner.installId}`, e.message);
+    return { ok: false, error: e.message };
+  }
+
+  const status = outcome.item_status;
+  if (status === "FAILED" || status === "BLOCKED" || status === "DENIED") {
+    // Don't mark the month as drawn -- money never left, so this isn't
+    // really "this month's draw" happening yet. Next check (tomorrow's
+    // cron) will just try again against a still-healthy pool.
+    await logError(env, "jackpot_payout_rejected", `jackpot payout of $${amount} to install ${draw.winner.installId} (${draw.winner.email})`, `PayPal status: ${status}`);
+    return { ok: false, error: "payout rejected", detail: status };
+  }
+
+  await env.CAMPAIGNS.put("jackpot:last_draw_month", monthKey);
+  await adjustHouseLedger(env, "jackpot_paid_total", amount);
+
+  // Deliver the win through the exact same channel as a tip or sponsor
+  // line -- the winner finds out mid-keystroke, not by email first.
+  // pickLine checks for and clears this the very next time they're
+  // shown a line.
+  const winnerKey = `install:${draw.winner.installId}`;
+  const winnerRaw = await env.INSTALLS.get(winnerKey);
+  const winnerState = winnerRaw ? JSON.parse(winnerRaw) : defaultState();
+  winnerState.pending_jackpot_win = { amount, at: Date.now() / 1000 };
+  winnerState.jackpot_won_total = (winnerState.jackpot_won_total || 0) + amount;
+  await env.INSTALLS.put(winnerKey, JSON.stringify(winnerState));
+
+  // Public, verifiable record: the exact random value and candidate
+  // count are published so anyone can check the draw was actually fair,
+  // not just told to trust it. Winner shown only as a one-way hash.
+  const winnerHash = await hashForPublicLog(draw.winner.installId);
+  const record = {
+    id: crypto.randomUUID(),
+    month: monthKey,
+    amount_usd: amount,
+    pool_before_usd: ledger.availablePool,
+    candidate_count: draw.candidateCount,
+    random_value: draw.randomValue,
+    winner_index: draw.index,
+    winner_hash: winnerHash,
+    payout_status: status,
+    at: Date.now() / 1000,
+  };
+  await env.CAMPAIGNS.put(`jackpot:draw:${record.id}`, JSON.stringify(record));
+  const historyRaw = await env.CAMPAIGNS.get("jackpot:history");
+  const history = historyRaw ? JSON.parse(historyRaw) : [];
+  history.unshift(record.id);
+  if (history.length > 60) history.length = 60;
+  await env.CAMPAIGNS.put("jackpot:history", JSON.stringify(history));
+
+  return { ok: true, record };
+}
+
+async function handleJackpotHistory(env) {
+  const historyRaw = await env.CAMPAIGNS.get("jackpot:history");
+  const ids = historyRaw ? JSON.parse(historyRaw) : [];
+  const draws = [];
+  for (const id of ids) {
+    const raw = await env.CAMPAIGNS.get(`jackpot:draw:${id}`);
+    if (raw) draws.push(JSON.parse(raw));
+  }
+  const ledger = await getHouseLedger(env);
+  return json({ draws, current_pool_usd: Math.max(0, ledger.availablePool) });
+}
+
 /** Creates a real campaign in "pending_payment" -- not yet in rotation.
  * It only starts serving once an admin (or, later, a real payment webhook)
  * calls /admin/activate-campaign. That's the actual activation algorithm:
@@ -910,6 +1110,13 @@ async function activateCampaign(env, campaignId, paypalCaptureId) {
   // own transaction history to find the matching payment.
   if (paypalCaptureId) campaign.paypal_capture_id = paypalCaptureId;
   await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+  // Only a REAL captured payment adds to the house ledger -- a manual
+  // admin activation (no captureId, used for testing) never touches it,
+  // so the jackpot pool can never be inflated by anything that wasn't
+  // actual money in the door.
+  if (paypalCaptureId) {
+    await adjustHouseLedger(env, "house_revenue_total", campaign.price_usd);
+  }
   return campaign;
 }
 
@@ -993,6 +1200,11 @@ async function handleRefundCampaign(request, env) {
   campaign.refund_amount_usd = refundAmount;
   campaign.paypal_refund_id = refund.id;
   await env.CAMPAIGNS.put(key, JSON.stringify(campaign));
+
+  // That money actually left the account back to the advertiser -- the
+  // house ledger has to shrink to match, or the jackpot pool would be
+  // funded partly by revenue that was given back.
+  await adjustHouseLedger(env, "house_revenue_total", -refundAmount);
 
   return json({ ok: true, campaign, refund_amount_usd: refundAmount });
 }
@@ -1555,6 +1767,12 @@ export default {
       return handleNetworkStats(env, request);
     }
 
+    // Public and unauthenticated on purpose -- the entire pitch of the
+    // jackpot is that it's independently verifiable, not "trust us."
+    if (request.method === "GET" && url.pathname === "/jackpot-history") {
+      return handleJackpotHistory(env);
+    }
+
     if (request.method === "POST" && url.pathname === "/register-payout") {
       return handleRegisterPayout(request, env);
     }
@@ -1598,6 +1816,12 @@ export default {
     if (request.method === "POST" && url.pathname === "/admin/run-payouts") {
       if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
       const result = await runPayouts(env);
+      return json(result);
+    }
+
+    if (request.method === "POST" && url.pathname === "/admin/run-jackpot") {
+      if (!checkAdmin(request, env)) return json({ error: "unauthorized" }, 401);
+      const result = await runJackpotDraw(env);
       return json(result);
     }
 
@@ -1646,6 +1870,15 @@ export default {
       ctx.waitUntil(
         runPayouts(env).catch((e) => logError(env, "scheduled_payout_crash", "the daily cron itself threw", e.message))
       );
+      // Piggybacks on the same daily trigger rather than a separate cron
+      // schedule -- only actually attempts a draw on the 1st, and
+      // runJackpotDraw's own jackpot:last_draw_month guard makes it safe
+      // even if this somehow fired more than once on that day.
+      if (new Date().getUTCDate() === 1) {
+        ctx.waitUntil(
+          runJackpotDraw(env).catch((e) => logError(env, "scheduled_jackpot_crash", "the monthly jackpot draw itself threw", e.message))
+        );
+      }
     }
     ctx.waitUntil(
       reconcilePendingOrders(env).catch((e) => logError(env, "scheduled_reconcile_crash", "the reconciliation sweep itself threw", e.message))
