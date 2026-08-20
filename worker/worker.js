@@ -316,6 +316,27 @@ async function getHouseLedger(env) {
   return { revenueTotal, jackpotPaidTotal, availablePool };
 }
 
+/** Shared retry-and-verify read-modify-write for the campaign "index" --
+ * a single shared KV key with no compare-and-swap, touched both when a
+ * campaign is created (add) and when one is deleted (remove). Extracted
+ * here after finding handleDeleteCampaign never removed the deleted
+ * ID -- confirmed live: 7 of 8 "real" campaigns in the index were
+ * actually ghosts left behind by past deletions. transform receives the
+ * current array and returns the next one; checkLanded confirms the
+ * specific change actually took effect after the write. */
+async function updateCampaignIndex(env, transform, checkLanded) {
+  let landed = false;
+  for (let attempt = 0; attempt < 4 && !landed; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 150 * attempt));
+    const indexRaw = await env.CAMPAIGNS.get("index");
+    const index = transform(indexRaw ? JSON.parse(indexRaw) : []);
+    await env.CAMPAIGNS.put("index", JSON.stringify(index));
+    const verifyRaw = await env.CAMPAIGNS.get("index");
+    landed = checkLanded(verifyRaw ? JSON.parse(verifyRaw) : []);
+  }
+  return landed;
+}
+
 function sponsorRatio(state) {
   if (state.total_calls === 0) return 0;
   return state.sponsor_calls / state.total_calls;
@@ -1059,28 +1080,10 @@ async function handleAdvertiserLead(request, env) {
 
   await env.CAMPAIGNS.put(`campaign:${id}`, JSON.stringify(campaign));
 
-  // "index" is a single shared KV key, read-modified-and-written back --
-  // if two advertisers submit within the same moment, both can read the
-  // same old array and one write clobbers the other, silently dropping
-  // a real, paid campaign out of every list that matters (delivery,
-  // admin view, reconciliation). campaign:${id} itself is always safe
-  // (its own key), but without being in "index" it's invisible. Retry a
-  // few times with a fresh re-read each attempt, and verify the write
-  // actually landed -- collapses the realistic collision window to
-  // near-zero without needing real compare-and-swap (KV doesn't have
-  // one). The 20-min reconciliation sweep self-heals anything that
-  // still slips through.
-  let indexed = false;
-  for (let attempt = 0; attempt < 4 && !indexed; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 150 * attempt));
-    const indexRaw = await env.CAMPAIGNS.get("index");
-    const index = indexRaw ? JSON.parse(indexRaw) : [];
+  const indexed = await updateCampaignIndex(env, (index) => {
     if (!index.includes(id)) index.push(id);
-    await env.CAMPAIGNS.put("index", JSON.stringify(index));
-    const verifyRaw = await env.CAMPAIGNS.get("index");
-    const verifyIndex = verifyRaw ? JSON.parse(verifyRaw) : [];
-    indexed = verifyIndex.includes(id);
-  }
+    return index;
+  }, (index) => index.includes(id));
   if (!indexed) {
     await logError(env, "campaign_index_write_failed", `campaign ${id} (${campaign.company}) saved but never confirmed in the index after retries`, `campaign:${id} itself is safe -- will self-heal on the next reconciliation sweep, or check manually`);
   }
@@ -1315,7 +1318,18 @@ async function handleDeleteCampaign(request, env) {
   if (!campaign_id) return json({ error: "missing campaign_id" }, 400);
 
   await env.CAMPAIGNS.delete(`campaign:${campaign_id}`);
-  return json({ ok: true, deleted: campaign_id });
+
+  // Used to only delete the record and leave the ID sitting in "index"
+  // forever -- getActiveCampaigns skips missing records safely, so
+  // nothing broke, but every past deletion left a permanent ghost
+  // behind. Confirmed live: 7 of 8 entries in the real index were
+  // exactly this.
+  const cleaned = await updateCampaignIndex(env, (index) => index.filter((id) => id !== campaign_id), (index) => !index.includes(campaign_id));
+  if (!cleaned) {
+    await logError(env, "campaign_index_removal_failed", `campaign ${campaign_id} deleted but its ID never confirmed removed from the index after retries`, "campaign record is gone -- getActiveCampaigns will skip it safely, but the index still has a ghost entry to clean up manually");
+  }
+
+  return json({ ok: true, deleted: campaign_id, index_cleaned: cleaned });
 }
 
 async function getPayPalToken(env) {
