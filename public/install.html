@@ -296,7 +296,7 @@
   .platform-card.live:hover .platform-connect-btn { background:rgba(242,177,52,.26); transform:translateY(-1px);
     box-shadow:0 6px 16px -6px rgba(242,177,52,.5); }
   .platform-connect-btn.soon { background:rgba(255,255,255,.05); border-color:var(--border); color:var(--muted); font-weight:600; }
-  @media (max-width:480px) { .platform-row { flex-wrap:nowrap; } .platform-card { min-width:0; } }
+  @media (max-width:480px) { .platform-row { flex-wrap:wrap; } .platform-card { min-width:0; flex:1 1 calc(50% - 7px); } }
 
   /* ---- giant interactive wordmark, breaks out of the 640px column ---- */
   .mega-section { position:relative; width:100vw; margin-left:calc(50% - 50vw); min-height:clamp(220px,32vw,380px); display:flex; align-items:center; }
