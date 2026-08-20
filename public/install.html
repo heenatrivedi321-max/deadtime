@@ -116,6 +116,34 @@
   .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
+  /* ---- kickback-vs-passive comparison: same dim/gold language as the
+     hourglass loot-scene, but the axis here is effort, not attention ---- */
+  .versus { margin:56px 0; }
+  .versus h2 { font-family:'Fraunces',serif; font-size:clamp(24px,4.5vw,32px); font-weight:600;
+               margin-bottom:8px; letter-spacing:-0.01em; }
+  .versus .versus-sub { font-size:14.5px; color:var(--muted); margin-bottom:28px; max-width:480px; }
+  .versus-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:520px) { .versus-grid { grid-template-columns:1fr; } }
+  .versus-col { border-radius:16px; padding:22px 20px; border:1px solid var(--border); }
+  .versus-col.old { background:rgba(150,150,160,.04); }
+  .versus-col.new { background:linear-gradient(160deg, rgba(242,177,52,.09), rgba(232,200,150,.03));
+                     border-color:rgba(242,177,52,.3); box-shadow:0 0 40px -20px rgba(242,177,52,.35); }
+  .versus-col h3 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:16px; }
+  .versus-col.old h3 { color:var(--muted); }
+  .versus-col.new h3 { color:var(--gold); }
+  .versus-row { display:flex; align-items:flex-start; gap:9px; font-size:13.5px; line-height:1.5;
+                padding:9px 0; border-top:1px solid rgba(255,255,255,.05); opacity:0; transform:translateX(-8px);
+                transition:opacity .5s ease, transform .5s ease; }
+  .versus-row:first-of-type { border-top:none; }
+  .versus-row.in { opacity:1; transform:translateX(0); }
+  .versus-col.new .versus-row { transform:translateX(8px); }
+  .versus-col.new .versus-row.in { transform:translateX(0); }
+  .versus-row .mark { flex-shrink:0; width:16px; text-align:center; font-weight:700; }
+  .versus-col.old .versus-row .mark { color:#c96a6a; }
+  .versus-col.new .versus-row .mark { color:#7ee787; }
+  .versus-col.old .versus-row span:last-child { color:#9a9aa4; }
+  .versus-col.new .versus-row span:last-child { color:var(--text); }
+
   /* ---- returning-visitor banner: shown only when this browser has a
      remembered install ID (set by claim.html after a real balance
      lookup succeeds), so someone who already installed doesn't land
@@ -554,6 +582,7 @@
 
 <div class="wrap">
   <div class="badge reveal"><span class="dot"></span> live on Cloudflare</div>
+  <div class="badge reveal" style="margin-left:8px;"><span class="dot" style="background:var(--gold);box-shadow:0 0 10px var(--gold);"></span> day one — built and shipped by one person</div>
 
   <div class="welcome-back" id="welcomeBack">
     <span class="dot"></span> Welcome back — you're already installed and earning.
@@ -630,6 +659,27 @@
     <div class="step"><div class="n">1</div><div class="body"><h3 class="blur-heading">Install</h3><p>One command. Nothing hidden, nothing patched.</p></div></div>
     <div class="step"><div class="n">2</div><div class="body"><h3 class="blur-heading">Work like you always do</h3><p>Tips fill the wait. Sometimes a sponsor does — always labeled, never hidden.</p></div></div>
     <div class="step"><div class="n">3</div><div class="body"><h3 class="blur-heading">Get paid, automatically</h3><p>Cross $25, PayPal sends it. That's it.</p></div></div>
+  </div>
+
+  <div class="versus reveal">
+    <h2 class="blur-heading">Not another kickback app.</h2>
+    <p class="versus-sub">Referral apps pay you for selling to your friends. This pays you for doing nothing different at all.</p>
+    <div class="versus-grid">
+      <div class="versus-col old">
+        <h3>Kickback / referral apps</h3>
+        <div class="versus-row"><span class="mark">✕</span><span>You do the selling — invite links, group chats, the ask</span></div>
+        <div class="versus-row"><span class="mark">✕</span><span>Pays once, only if a friend actually signs up</span></div>
+        <div class="versus-row"><span class="mark">✕</span><span>Reward is store credit or a discount, not cash</span></div>
+        <div class="versus-row"><span class="mark">✕</span><span>Runs out — no new friends, no more payouts</span></div>
+      </div>
+      <div class="versus-col new">
+        <h3>Meanwhile</h3>
+        <div class="versus-row"><span class="mark">✓</span><span>You do nothing — install it, keep coding</span></div>
+        <div class="versus-row"><span class="mark">✓</span><span>Pays from your own idle time, every session</span></div>
+        <div class="versus-row"><span class="mark">✓</span><span>Real cash, sent to your real PayPal</span></div>
+        <div class="versus-row"><span class="mark">✓</span><span>Keeps paying for as long as you keep coding</span></div>
+      </div>
+    </div>
   </div>
 
   <div class="demo reveal tilt">
@@ -780,6 +830,22 @@ const appleIo = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.4 });
 document.querySelectorAll('.apple-line[data-apple-reveal]').forEach((el) => appleIo.observe(el));
+
+/* ---------- versus section: rows stagger in per column, old before new ---------- */
+document.querySelectorAll('.versus-col').forEach((col) => {
+  col.querySelectorAll('.versus-row').forEach((row, i) => {
+    row.style.transitionDelay = (i * 140) + 'ms';
+  });
+});
+const versusIo = new IntersectionObserver((entries) => {
+  entries.forEach((e) => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.versus-row').forEach((row) => row.classList.add('in'));
+      versusIo.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.25 });
+document.querySelectorAll('.versus').forEach((el) => versusIo.observe(el));
 
 /* ---------- "Zero cold ads." -- static decoding into signal ---------- */
 (function () {
