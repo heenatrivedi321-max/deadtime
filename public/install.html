@@ -87,6 +87,24 @@
        animation:shimmer 7s linear infinite; }
   @keyframes shimmer { to { background-position:140% center; } }
   h1 .sheen { display:none; }
+
+  /* ---- RotatingText (reactbits.dev) -- one word in the headline cycles
+     through a few real agent activities. Given its own solid color
+     rather than inheriting the h1's gradient-clip-text fill: background
+     doesn't inherit, so a nested span would either go fully invisible
+     (inheriting transparent fill with nothing of its own to clip) or
+     need its own duplicated gradient that wouldn't line up with the
+     parent's color band at that x-position anyway. Solid gold also
+     usefully signals "this part changes" rather than blending in. */
+  .rotating-word { display:inline-block; position:relative; overflow:hidden;
+    -webkit-text-fill-color:var(--gold); color:var(--gold); }
+  .rw-char { display:inline-block; transform:translateY(100%); opacity:0;
+    transition:transform .45s cubic-bezier(.16,1,.3,1), opacity .4s cubic-bezier(.16,1,.3,1); }
+  .rw-char.rw-enter { transform:translateY(0); opacity:1; }
+  .rw-char.rw-exit { transform:translateY(-120%); opacity:0; }
+  @media (prefers-reduced-motion: reduce) {
+    .rw-char { transition:none; }
+  }
   h1.glitch::before, h1.glitch::after { content:attr(data-text); position:absolute; inset:0;
     background:none; -webkit-text-fill-color:initial; clip-path:inset(0 0 0 0); }
   h1.glitch::before { color:#ff5ec8; transform:translate(0); opacity:0; animation:glitch1 .5s steps(2,end) 3 forwards; mix-blend-mode:screen; }
@@ -474,7 +492,7 @@
   </div>
 
   <div class="h1-wrap">
-    <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent thinks.<span class="sheen" aria-hidden="true">Get paid while your agent thinks.</span></h1>
+    <h1 class="reveal glitch" data-text="Get paid while your agent thinks.">Get paid while your agent <span class="rotating-word" id="rotatingWord">thinks</span>.<span class="sheen" aria-hidden="true">Get paid while your agent thinks.</span></h1>
   </div>
   <p class="sub reveal">A status line that pays you instead of just sitting there being dead weight. A quiet line while you wait. Occasionally a sponsor — always labeled, never snuck in. Half the money's yours.</p>
 
@@ -1106,6 +1124,48 @@ function showWelcomeBack(id) {
   let savedId = null;
   try { savedId = localStorage.getItem('meanwhile_id'); } catch (e) {}
   if (savedId) showWelcomeBack(savedId);
+})();
+
+/* ---------- RotatingText (reactbits.dev) -- one word in the hero
+   headline cycles through real agent activities, character-staggered
+   like the original component. Vanilla port: no React/motion, a plain
+   two-phase transition (animate the old word's characters out, swap
+   the DOM, animate the new word's characters in) instead of the
+   original's AnimatePresence overlap -- simpler, no z-index layering
+   needed for two words to sit on top of each other mid-transition. ---------- */
+(function () {
+  const el = document.getElementById('rotatingWord');
+  if (!el) return;
+  const words = ['thinks', 'codes', 'debugs', 'waits', 'builds'];
+  let idx = 0;
+
+  function renderWord(word, animateIn) {
+    el.innerHTML = word.split('').map((ch, i) =>
+      `<span class="rw-char${animateIn ? '' : ' rw-enter'}" style="transition-delay:${i * 22}ms">${ch}</span>`
+    ).join('');
+    if (animateIn) {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.querySelectorAll('.rw-char').forEach((c) => c.classList.add('rw-enter'));
+      }));
+    }
+  }
+  renderWord(words[0], false);
+
+  if (window.__prefersReducedMotion) return;
+
+  function rotate() {
+    const chars = el.querySelectorAll('.rw-char');
+    chars.forEach((c, i) => {
+      c.style.transitionDelay = (i * 18) + 'ms';
+      c.classList.remove('rw-enter');
+      c.classList.add('rw-exit');
+    });
+    setTimeout(() => {
+      idx = (idx + 1) % words.length;
+      renderWord(words[idx], true);
+    }, 320);
+  }
+  setInterval(rotate, 2600);
 })();
 
 /* ---------- "Isn't this so cool?!" -- BlurText-style word reveal,
