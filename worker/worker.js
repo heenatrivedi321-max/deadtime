@@ -1746,6 +1746,17 @@ async function handleListErrors(request, env) {
   return json({ count: errors.length, errors });
 }
 
+/** logError() is also used as a general visibility channel for routine,
+ * expected events (a heartbeat firing successfully, a jackpot month
+ * skipped for lack of a pool) -- genuinely useful to see in /admin/errors,
+ * but not evidence anything is actually wrong. Found live: /health
+ * reported ok:false every single day purely because the Heartbeat cron
+ * (fires every 20 min, entirely by design) logs its own success through
+ * this same channel, making the health check permanently red under
+ * normal operation -- useless for the exact external-monitor use case
+ * it exists for. Excluded here, not from logging itself. */
+const INFO_ONLY_LOG_CATEGORIES = new Set(["heartbeat_fired", "jackpot_skipped", "campaign_index_healed"]);
+
 /** Public, no-auth health check -- returns real recent error counts so an
  * external uptime monitor (UptimeRobot, Better Uptime, etc.) can page you
  * if this starts failing, instead of relying on someone noticing by hand. */
@@ -1759,6 +1770,7 @@ async function handleHealth(env) {
     const raw = await env.ERRORS.get(`error:${id}`);
     if (!raw) continue;
     const e = JSON.parse(raw);
+    if (INFO_ONLY_LOG_CATEGORIES.has(e.category)) continue;
     if (!lastError) lastError = { category: e.category, at: e.at };
     if (e.at >= dayAgo) recentCount++;
   }

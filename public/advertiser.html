@@ -20,11 +20,6 @@
   body { background:var(--bg); color:var(--text); font-family:'Inter',-apple-system,sans-serif;
          -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh; cursor:default; }
 
-  .hero-video { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
-  .hero-video video { position:absolute; top:50%; left:50%; min-width:100%; min-height:100%;
-                       width:auto; height:auto; transform:translate(-50%,-50%); object-fit:cover; opacity:.45; }
-  .hero-video::after { content:''; position:absolute; inset:0;
-    background:linear-gradient(180deg, rgba(7,7,10,.4) 0%, rgba(7,7,10,.8) 55%, var(--bg) 100%); }
 
   .aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
   .blob { position:absolute; border-radius:50%; filter:blur(100px); opacity:.28; mix-blend-mode:screen; }
@@ -181,11 +176,6 @@
 </style>
 </head>
 <body>
-<div class="hero-video">
-  <video autoplay muted loop playsinline>
-    <source src="hero.mp4" type="video/mp4">
-  </video>
-</div>
 <canvas id="particles"></canvas>
 <div id="spotlight"></div>
 <div class="grain"></div>
