@@ -575,7 +575,36 @@ async function handleEarnings(env, installId) {
     user_earnings: revenue * USER_SHARE,
     payout_email: state.payout_email || null,
     jackpot_won_total: state.jackpot_won_total || 0,
+    name: state.name || null,
   });
+}
+
+/** A first name only, for the dashboard greeting -- nothing tied to
+ * identity or payments (that's payout_email's job, with its own
+ * change-confirmation guard above). Since there's nothing sensitive
+ * to protect here, setting/overwriting it is open the same way a
+ * first-time payout_email is: no confirmation dance needed. */
+const NAME_MAX_LEN = 40;
+async function handleSetName(request, env) {
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { id, name } = data;
+  if (!id || !name) return json({ error: "missing id or name" }, 400);
+  if (!isValidId(id)) return json({ error: "invalid id" }, 400);
+  const trimmed = String(name).trim();
+  if (!trimmed || /[<>]/.test(trimmed)) return json({ error: "invalid name" }, 400);
+
+  const key = `install:${id}`;
+  const raw = await env.INSTALLS.get(key);
+  const state = raw ? JSON.parse(raw) : defaultState();
+  state.name = trimmed.slice(0, NAME_MAX_LEN);
+  await env.INSTALLS.put(key, JSON.stringify(state));
+
+  return json({ ok: true, name: state.name });
 }
 
 /** Shields.io-style embeddable SVG badge -- "prove your earnings are
@@ -1890,6 +1919,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/register-payout") {
       return handleRegisterPayout(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/set-name") {
+      return handleSetName(request, env);
     }
 
     if (request.method === "POST" && url.pathname === "/paypal/create-order") {
