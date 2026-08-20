@@ -374,6 +374,18 @@ async function pickLine(env, state) {
     return { kind: "jackpot", line: `deadtime: you just won $${amount.toFixed(2)} from the Meanwhile Jackpot -- check your email, it's already sent -> deadtime-server.bean-picker.workers.dev/jackpot` };
   }
 
+  // The Heartbeat: tagged for everyone real-active in the last 24h at
+  // the same instant (see fireHeartbeat) -- shown exactly once, the
+  // next time each of them is shown a line at all.
+  if (state.pending_heartbeat) {
+    const others = Math.max(0, (state.pending_heartbeat.network_size || 1) - 1);
+    delete state.pending_heartbeat;
+    const line = others > 0
+      ? `deadtime: this message just reached ${others} other developer${others === 1 ? "" : "s"}, at this exact instant -> you're not the only one waiting.`
+      : `deadtime: today, this message only reached you -> still counts. meanwhile.`;
+    return { kind: "heartbeat", line };
+  }
+
   const ratio = sponsorRatio(state);
   const eligible = ratio < FILL_CEILING && Math.random() < FILL_CEILING;
   if (!eligible) {
@@ -991,6 +1003,75 @@ async function handleJackpotHistory(env) {
   }
   const ledger = await getHouseLedger(env);
   return json({ draws, current_pool_usd: Math.max(0, ledger.availablePool) });
+}
+
+const HEARTBEAT_ACTIVE_WINDOW_SECONDS = 60 * 60 * 24; // "active today" = a real line shown in the last 24h
+
+/** ---- The Heartbeat ----
+ * Once a day, at a genuinely unpredictable moment, every install that's
+ * been real-active in the last 24h gets tagged at the exact same instant.
+ * Worth being honest about what this actually is: there's no push
+ * channel to a CLI status line, only request/response, so this can't
+ * make two people SEE the line at literally the same second -- what's
+ * actually true, and what the line itself says, is that the message
+ * went out to everyone at the same instant, and each person sees it the
+ * next time their own agent pauses. That's still real, just correctly
+ * scoped -- the brand's whole premise is not overselling what's true.
+ *
+ * The exact firing moment is chosen with a classic uniform-random-
+ * stopping-time trick: this runs on the existing 20-min cron, and each
+ * tick fires with probability 1/(ticks remaining today). That
+ * guarantees it fires exactly once per day while keeping the specific
+ * moment genuinely unpredictable, not just "some random-looking hour
+ * that's actually the same window every time." */
+async function maybeFireHeartbeat(env) {
+  const today = todayUTC();
+  const lastFired = await env.INSTALLS.get("heartbeat:last_fired_date");
+  if (lastFired === today) return;
+
+  const now = new Date();
+  const minutesSinceMidnightUTC = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const ticksRemainingToday = Math.max(1, Math.ceil((1440 - minutesSinceMidnightUTC) / 20));
+  if (Math.random() >= 1 / ticksRemainingToday) return;
+
+  await env.INSTALLS.put("heartbeat:last_fired_date", today);
+  await fireHeartbeat(env);
+}
+
+async function fireHeartbeat(env) {
+  const cutoff = Date.now() / 1000 - HEARTBEAT_ACTIVE_WINDOW_SECONDS;
+  const activeKeys = [];
+  let cursor;
+  do {
+    const page = await env.INSTALLS.list({ prefix: "install:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.INSTALLS.get(key.name);
+      if (!raw) continue;
+      const state = JSON.parse(raw);
+      if (state.total_calls > 0 && state.line_started && state.line_started >= cutoff) {
+        activeKeys.push(key.name);
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  if (activeKeys.length === 0) return;
+
+  // Sequential, not concurrent -- a real /line call for the same install
+  // landing in this same moment could still race this write and whichever
+  // one lands last wins. Accepted as-is: the only consequence of losing
+  // that race is one install misses today's heartbeat, which is genuinely
+  // harmless (no money, no state anyone depends on) -- not worth a lock
+  // for a purely ambient feature.
+  for (const key of activeKeys) {
+    const raw = await env.INSTALLS.get(key);
+    if (!raw) continue;
+    const state = JSON.parse(raw);
+    state.pending_heartbeat = { at: Date.now() / 1000, network_size: activeKeys.length };
+    await env.INSTALLS.put(key, JSON.stringify(state));
+  }
+
+  await logError(env, "heartbeat_fired", `sent to ${activeKeys.length} active install(s)`, "");
 }
 
 /** Creates a real campaign in "pending_payment" -- not yet in rotation.
@@ -1916,6 +1997,9 @@ export default {
     }
     ctx.waitUntil(
       reconcilePendingOrders(env).catch((e) => logError(env, "scheduled_reconcile_crash", "the reconciliation sweep itself threw", e.message))
+    );
+    ctx.waitUntil(
+      maybeFireHeartbeat(env).catch((e) => logError(env, "scheduled_heartbeat_crash", "the heartbeat check itself threw", e.message))
     );
   },
 };
