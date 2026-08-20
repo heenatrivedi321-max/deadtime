@@ -168,14 +168,8 @@
   #riverCanvas { position:absolute; inset:0; display:block; width:100%; height:100%; z-index:0; }
   .orb-overlay { position:absolute; inset:0; z-index:1; display:flex; flex-direction:column;
     align-items:center; justify-content:center; }
-  .orb { position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .orb { position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
   #orbCanvas { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:260px; height:260px; pointer-events:none; }
-  .orb-text { position:relative; z-index:1; font-size:12.5px; color:var(--text); line-height:1.55;
-    text-align:center; padding:0 16px; opacity:0; transition:opacity .5s ease; }
-  .orb.active .orb-text { opacity:1; }
-  .orb-hint { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.09em;
-    margin-top:18px; opacity:.65; transition:opacity .4s ease; }
-  .orb-hint.hidden { opacity:0; }
 
   /* ---- returning-visitor banner: shown only when this browser has a
      remembered install ID (set by claim.html after a real balance
@@ -711,9 +705,7 @@
     <div class="orb-overlay">
       <div class="orb" id="theOrb">
         <canvas id="orbCanvas" width="260" height="260"></canvas>
-        <div class="orb-text" id="orbText"></div>
       </div>
-      <div class="orb-hint" id="orbHint">touch the orb</div>
     </div>
   </div>
 
@@ -1283,16 +1275,15 @@ setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
 })();
 
 /* ---------- the orb ----------
- * Inspired by reactbits.dev's Orb -- a soft rotating multi-color glow,
- * hover/touch reveals something instead of sitting there as decoration.
- * No number lives here on purpose: a real count at day-one scale reads
- * as thin no matter the font size, so the center of this section is an
- * honest line instead of a small one. */
+ * Inspired by reactbits.dev's Orb -- a soft rotating multi-color glow.
+ * Purely ambient, same as the particle river it sits in front of: it
+ * doesn't claim to reveal anything on hover (it used to, but the
+ * revealed line just restated the heading above it and wasn't tied to
+ * anything real, which read as a pointless interaction). The gentle
+ * glow boost on hover is just tactile delight, no meaning implied. */
 (function () {
   const canvas = document.getElementById('orbCanvas');
   const orb = document.getElementById('theOrb');
-  const textEl = document.getElementById('orbText');
-  const hintEl = document.getElementById('orbHint');
   if (!canvas || !orb) return;
   const ctx = canvas.getContext('2d');
   const SIZE = 260;
@@ -1300,37 +1291,16 @@ setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
   canvas.height = SIZE * 2;
   ctx.scale(2, 2);
 
-  const LINES = [
-    "Somewhere, right now, a real sponsor line just landed on a real developer's screen.",
-    "This isn't a loop playing on repeat. It's happening again, right as you read this.",
-    "No number here — just: it's real, and it's happening while you're looking at it.",
-    "Every flare drifting past this orb is a genuine event, not a decoration.",
-  ];
-  let lineIndex = 0;
   let hovering = false;
   let hoverX = 0.5, hoverY = 0.5;
 
-  function activate() {
-    orb.classList.add('active');
-    hintEl.classList.add('hidden');
-    textEl.textContent = LINES[lineIndex % LINES.length];
-    lineIndex++;
-  }
-  function deactivate() {
-    orb.classList.remove('active');
-    hintEl.classList.remove('hidden');
-  }
-  orb.addEventListener('mouseenter', (e) => { hovering = true; activate(); });
+  orb.addEventListener('mouseenter', () => { hovering = true; });
   orb.addEventListener('mousemove', (e) => {
     const r = orb.getBoundingClientRect();
     hoverX = (e.clientX - r.left) / r.width;
     hoverY = (e.clientY - r.top) / r.height;
   });
-  orb.addEventListener('mouseleave', () => { hovering = false; deactivate(); });
-  orb.addEventListener('touchstart', (e) => {
-    hovering = !orb.classList.contains('active');
-    if (hovering) activate(); else deactivate();
-  }, { passive: true });
+  orb.addEventListener('mouseleave', () => { hovering = false; });
 
   function tick(t) {
     ctx.clearRect(0, 0, SIZE, SIZE);
