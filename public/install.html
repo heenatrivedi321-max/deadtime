@@ -291,15 +291,13 @@
                         box-shadow:0 0 0 0 rgba(143,214,201,.5); animation:wiPulse 2.6s ease-in-out infinite; }
   @keyframes wiPulse { 0%,100% { box-shadow:0 0 0 0 rgba(143,214,201,.35); } 50% { box-shadow:0 0 0 5px rgba(143,214,201,0); } }
   .whatitis p { font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.7; color:#c8c4d0; margin:0; }
-  .whatitis .wi-line { display:block; opacity:0; transform:translateY(6px); filter:blur(2px);
-                        transition:opacity .5s ease, transform .5s ease, filter .5s ease; margin-bottom:2px; }
-  .whatitis.in .wi-line:nth-child(1) { transition-delay:.15s; }
-  .whatitis.in .wi-line:nth-child(2) { transition-delay:.4s; }
-  .whatitis.in .wi-line.wi-final { transition-delay:.65s; }
-  .whatitis.in .wi-line { opacity:1; transform:translateY(0); filter:blur(0); }
+  .whatitis .wi-line { display:block; margin-bottom:2px; }
+  .whatitis .wi-line.wi-typing::after { content:'\258C'; display:inline-block; margin-left:1px; color:var(--teal);
+                                         animation:wiCaret .8s step-end infinite; }
+  @keyframes wiCaret { 0%,100% { opacity:1; } 50% { opacity:0; } }
   .whatitis strong { color:var(--text); }
   .whatitis code { color:var(--gold); font-weight:600; }
-  .whatitis.in code, .whatitis.in strong { animation:wiFlash 1s ease .9s; }
+  .whatitis .wi-flash { animation:wiFlash 1s ease; }
   @keyframes wiFlash { 0% { text-shadow:none; } 35% { text-shadow:0 0 12px currentColor; } 100% { text-shadow:none; } }
 
   .stats { display:flex; gap:40px; margin-bottom:64px; flex-wrap:wrap; }
@@ -930,6 +928,80 @@
 </div>
 
 <script>
+/* ---------- typewriter for .whatitis ---------- */
+(function(){
+  const box = document.querySelector('.whatitis');
+  const lines = [...document.querySelectorAll('.wi-line')];
+  if (!box || !lines.length) return;
+  const MS_PER_CHAR = 24, GAP = 200;
+  lines.forEach((l) => { l.dataset.src = l.innerHTML; });
+
+  function tokenize(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const tokens = [];
+    (function walk(node) {
+      node.childNodes.forEach((child) => {
+        if (child.nodeType === 3) {
+          for (const ch of child.textContent) tokens.push(ch);
+        } else if (child.nodeType === 1) {
+          tokens.push(child.outerHTML);
+        }
+      });
+    })(tmp);
+    return tokens;
+  }
+
+  // rAF-driven: each frame recomputes how many tokens *should* be visible from
+  // elapsed time, so a slow/dropped frame just catches up next frame instead of
+  // permanently stalling the way a broken link in a setTimeout chain would.
+  function typeLine(line, onDone) {
+    const tokens = tokenize(line.dataset.src);
+    const n = tokens.length;
+    const dur = Math.max(n * MS_PER_CHAR, 1);
+    line.innerHTML = '';
+    line.classList.add('wi-typing');
+    let start = null;
+    function frame(ts) {
+      if (start === null) start = ts;
+      const shown = Math.min(n, Math.floor((ts - start) / dur * n) + 1);
+      line.innerHTML = tokens.slice(0, shown).join('');
+      if (shown >= n) {
+        line.classList.remove('wi-typing');
+        onDone && onDone();
+        return;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function runOnce() {
+    lines.forEach((l) => { l.innerHTML = ''; });
+    (function chain(idx) {
+      if (idx >= lines.length) {
+        box.querySelectorAll('code, strong').forEach((el) => {
+          el.classList.add('wi-flash');
+          setTimeout(() => el.classList.remove('wi-flash'), 1000);
+        });
+        return;
+      }
+      typeLine(lines[idx], () => setTimeout(() => chain(idx + 1), GAP));
+    })(0);
+  }
+
+  const wiIo = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        runOnce();
+        wiIo.unobserve(box);
+      }
+    });
+  }, { threshold: 0.4 });
+  wiIo.observe(box);
+})();
+
+
 /* ---------- scroll-triggered reveal ---------- */
 const revealEls = document.querySelectorAll('.reveal');
 const io = new IntersectionObserver((entries) => {
