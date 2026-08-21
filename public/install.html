@@ -287,10 +287,20 @@
               padding:16px 18px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.02); }
   .whatitis .wi-mark { flex:none; width:20px; height:20px; border-radius:50%; border:1.5px solid var(--teal);
                         color:var(--teal); font-size:12px; font-weight:800; display:flex; align-items:center;
-                        justify-content:center; font-family:'JetBrains Mono',monospace; margin-top:1px; }
+                        justify-content:center; font-family:'JetBrains Mono',monospace; margin-top:1px;
+                        box-shadow:0 0 0 0 rgba(143,214,201,.5); animation:wiPulse 2.6s ease-in-out infinite; }
+  @keyframes wiPulse { 0%,100% { box-shadow:0 0 0 0 rgba(143,214,201,.35); } 50% { box-shadow:0 0 0 5px rgba(143,214,201,0); } }
   .whatitis p { font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.7; color:#c8c4d0; margin:0; }
+  .whatitis .wi-line { display:block; opacity:0; transform:translateY(6px); filter:blur(2px);
+                        transition:opacity .5s ease, transform .5s ease, filter .5s ease; margin-bottom:2px; }
+  .whatitis.in .wi-line:nth-child(1) { transition-delay:.15s; }
+  .whatitis.in .wi-line:nth-child(2) { transition-delay:.4s; }
+  .whatitis.in .wi-line.wi-final { transition-delay:.65s; }
+  .whatitis.in .wi-line { opacity:1; transform:translateY(0); filter:blur(0); }
   .whatitis strong { color:var(--text); }
   .whatitis code { color:var(--gold); font-weight:600; }
+  .whatitis.in code, .whatitis.in strong { animation:wiFlash 1s ease .9s; }
+  @keyframes wiFlash { 0% { text-shadow:none; } 35% { text-shadow:0 0 12px currentColor; } 100% { text-shadow:none; } }
 
   .stats { display:flex; gap:40px; margin-bottom:64px; flex-wrap:wrap; }
   .stat .odometer { display:inline-flex; font-size:30px; font-weight:800; font-family:'JetBrains Mono',monospace; text-shadow:0 0 20px rgba(232,200,150,.3); }
@@ -683,7 +693,11 @@
 
   <div class="whatitis reveal">
     <span class="wi-mark">i</span>
-    <p>What you're actually installing: while your agent works, your terminal status line shows one small, clearly-labeled <code>(sponsored)</code> line — like a podcast ad read, never hidden. We split what it earns <strong>50/50</strong>, automatically, straight to PayPal. No data sold, no tracking beyond that one line. That's the whole product.</p>
+    <p>
+      <span class="wi-line">One small, labeled <code>(sponsored)</code> line in your terminal while your agent works.</span>
+      <span class="wi-line">We split what it earns <strong>50/50</strong>, straight to PayPal.</span>
+      <span class="wi-line wi-final">That's it.</span>
+    </p>
   </div>
 
   <div class="install-box reveal tilt">
