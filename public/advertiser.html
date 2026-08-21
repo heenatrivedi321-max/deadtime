@@ -167,6 +167,31 @@
   .status.ok { color:var(--green); }
   .status.err { color:#e77; }
 
+  /* ---- guided two-step form -- was one flat form with all five fields
+     at once, no relationship to the "1. submit ad, 2. pick a block, 3.
+     goes live" tier preview shown right above it. Now the form's actual
+     steps ARE those tiers -- the tier indicator highlights the real
+     current step instead of always showing step 1 as a static decoration. ---- */
+  .form-step { display:flex; flex-direction:column; gap:18px; }
+  #step1Status:empty { min-height:0; }
+  #step1Next { margin-top:4px; background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border:none;
+    border-radius:9px; padding:14px; font-weight:700; font-size:14px; cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease; }
+  #step1Next:hover { transform:translateY(-1px); box-shadow:0 10px 30px -8px rgba(232,200,150,.5); }
+  .block-summary { background:rgba(0,0,0,.3); border:1px solid var(--border); border-radius:12px;
+    padding:18px; text-align:center; }
+  .block-summary-amount { font-family:'JetBrains Mono',monospace; font-size:30px; font-weight:800;
+    background:linear-gradient(100deg,#f2b134,#f0654a,#ec4899,#a855f7); background-size:140% auto;
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1); display:inline-block; }
+  .block-summary-amount.bump { transform:scale(1.1); }
+  .block-summary-sub { font-size:12.5px; color:var(--muted); margin-top:4px; }
+  .step2-actions { display:flex; gap:10px; align-items:center; }
+  .step2-actions #submitBtn { flex:1; }
+  .ghost-btn { background:none; border:1px solid var(--border); color:var(--muted); border-radius:9px;
+    padding:14px 16px; font-size:13.5px; cursor:pointer; transition:border-color .2s ease, color .2s ease; white-space:nowrap; }
+  .ghost-btn:hover { border-color:rgba(255,255,255,.25); color:var(--text); }
+
   footer { margin-top:56px; color:#5a5a62; font-size:12px; text-align:center; }
   footer a { color:var(--muted); text-decoration:none; transition:.2s; }
   footer a:hover { color:var(--gold); }
@@ -211,41 +236,55 @@
         <stop offset="0%" stop-color="#f2b134"/><stop offset="50%" stop-color="#ec4899"/><stop offset="100%" stop-color="#3b82f6"/>
       </linearGradient></defs>
     </svg>
-    <div class="tier active"><div class="tier-dot">1</div><div class="tier-body"><h4>Submit your ad</h4><p>Line, link, company, email — takes 30 seconds</p></div></div>
-    <div class="tier"><div class="tier-dot">2</div><div class="tier-body"><h4>Pick a block size</h4><p>Each block = 1,000 real impressions, $2 flat</p></div></div>
-    <div class="tier"><div class="tier-dot">3</div><div class="tier-body"><h4>Goes live automatically</h4><p>Once payment clears, your ad enters rotation immediately — no manual review delay</p></div></div>
+    <div class="tier active" id="tier1"><div class="tier-dot">1</div><div class="tier-body"><h4>Submit your ad</h4><p>Line, link, company, email — takes 30 seconds</p></div></div>
+    <div class="tier" id="tier2"><div class="tier-dot">2</div><div class="tier-body"><h4>Pick a block size</h4><p>Each block = 1,000 real impressions, $2 flat</p></div></div>
+    <div class="tier" id="tier3"><div class="tier-dot">3</div><div class="tier-body"><h4>Goes live automatically</h4><p>Once payment clears, your ad enters rotation immediately — no manual review delay</p></div></div>
   </div>
 
   <form id="adForm" class="reveal tilt">
-    <div class="field">
-      <label for="line">Your line (max 6 words)</label>
-      <input id="line" maxlength="60" placeholder="Ramp — time is money. Save both." required>
-      <div class="count" id="wcWrap"><span id="wc">0</span>/6 words</div>
+    <div class="form-step" id="step1">
+      <div class="field">
+        <label for="line">Your line (max 6 words)</label>
+        <input id="line" maxlength="60" placeholder="Ramp — time is money. Save both." required>
+        <div class="count" id="wcWrap"><span id="wc">0</span>/6 words</div>
+      </div>
+      <div class="field">
+        <label for="url">Destination URL</label>
+        <input id="url" type="url" placeholder="https://yourcompany.com" required>
+      </div>
+      <div class="field">
+        <label for="company">Company name</label>
+        <input id="company" placeholder="Ramp" required>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="you@company.com" required>
+      </div>
+      <button type="button" id="step1Next" class="magnetic">Continue →</button>
+      <div id="step1Status" class="status err"></div>
     </div>
-    <div class="field">
-      <label for="url">Destination URL</label>
-      <input id="url" type="url" placeholder="https://yourcompany.com" required>
+
+    <div class="form-step" id="step2" hidden>
+      <div class="field">
+        <label for="blocks">Blocks (1,000 impressions each, $2/block)</label>
+        <select id="blocks">
+          <option value="1">1 block — $2 — 1,000 impressions</option>
+          <option value="5">5 blocks — $10 — 5,000 impressions</option>
+          <option value="10">10 blocks — $20 — 10,000 impressions</option>
+          <option value="25">25 blocks — $50 — 25,000 impressions</option>
+        </select>
+      </div>
+      <div class="block-summary" id="blockSummary">
+        <div class="block-summary-amount" id="blockAmount">$2.00</div>
+        <div class="block-summary-sub" id="blockImpressions">1,000 impressions</div>
+      </div>
+      <div class="step2-actions">
+        <button type="button" id="step2Back" class="ghost-btn">← Back</button>
+        <button type="submit" id="submitBtn" class="magnetic">Continue to PayPal</button>
+      </div>
+      <div class="note">You'll approve the exact charge on PayPal's own page — nothing is charged until you do. The moment it clears, your ad goes live automatically.</div>
+      <div id="status" class="status"></div>
     </div>
-    <div class="field">
-      <label for="company">Company name</label>
-      <input id="company" placeholder="Ramp" required>
-    </div>
-    <div class="field">
-      <label for="email">Email</label>
-      <input id="email" type="email" placeholder="you@company.com" required>
-    </div>
-    <div class="field">
-      <label for="blocks">Blocks (1,000 impressions each, $2/block)</label>
-      <select id="blocks">
-        <option value="1">1 block — $2 — 1,000 impressions</option>
-        <option value="5">5 blocks — $10 — 5,000 impressions</option>
-        <option value="10">10 blocks — $20 — 10,000 impressions</option>
-        <option value="25">25 blocks — $50 — 25,000 impressions</option>
-      </select>
-    </div>
-    <button type="submit" id="submitBtn" class="magnetic">Continue to PayPal</button>
-    <div class="note">You'll approve the exact charge on PayPal's own page — nothing is charged until you do. The moment it clears, your ad goes live automatically.</div>
-    <div id="status" class="status"></div>
   </form>
 
   <div class="mega-wrap reveal">
@@ -288,6 +327,71 @@ lineInput.addEventListener('input', () => {
   wcWrap.classList.toggle('over', words > 6);
 });
 
+/* ---------- guided two-step form ---------- */
+const step1 = document.getElementById('step1');
+const step2 = document.getElementById('step2');
+const step1Status = document.getElementById('step1Status');
+const urlInput = document.getElementById('url');
+const companyInput = document.getElementById('company');
+const emailInput = document.getElementById('email');
+
+function goToStep2() {
+  // "6 words" is a soft suggestion (shown via the live counter turning red),
+  // never a hard rule -- the server only enforces a 60-character cap. Was
+  // briefly a hard block here, which is real config the word-counter's own
+  // whitespace-split logic gets wrong for: it counts a spaced em dash as its
+  // own "word", so the page's own placeholder example ("Ramp — time is
+  // money. Save both.") reads as 7 words and would've blocked itself.
+  if (!lineInput.value.trim()) {
+    step1Status.textContent = 'Your line is required.';
+    lineInput.focus();
+    return;
+  }
+  try { new URL(urlInput.value); } catch {
+    step1Status.textContent = 'Destination URL needs to be a real, complete URL (e.g. https://example.com).';
+    urlInput.focus();
+    return;
+  }
+  if (!companyInput.value.trim()) {
+    step1Status.textContent = 'Company name is required.';
+    companyInput.focus();
+    return;
+  }
+  if (!emailInput.value.trim() || !emailInput.checkValidity()) {
+    step1Status.textContent = 'A valid email is required.';
+    emailInput.focus();
+    return;
+  }
+  step1Status.textContent = '';
+  step1.hidden = true;
+  step2.hidden = false;
+  document.getElementById('tier1').classList.remove('active');
+  document.getElementById('tier2').classList.add('active');
+}
+document.getElementById('step1Next').addEventListener('click', goToStep2);
+
+document.getElementById('step2Back').addEventListener('click', () => {
+  step2.hidden = true;
+  step1.hidden = false;
+  document.getElementById('tier2').classList.remove('active');
+  document.getElementById('tier1').classList.add('active');
+});
+
+const USD_PER_BLOCK = 2, IMPRESSIONS_PER_BLOCK = 1000;
+const blocksSelect = document.getElementById('blocks');
+const blockAmount = document.getElementById('blockAmount');
+const blockImpressions = document.getElementById('blockImpressions');
+function updateBlockSummary() {
+  const n = parseInt(blocksSelect.value, 10);
+  blockAmount.textContent = '$' + (n * USD_PER_BLOCK).toFixed(2);
+  blockImpressions.textContent = (n * IMPRESSIONS_PER_BLOCK).toLocaleString() + ' impressions';
+  blockAmount.classList.remove('bump');
+  void blockAmount.offsetWidth;
+  blockAmount.classList.add('bump');
+}
+blocksSelect.addEventListener('change', updateBlockSummary);
+updateBlockSummary();
+
 function renderOdometer(el, value) {
   const digits = String(value).split('');
   el.innerHTML = digits.map(d => {
@@ -321,6 +425,8 @@ const API = 'https://trymeanwhile.online';
 
 document.getElementById('adForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  document.getElementById('tier2').classList.remove('active');
+  document.getElementById('tier3').classList.add('active');
   const btn = document.getElementById('submitBtn');
   const status = document.getElementById('status');
   const payload = {
@@ -358,6 +464,8 @@ document.getElementById('adForm').addEventListener('submit', async (e) => {
     status.className = 'status err';
     btn.disabled = false;
     btn.textContent = 'Continue to PayPal';
+    document.getElementById('tier3').classList.remove('active');
+    document.getElementById('tier2').classList.add('active');
   }
 });
 

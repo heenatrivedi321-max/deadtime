@@ -66,15 +66,25 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,100..900&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-  /* ---- quiet, persistent path to the advertiser page -- deliberately not
-     in the footer (that competed with the main install CTA and made it
-     read like an alternate path rather than a side note) and not a big
-     button either, just a small always-there link out of the way. ---- */
-  .advertiser-nav-link { position:fixed; top:20px; right:22px; z-index:10; font-size:12px; color:var(--muted);
+  /* ---- quiet, persistent nav links -- one to the advertiser page (top
+     right), one back to your own dashboard (top left). Neither in the
+     footer (that competed with the main install CTA and made either read
+     like an alternate path rather than a side note) and neither a big
+     button, just small always-there links out of the way. The dashboard
+     one used to not exist at all outside a banner only returning users
+     could see -- a first-time visitor had genuinely no persistent way to
+     find their own balance later. ---- */
+  .advertiser-nav-link, .dashboard-nav-link { position:fixed; top:20px; z-index:10; font-size:12px; color:var(--muted);
     text-decoration:none; padding:6px 13px; border-radius:100px; background:rgba(0,0,0,.35);
     backdrop-filter:blur(10px); border:1px solid var(--border); transition:color .2s ease, border-color .2s ease; }
-  .advertiser-nav-link:hover { color:var(--gold); border-color:rgba(232,200,150,.35); }
-  @media (max-width:520px) { .advertiser-nav-link { top:14px; right:14px; font-size:11px; padding:5px 11px; } }
+  .advertiser-nav-link { right:22px; }
+  .dashboard-nav-link { left:22px; }
+  .advertiser-nav-link:hover, .dashboard-nav-link:hover { color:var(--gold); border-color:rgba(232,200,150,.35); }
+  @media (max-width:520px) {
+    .advertiser-nav-link, .dashboard-nav-link { top:14px; font-size:11px; padding:5px 11px; }
+    .advertiser-nav-link { right:14px; }
+    .dashboard-nav-link { left:14px; }
+  }
 
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.08);
@@ -627,6 +637,7 @@
 </head>
 <body>
 <a href="advertiser.html" class="advertiser-nav-link">for advertisers →</a>
+<a href="claim.html" class="dashboard-nav-link">your dashboard →</a>
 <canvas id="clickSparkCanvas"></canvas>
 <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
 <div class="bg-shimmer"></div>
