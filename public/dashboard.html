@@ -311,6 +311,7 @@ function render(c) {
         c.status === 'exhausted' ? 'This campaign has fully delivered its purchased impressions.' :
         `${(c.impressions_total - c.impressions_delivered).toLocaleString()} impressions remaining`
       }</div>
+      ${c.status === 'pending_payment' ? `<a class="reorder-cta magnetic" href="#" id="resumePaymentBtn">Complete payment →</a>` : ''}
       ${reorderCta}
     </div>
 
@@ -357,6 +358,30 @@ function render(c) {
   armTilt();
   armMagnetic();
   setupElectricBorders();
+
+  const resumeBtn = document.getElementById('resumePaymentBtn');
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const original = resumeBtn.textContent;
+      resumeBtn.textContent = 'Redirecting to PayPal…';
+      resumeBtn.style.pointerEvents = 'none';
+      try {
+        const res = await fetch('https://trymeanwhile.online/paypal/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaign_id: c.id }),
+        });
+        const order = await res.json();
+        if (!res.ok || !order.approval_url) throw new Error(order.error || 'no approval link returned');
+        window.location.href = order.approval_url;
+      } catch (err) {
+        resumeBtn.textContent = 'Something went wrong — try again';
+        resumeBtn.style.pointerEvents = '';
+        setTimeout(() => { resumeBtn.textContent = original; }, 2500);
+      }
+    });
+  }
 }
 
 let lastDelivered = null;
