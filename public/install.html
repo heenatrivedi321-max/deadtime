@@ -168,8 +168,19 @@
   #riverCanvas { position:absolute; inset:0; display:block; width:100%; height:100%; z-index:0; }
   .orb-overlay { position:absolute; inset:0; z-index:1; display:flex; flex-direction:column;
     align-items:center; justify-content:center; }
-  .orb { position:relative; width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
-  #orbCanvas { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:260px; height:260px; pointer-events:none; }
+  .blob-char { position:relative; width:180px; height:180px; cursor:pointer; }
+  #blobCanvas { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:220px; height:220px; pointer-events:none; }
+  .blob-bubble { position:absolute; bottom:100%; left:50%; transform:translateX(-50%) translateY(8px);
+    width:max-content; max-width:260px; background:var(--panel); backdrop-filter:blur(14px);
+    border:1px solid var(--border); border-radius:14px; padding:10px 14px; font-size:12.5px;
+    color:var(--text); line-height:1.5; text-align:center; opacity:0; pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease; margin-bottom:14px; }
+  .blob-bubble.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .blob-bubble::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:7px solid transparent; border-top-color:var(--panel); }
+  .blob-hint { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.09em;
+    margin-top:18px; opacity:.65; transition:opacity .4s ease; }
+  .blob-hint.hidden { opacity:0; }
 
   /* ---- returning-visitor banner: shown only when this browser has a
      remembered install ID (set by claim.html after a real balance
@@ -369,7 +380,8 @@
      reveal of the brand word, first thing anyone sees before the pitch ---- */
   .intro-screen { position:relative; z-index:2; width:100%; height:100svh; min-height:560px;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    overflow:hidden; text-align:center; background:var(--bg); }
+    overflow:hidden; text-align:center;
+    background:linear-gradient(to bottom, var(--bg) 0%, var(--bg) 72%, transparent 100%); }
   .intro-aurora, .intro-rings { position:absolute; inset:0; pointer-events:none; opacity:0; }
   .intro-aurora canvas, .intro-rings canvas { display:block; width:100%; height:100%; }
   .intro-aurora { animation:introBgIn 2.4s ease forwards; --intro-bg-target:.85; }
@@ -703,9 +715,11 @@
   <div class="river-wrap">
     <canvas id="riverCanvas"></canvas>
     <div class="orb-overlay">
-      <div class="orb" id="theOrb">
-        <canvas id="orbCanvas" width="260" height="260"></canvas>
+      <div class="blob-char" id="blobChar">
+        <div class="blob-bubble" id="blobBubble"></div>
+        <canvas id="blobCanvas" width="220" height="220"></canvas>
       </div>
+      <div class="blob-hint" id="blobHint">poke it</div>
     </div>
   </div>
 
@@ -1274,77 +1288,112 @@ setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
   setInterval(pollRiver, 8000);
 })();
 
-/* ---------- the orb ----------
- * Inspired by reactbits.dev's Orb -- a soft rotating multi-color glow.
- * Purely ambient, same as the particle river it sits in front of: it
- * doesn't claim to reveal anything on hover (it used to, but the
- * revealed line just restated the heading above it and wasn't tied to
- * anything real, which read as a pointless interaction). The gentle
- * glow boost on hover is just tactile delight, no meaning implied. */
+/* ---------- the blob ----------
+ * The orb was pretty but generic -- this is a small jelly character
+ * with googly eyes that follow your cursor, idles with a breathing
+ * wobble, and does a real squash-and-stretch bounce when you poke it.
+ * Poking it also fetches a real line from /demo-line -- the exact
+ * same public, stateless endpoint the "watch it happen" demo further
+ * down uses -- so what it "says" is genuinely one of the real lines
+ * the product shows, not a canned string, without duplicating that
+ * section's terminal-style presentation. */
 (function () {
-  const canvas = document.getElementById('orbCanvas');
-  const orb = document.getElementById('theOrb');
-  if (!canvas || !orb) return;
+  const canvas = document.getElementById('blobCanvas');
+  const char = document.getElementById('blobChar');
+  const bubble = document.getElementById('blobBubble');
+  const hint = document.getElementById('blobHint');
+  if (!canvas || !char) return;
   const ctx = canvas.getContext('2d');
-  const SIZE = 260;
-  canvas.width = SIZE * 2;
-  canvas.height = SIZE * 2;
-  ctx.scale(2, 2);
+  const SIZE = 220;
+  const DPR = 2;
+  canvas.width = SIZE * DPR;
+  canvas.height = SIZE * DPR;
+  ctx.scale(DPR, DPR);
 
-  let hovering = false;
-  let hoverX = 0.5, hoverY = 0.5;
+  let mouseX = SIZE / 2, mouseY = SIZE / 2 - 40;
+  let bounce = 0; // 0..1, decays after a poke
+  let fetching = false;
 
-  orb.addEventListener('mouseenter', () => { hovering = true; });
-  orb.addEventListener('mousemove', (e) => {
-    const r = orb.getBoundingClientRect();
-    hoverX = (e.clientX - r.left) / r.width;
-    hoverY = (e.clientY - r.top) / r.height;
+  window.addEventListener('mousemove', (e) => {
+    const r = canvas.getBoundingClientRect();
+    mouseX = e.clientX - r.left;
+    mouseY = e.clientY - r.top;
   });
-  orb.addEventListener('mouseleave', () => { hovering = false; });
+
+  async function poke() {
+    bounce = 1;
+    if (fetching) return;
+    fetching = true;
+    hint.classList.add('hidden');
+    try {
+      const res = await fetch('https://trymeanwhile.online/demo-line');
+      const data = await res.json();
+      bubble.textContent = data.line || "...";
+    } catch (e) {
+      bubble.textContent = "hmm, couldn't reach the server -- try again?";
+    }
+    bubble.classList.add('show');
+    fetching = false;
+    clearTimeout(poke._t);
+    poke._t = setTimeout(() => bubble.classList.remove('show'), 4200);
+  }
+  char.addEventListener('click', poke);
+  char.addEventListener('touchstart', (e) => { e.preventDefault(); poke(); }, { passive: false });
 
   function tick(t) {
     ctx.clearRect(0, 0, SIZE, SIZE);
     const cx = SIZE / 2, cy = SIZE / 2;
-    const baseR = hovering ? 78 : 70;
-    const colors = ['#f2b134', '#ec4899', '#a855f7', '#3b82f6', '#14c9a5'];
-    const boost = hovering ? 1.5 : 1;
+    bounce = Math.max(0, bounce - 0.035);
+
+    const breathe = Math.sin(t / 900) * 0.02;
+    const squash = 1 - bounce * 0.22 * Math.sin(bounce * Math.PI); // squash then stretch as it decays
+    const scaleX = 1 + breathe + bounce * 0.12;
+    const scaleY = (1 - breathe * 1.3) * squash + bounce * 0.05;
+    const bodyR = 62;
+    const bobY = Math.sin(t / 900) * 4 - bounce * 14;
 
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(t / 9000);
-    colors.forEach((color, i) => {
-      const angle = (i / colors.length) * Math.PI * 2;
-      const dist = baseR * 0.32;
-      const px = Math.cos(angle) * dist, py = Math.sin(angle) * dist;
-      const grad = ctx.createRadialGradient(px, py, 0, px, py, baseR * 1.15);
-      grad.addColorStop(0, color + 'dd');
-      grad.addColorStop(1, color + '00');
-      ctx.globalAlpha = 0.55 * boost;
-      ctx.fillStyle = grad;
+    ctx.translate(cx, cy + bobY);
+    ctx.scale(scaleX, scaleY);
+
+    const grad = ctx.createLinearGradient(-bodyR, -bodyR, bodyR, bodyR);
+    grad.addColorStop(0, '#f2b134');
+    grad.addColorStop(0.45, '#ec4899');
+    grad.addColorStop(1, '#a855f7');
+    ctx.fillStyle = grad;
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = 'rgba(236,72,153,0.35)';
+    ctx.beginPath();
+    ctx.arc(0, 6, bodyR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // eyes track the cursor, clamped to a small radius so they stay put in their sockets
+    const eyeDX = cx - mouseX, eyeDY = (cy + bobY) - mouseY;
+    const eyeAngle = Math.atan2(-eyeDY, -eyeDX);
+    const pupilRange = 3.2;
+    const px = Math.cos(eyeAngle) * pupilRange, py = Math.sin(eyeAngle) * pupilRange;
+
+    [-19, 19].forEach((ex) => {
       ctx.beginPath();
-      ctx.arc(px, py, baseR * 1.15, 0, Math.PI * 2);
+      ctx.ellipse(ex, -8, 11, 12, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#fdfaf3';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ex + px, -8 + py, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a1408';
       ctx.fill();
     });
-    ctx.restore();
-    ctx.globalAlpha = 1;
 
-    if (hovering) {
-      const hx = hoverX * SIZE, hy = hoverY * SIZE;
-      const glow = ctx.createRadialGradient(hx, hy, 0, hx, hy, 50);
-      glow.addColorStop(0, 'rgba(255,255,255,0.18)');
-      glow.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(hx, hy, 50, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
+    // mouth: a small contented curve, opens slightly on a poke
     ctx.beginPath();
-    ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-    ctx.lineWidth = 1.2;
+    const mouthOpen = 3 + bounce * 6;
+    ctx.ellipse(0, 14, 8, mouthOpen, 0, 0, Math.PI);
+    ctx.strokeStyle = 'rgba(26,20,8,0.55)';
+    ctx.lineWidth = 2.2;
     ctx.stroke();
 
+    ctx.restore();
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
