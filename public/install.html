@@ -136,41 +136,41 @@
      of each other -- same three topics, same row order, so they align
      row-for-row -- with the gold "Meanwhile" panel clipped to the drag
      position, revealing the dim "Kickbacks.ai" panel underneath as you
-     pull the handle right. ---- */
+     pull the handle right.
+
+     Replaced with real 3D flip cards after the slider shipped a genuine
+     bug: the "new" panel's background was a translucent tint (meant for
+     a solid standalone column, not a full opaque mask), so once both
+     panels' text occupied the same screen position, Kickbacks.ai's text
+     bled straight through Meanwhile's, garbled and illegible. Flip cards
+     sidestep that whole failure class structurally -- backface-
+     visibility:hidden means the non-facing side is never painted at
+     all, not just visually dimmed, so there's no transparency value to
+     get wrong. ---- */
   .versus { margin:56px 0; }
   .versus h2 { font-family:'Fraunces',serif; font-size:clamp(24px,4.5vw,32px); font-weight:600;
                margin-bottom:8px; letter-spacing:-0.01em; }
   .versus .versus-sub { font-size:14.5px; color:var(--muted); margin-bottom:28px; max-width:480px; }
-  .versus-slider { position:relative; border-radius:16px; border:1px solid var(--border);
-    overflow:hidden; cursor:ew-resize; touch-action:pan-y; user-select:none;
-    box-shadow:0 0 40px -20px rgba(242,177,52,.25); }
-  .versus-slider-label { position:absolute; top:20px; z-index:3; font-size:11px; font-weight:700;
-    text-transform:uppercase; letter-spacing:.07em; padding:5px 11px; border-radius:100px;
-    pointer-events:none; backdrop-filter:blur(8px); }
-  .versus-slider-label-new { left:18px; color:#1a1408; background:linear-gradient(135deg,var(--gold),#d99a9a); }
-  .versus-slider-label-old { right:18px; color:var(--muted); background:rgba(255,255,255,.06); border:1px solid var(--border); }
-  .versus-panel { position:relative; padding:64px 20px 22px; background:rgba(150,150,160,.04); }
-  .versus-panel-new { position:absolute; inset:0; padding:64px 20px 22px;
-    background:linear-gradient(160deg, rgba(242,177,52,.14), rgba(232,200,150,.05));
-    clip-path:inset(0 50% 0 0); will-change:clip-path; }
-  .versus-row { display:flex; align-items:flex-start; gap:9px; font-size:13.5px; line-height:1.5;
-                padding:9px 0; border-top:1px solid rgba(255,255,255,.05); white-space:normal; }
-  .versus-row:first-of-type { border-top:none; }
-  .versus-row .mark { flex-shrink:0; width:16px; text-align:center; font-weight:700; }
-  .versus-panel .versus-row .mark { color:var(--muted); }
-  .versus-panel-new .versus-row .mark { color:#7ee787; }
-  .versus-panel .versus-row span:last-child { color:#9a9aa4; }
-  .versus-panel-new .versus-row span:last-child { color:var(--text); }
-  .versus-handle { position:absolute; top:0; bottom:0; left:50%; width:0; z-index:2; pointer-events:none; will-change:left; }
-  .versus-handle-line { position:absolute; top:0; bottom:0; left:0; width:2px; transform:translateX(-1px);
-    background:linear-gradient(180deg, transparent, rgba(242,177,52,.7), transparent); }
-  .versus-handle-grip { position:absolute; top:50%; left:0; transform:translate(-50%,-50%);
-    width:38px; height:38px; border-radius:50%; background:var(--bg); border:1.5px solid rgba(242,177,52,.55);
-    display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--gold);
-    pointer-events:auto; cursor:ew-resize; box-shadow:0 6px 20px -6px rgba(0,0,0,.6), 0 0 0 4px rgba(242,177,52,.08); }
-  .versus-drag-hint { text-align:center; font-size:11.5px; color:var(--muted); margin-top:12px;
-    opacity:.75; transition:opacity .4s ease; }
-  .versus-drag-hint.hidden { opacity:0; }
+  .versus-cards { display:flex; flex-direction:column; gap:14px; }
+  .flip-card { perspective:1200px; cursor:pointer; height:132px; }
+  .flip-inner { position:relative; width:100%; height:100%; transition:transform .65s cubic-bezier(.34,1.56,.64,1); transform-style:preserve-3d; }
+  .flip-card.flipped .flip-inner { transform:rotateY(180deg); }
+  .flip-face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+    border-radius:16px; border:1px solid var(--border); padding:18px 20px; display:flex; flex-direction:column; justify-content:center; }
+  .flip-front { background:rgba(150,150,160,.04); }
+  .flip-back { background:linear-gradient(160deg, rgba(242,177,52,.16), rgba(232,200,150,.07));
+    border-color:rgba(242,177,52,.4); transform:rotateY(180deg); box-shadow:0 0 30px -14px rgba(242,177,52,.35); }
+  .flip-label { display:flex; align-items:center; gap:7px; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.08em; margin-bottom:9px; }
+  .flip-front .flip-label { color:var(--muted); }
+  .flip-back .flip-label { color:var(--gold); }
+  .flip-label .mark { font-weight:700; }
+  .flip-text { font-size:13.5px; line-height:1.5; }
+  .flip-front .flip-text { color:#9a9aa4; }
+  .flip-back .flip-text { color:var(--text); }
+  .flip-tap-hint { position:absolute; bottom:10px; right:14px; font-size:9.5px; color:var(--muted);
+    text-transform:uppercase; letter-spacing:.06em; opacity:.55; }
+  .flip-card.flipped .flip-tap-hint { display:none; }
 
   /* ---- the river: a full-bleed generative visualization of real
      network activity. Ambient particles drift left to right at all
@@ -715,26 +715,48 @@
 
   <div class="versus reveal">
     <h2 class="blur-heading">We're not going to pretend they're bad.</h2>
-    <p class="versus-sub">Kickbacks.ai does basically the same thing. Genuinely, no shade — here's what's actually different, not a sales pitch. Drag to compare.</p>
-    <div class="versus-slider" id="versusSlider">
-      <div class="versus-slider-label versus-slider-label-new">Meanwhile</div>
-      <div class="versus-slider-label versus-slider-label-old">Kickbacks.ai</div>
-      <div class="versus-panel">
-        <div class="versus-row"><span class="mark">•</span><span>Install a VS Code extension — even to get the terminal line</span></div>
-        <div class="versus-row"><span class="mark">•</span><span>Live auction pricing — a low bid can take a long time to deliver</span></div>
-        <div class="versus-row"><span class="mark">•</span><span>Sponsor line is labeled "WITH KICKBACKS.AI"</span></div>
+    <p class="versus-sub">Kickbacks.ai does basically the same thing. Genuinely, no shade — here's what's actually different, not a sales pitch. Tap a card to flip it.</p>
+    <div class="versus-cards" id="versusCards">
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-face flip-front">
+            <div class="flip-label"><span class="mark">•</span> Kickbacks.ai</div>
+            <div class="flip-text">Install a VS Code extension — even to get the terminal line</div>
+            <div class="flip-tap-hint">tap to flip</div>
+          </div>
+          <div class="flip-face flip-back">
+            <div class="flip-label"><span class="mark">✓</span> Meanwhile</div>
+            <div class="flip-text"><code style="font-family:'JetBrains Mono',monospace; font-size:12px;">npx trymeanwhile</code> — no extension, ever</div>
+          </div>
+        </div>
       </div>
-      <div class="versus-panel-new" id="versusPanelNew">
-        <div class="versus-row"><span class="mark">✓</span><span><code style="font-family:'JetBrains Mono',monospace; font-size:12px;">npx trymeanwhile</code> — no extension, ever</span></div>
-        <div class="versus-row"><span class="mark">✓</span><span>Flat rate — same CPM for every campaign, no bidding</span></div>
-        <div class="versus-row"><span class="mark">✓</span><span>Sponsor line is labeled "(sponsored)"</span></div>
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-face flip-front">
+            <div class="flip-label"><span class="mark">•</span> Kickbacks.ai</div>
+            <div class="flip-text">Live auction pricing — a low bid can take a long time to deliver</div>
+            <div class="flip-tap-hint">tap to flip</div>
+          </div>
+          <div class="flip-face flip-back">
+            <div class="flip-label"><span class="mark">✓</span> Meanwhile</div>
+            <div class="flip-text">Flat rate — same CPM for every campaign, no bidding</div>
+          </div>
+        </div>
       </div>
-      <div class="versus-handle" id="versusHandle">
-        <div class="versus-handle-line"></div>
-        <div class="versus-handle-grip">⇔</div>
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-face flip-front">
+            <div class="flip-label"><span class="mark">•</span> Kickbacks.ai</div>
+            <div class="flip-text">Sponsor line is labeled "WITH KICKBACKS.AI"</div>
+            <div class="flip-tap-hint">tap to flip</div>
+          </div>
+          <div class="flip-face flip-back">
+            <div class="flip-label"><span class="mark">✓</span> Meanwhile</div>
+            <div class="flip-text">Sponsor line is labeled "(sponsored)"</div>
+          </div>
+        </div>
       </div>
     </div>
-    <p class="versus-drag-hint" id="versusDragHint">← drag the handle →</p>
   </div>
 
   <div class="river-section reveal">
@@ -901,58 +923,35 @@ const appleIo = new IntersectionObserver((entries) => {
 }, { threshold: 0.4 });
 document.querySelectorAll('.apple-line[data-apple-reveal]').forEach((el) => appleIo.observe(el));
 
-/* ---------- versus section: drag-to-reveal slider ---------- */
+/* ---------- versus section: flip cards ---------- */
 (function () {
-  const slider = document.getElementById('versusSlider');
-  const panelNew = document.getElementById('versusPanelNew');
-  const handle = document.getElementById('versusHandle');
-  const hint = document.getElementById('versusDragHint');
-  if (!slider || !panelNew || !handle) return;
+  const cards = document.querySelectorAll('#versusCards .flip-card');
+  if (!cards.length) return;
 
-  function setSplit(pct) {
-    const clamped = Math.max(4, Math.min(96, pct));
-    panelNew.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
-    handle.style.left = clamped + '%';
-  }
+  let userFlippedAny = false;
+  cards.forEach((card) => {
+    card.addEventListener('click', () => {
+      userFlippedAny = true;
+      card.classList.toggle('flipped');
+    });
+  });
 
-  function posFromClientX(clientX) {
-    const r = slider.getBoundingClientRect();
-    return ((clientX - r.left) / r.width) * 100;
-  }
-
-  let dragging = false;
-  function onPointerDown(e) {
-    dragging = true;
-    hint.classList.add('hidden');
-    setSplit(posFromClientX(e.clientX));
-    slider.setPointerCapture?.(e.pointerId);
-  }
-  function onPointerMove(e) {
-    if (!dragging) return;
-    setSplit(posFromClientX(e.clientX));
-  }
-  function onPointerUp() { dragging = false; }
-
-  slider.addEventListener('pointerdown', onPointerDown);
-  slider.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerup', onPointerUp);
-
-  // Gentle auto-wiggle the first time this scrolls into view, purely to
-  // invite the drag -- stops the instant a real interaction happens.
-  const hintIo = new IntersectionObserver((entries) => {
+  // Brief auto-flip-through the first time this scrolls into view, purely
+  // to show what tapping a card does -- flips each one, holds a beat,
+  // flips back. Stops instantly if the user has already flipped one
+  // themselves, and never fights a card the user is mid-interacting with.
+  const demoIo = new IntersectionObserver((entries) => {
     entries.forEach((e) => {
       if (!e.isIntersecting) return;
-      hintIo.unobserve(e.target);
+      demoIo.unobserve(e.target);
       if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      let t = 0;
-      const wiggle = setInterval(() => {
-        t += 1;
-        if (dragging || t > 26) { clearInterval(wiggle); if (!dragging) setSplit(50); return; }
-        setSplit(50 + Math.sin(t / 4) * 16 * Math.max(0, 1 - t / 26));
-      }, 45);
+      cards.forEach((card, i) => {
+        setTimeout(() => { if (!userFlippedAny) card.classList.add('flipped'); }, 500 + i * 550);
+        setTimeout(() => { if (!userFlippedAny) card.classList.remove('flipped'); }, 500 + i * 550 + 900);
+      });
     });
   }, { threshold: 0.4 });
-  hintIo.observe(slider);
+  demoIo.observe(document.getElementById('versusCards'));
 })();
 
 /* ---------- "Zero cold ads." -- static decoding into signal ---------- */
