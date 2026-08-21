@@ -66,6 +66,16 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,100..900&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+  /* ---- quiet, persistent path to the advertiser page -- deliberately not
+     in the footer (that competed with the main install CTA and made it
+     read like an alternate path rather than a side note) and not a big
+     button either, just a small always-there link out of the way. ---- */
+  .advertiser-nav-link { position:fixed; top:20px; right:22px; z-index:10; font-size:12px; color:var(--muted);
+    text-decoration:none; padding:6px 13px; border-radius:100px; background:rgba(0,0,0,.35);
+    backdrop-filter:blur(10px); border:1px solid var(--border); transition:color .2s ease, border-color .2s ease; }
+  .advertiser-nav-link:hover { color:var(--gold); border-color:rgba(232,200,150,.35); }
+  @media (max-width:520px) { .advertiser-nav-link { top:14px; right:14px; font-size:11px; padding:5px 11px; } }
+
   :root {
     --bg:#07070a; --panel:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.08);
     --text:#f5f0e6; --muted:#8c8c96; --gold:#e8c896; --rose:#d99a9a; --teal:#8fd6c9; --violet:#b39ce8;
@@ -605,6 +615,7 @@
 </style>
 </head>
 <body>
+<a href="advertiser.html" class="advertiser-nav-link">for advertisers →</a>
 <canvas id="clickSparkCanvas"></canvas>
 <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
 <div class="bg-shimmer"></div>
@@ -841,7 +852,7 @@
   </div>
 
   <footer class="reveal">
-    Meanwhile — <a href="advertiser.html">sponsor a status line instead →</a> · <a href="claim.html">check your payout status →</a>
+    Meanwhile — nothing patched, open about what we track.
     <div style="margin-top:10px; font-size:11px;"><a href="terms.html">terms</a> · <a href="privacy.html">privacy</a></div>
   </footer>
 </div>
