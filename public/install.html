@@ -121,33 +121,46 @@
   .badge .dot { width:6px; height:6px; border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal); animation:pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
-  /* ---- kickback-vs-passive comparison: same dim/gold language as the
-     hourglass loot-scene, but the axis here is effort, not attention ---- */
+  /* ---- kickback-vs-passive comparison: a drag-to-reveal slider instead
+     of two static columns. Two full-size panels stacked exactly on top
+     of each other -- same three topics, same row order, so they align
+     row-for-row -- with the gold "Meanwhile" panel clipped to the drag
+     position, revealing the dim "Kickbacks.ai" panel underneath as you
+     pull the handle right. ---- */
   .versus { margin:56px 0; }
   .versus h2 { font-family:'Fraunces',serif; font-size:clamp(24px,4.5vw,32px); font-weight:600;
                margin-bottom:8px; letter-spacing:-0.01em; }
   .versus .versus-sub { font-size:14.5px; color:var(--muted); margin-bottom:28px; max-width:480px; }
-  .versus-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  @media (max-width:520px) { .versus-grid { grid-template-columns:1fr; } }
-  .versus-col { border-radius:16px; padding:22px 20px; border:1px solid var(--border); }
-  .versus-col.old { background:rgba(150,150,160,.04); }
-  .versus-col.new { background:linear-gradient(160deg, rgba(242,177,52,.09), rgba(232,200,150,.03));
-                     border-color:rgba(242,177,52,.3); box-shadow:0 0 40px -20px rgba(242,177,52,.35); }
-  .versus-col h3 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:16px; }
-  .versus-col.old h3 { color:var(--muted); }
-  .versus-col.new h3 { color:var(--gold); }
+  .versus-slider { position:relative; border-radius:16px; border:1px solid var(--border);
+    overflow:hidden; cursor:ew-resize; touch-action:pan-y; user-select:none;
+    box-shadow:0 0 40px -20px rgba(242,177,52,.25); }
+  .versus-slider-label { position:absolute; top:20px; z-index:3; font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.07em; padding:5px 11px; border-radius:100px;
+    pointer-events:none; backdrop-filter:blur(8px); }
+  .versus-slider-label-new { left:18px; color:#1a1408; background:linear-gradient(135deg,var(--gold),#d99a9a); }
+  .versus-slider-label-old { right:18px; color:var(--muted); background:rgba(255,255,255,.06); border:1px solid var(--border); }
+  .versus-panel { position:relative; padding:64px 20px 22px; background:rgba(150,150,160,.04); }
+  .versus-panel-new { position:absolute; inset:0; padding:64px 20px 22px;
+    background:linear-gradient(160deg, rgba(242,177,52,.14), rgba(232,200,150,.05));
+    clip-path:inset(0 50% 0 0); will-change:clip-path; }
   .versus-row { display:flex; align-items:flex-start; gap:9px; font-size:13.5px; line-height:1.5;
-                padding:9px 0; border-top:1px solid rgba(255,255,255,.05); opacity:0; transform:translateX(-8px);
-                transition:opacity .5s ease, transform .5s ease; }
+                padding:9px 0; border-top:1px solid rgba(255,255,255,.05); white-space:normal; }
   .versus-row:first-of-type { border-top:none; }
-  .versus-row.in { opacity:1; transform:translateX(0); }
-  .versus-col.new .versus-row { transform:translateX(8px); }
-  .versus-col.new .versus-row.in { transform:translateX(0); }
   .versus-row .mark { flex-shrink:0; width:16px; text-align:center; font-weight:700; }
-  .versus-col.old .versus-row .mark { color:var(--muted); }
-  .versus-col.new .versus-row .mark { color:#7ee787; }
-  .versus-col.old .versus-row span:last-child { color:#9a9aa4; }
-  .versus-col.new .versus-row span:last-child { color:var(--text); }
+  .versus-panel .versus-row .mark { color:var(--muted); }
+  .versus-panel-new .versus-row .mark { color:#7ee787; }
+  .versus-panel .versus-row span:last-child { color:#9a9aa4; }
+  .versus-panel-new .versus-row span:last-child { color:var(--text); }
+  .versus-handle { position:absolute; top:0; bottom:0; left:50%; width:0; z-index:2; pointer-events:none; will-change:left; }
+  .versus-handle-line { position:absolute; top:0; bottom:0; left:0; width:2px; transform:translateX(-1px);
+    background:linear-gradient(180deg, transparent, rgba(242,177,52,.7), transparent); }
+  .versus-handle-grip { position:absolute; top:50%; left:0; transform:translate(-50%,-50%);
+    width:38px; height:38px; border-radius:50%; background:var(--bg); border:1.5px solid rgba(242,177,52,.55);
+    display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--gold);
+    pointer-events:auto; cursor:ew-resize; box-shadow:0 6px 20px -6px rgba(0,0,0,.6), 0 0 0 4px rgba(242,177,52,.08); }
+  .versus-drag-hint { text-align:center; font-size:11.5px; color:var(--muted); margin-top:12px;
+    opacity:.75; transition:opacity .4s ease; }
+  .versus-drag-hint.hidden { opacity:0; }
 
   /* ---- the river: a full-bleed generative visualization of real
      network activity. Ambient particles drift left to right at all
@@ -691,21 +704,26 @@
 
   <div class="versus reveal">
     <h2 class="blur-heading">We're not going to pretend they're bad.</h2>
-    <p class="versus-sub">Kickbacks.ai does basically the same thing. Genuinely, no shade — here's what's actually different, not a sales pitch.</p>
-    <div class="versus-grid">
-      <div class="versus-col old">
-        <h3>Kickbacks.ai</h3>
+    <p class="versus-sub">Kickbacks.ai does basically the same thing. Genuinely, no shade — here's what's actually different, not a sales pitch. Drag to compare.</p>
+    <div class="versus-slider" id="versusSlider">
+      <div class="versus-slider-label versus-slider-label-new">Meanwhile</div>
+      <div class="versus-slider-label versus-slider-label-old">Kickbacks.ai</div>
+      <div class="versus-panel">
         <div class="versus-row"><span class="mark">•</span><span>Install a VS Code extension — even to get the terminal line</span></div>
         <div class="versus-row"><span class="mark">•</span><span>Live auction pricing — a low bid can take a long time to deliver</span></div>
         <div class="versus-row"><span class="mark">•</span><span>Sponsor line is labeled "WITH KICKBACKS.AI"</span></div>
       </div>
-      <div class="versus-col new">
-        <h3>Meanwhile</h3>
+      <div class="versus-panel-new" id="versusPanelNew">
         <div class="versus-row"><span class="mark">✓</span><span><code style="font-family:'JetBrains Mono',monospace; font-size:12px;">npx trymeanwhile</code> — no extension, ever</span></div>
         <div class="versus-row"><span class="mark">✓</span><span>Flat rate — same CPM for every campaign, no bidding</span></div>
         <div class="versus-row"><span class="mark">✓</span><span>Sponsor line is labeled "(sponsored)"</span></div>
       </div>
+      <div class="versus-handle" id="versusHandle">
+        <div class="versus-handle-line"></div>
+        <div class="versus-handle-grip">⇔</div>
+      </div>
     </div>
+    <p class="versus-drag-hint" id="versusDragHint">← drag the handle →</p>
   </div>
 
   <div class="river-section reveal">
@@ -872,21 +890,59 @@ const appleIo = new IntersectionObserver((entries) => {
 }, { threshold: 0.4 });
 document.querySelectorAll('.apple-line[data-apple-reveal]').forEach((el) => appleIo.observe(el));
 
-/* ---------- versus section: rows stagger in per column, old before new ---------- */
-document.querySelectorAll('.versus-col').forEach((col) => {
-  col.querySelectorAll('.versus-row').forEach((row, i) => {
-    row.style.transitionDelay = (i * 140) + 'ms';
-  });
-});
-const versusIo = new IntersectionObserver((entries) => {
-  entries.forEach((e) => {
-    if (e.isIntersecting) {
-      e.target.querySelectorAll('.versus-row').forEach((row) => row.classList.add('in'));
-      versusIo.unobserve(e.target);
-    }
-  });
-}, { threshold: 0.25 });
-document.querySelectorAll('.versus').forEach((el) => versusIo.observe(el));
+/* ---------- versus section: drag-to-reveal slider ---------- */
+(function () {
+  const slider = document.getElementById('versusSlider');
+  const panelNew = document.getElementById('versusPanelNew');
+  const handle = document.getElementById('versusHandle');
+  const hint = document.getElementById('versusDragHint');
+  if (!slider || !panelNew || !handle) return;
+
+  function setSplit(pct) {
+    const clamped = Math.max(4, Math.min(96, pct));
+    panelNew.style.clipPath = `inset(0 ${100 - clamped}% 0 0)`;
+    handle.style.left = clamped + '%';
+  }
+
+  function posFromClientX(clientX) {
+    const r = slider.getBoundingClientRect();
+    return ((clientX - r.left) / r.width) * 100;
+  }
+
+  let dragging = false;
+  function onPointerDown(e) {
+    dragging = true;
+    hint.classList.add('hidden');
+    setSplit(posFromClientX(e.clientX));
+    slider.setPointerCapture?.(e.pointerId);
+  }
+  function onPointerMove(e) {
+    if (!dragging) return;
+    setSplit(posFromClientX(e.clientX));
+  }
+  function onPointerUp() { dragging = false; }
+
+  slider.addEventListener('pointerdown', onPointerDown);
+  slider.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+
+  // Gentle auto-wiggle the first time this scrolls into view, purely to
+  // invite the drag -- stops the instant a real interaction happens.
+  const hintIo = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      hintIo.unobserve(e.target);
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      let t = 0;
+      const wiggle = setInterval(() => {
+        t += 1;
+        if (dragging || t > 26) { clearInterval(wiggle); if (!dragging) setSplit(50); return; }
+        setSplit(50 + Math.sin(t / 4) * 16 * Math.max(0, 1 - t / 26));
+      }, 45);
+    });
+  }, { threshold: 0.4 });
+  hintIo.observe(slider);
+})();
 
 /* ---------- "Zero cold ads." -- static decoding into signal ---------- */
 (function () {
