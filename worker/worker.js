@@ -1497,6 +1497,7 @@ async function handleCreatePayPalOrder(request, env) {
         amount: { currency_code: "USD", value: campaign.price_usd.toFixed(2) },
       }],
       application_context: {
+        brand_name: "Meanwhile",
         return_url: `${new URL(request.url).origin}/advertiser.html?paid=1&campaign_id=${campaign_id}`,
         cancel_url: `${new URL(request.url).origin}/advertiser.html?cancelled=1`,
       },
