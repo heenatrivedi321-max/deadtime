@@ -459,8 +459,19 @@ function sponsorRatio(state) {
   return state.sponsor_calls / state.total_calls;
 }
 
+// Standard ANSI codes only (bold + code 33, not 24-bit truecolor) --
+// Claude Code's statusLine docs confirm real ANSI support, but truecolor
+// specifically has a documented washed-out-color bug in some terminal
+// versions (anthropics/claude-code#35806). Bold + a standard color code
+// is the actually reliable way to make the disclosure tag stand out
+// without risking garbled or washed-out output on someone's real
+// terminal -- the whole point is legible disclosure, not decoration.
+const ANSI_BOLD = "\x1b[1m";
+const ANSI_GOLD = "\x1b[33m";
+const ANSI_RESET = "\x1b[0m";
+
 function formatCampaignLine(campaign) {
-  return `(sponsored) ${campaign.line} -> ${campaign.url}`;
+  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${campaign.line} -> ${campaign.url}`;
 }
 
 /** Active campaigns are the real, paid-and-activated ad pool. When it's
