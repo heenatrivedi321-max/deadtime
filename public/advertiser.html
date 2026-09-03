@@ -70,13 +70,13 @@
 
   .sub { color:var(--muted); font-size:16px; line-height:1.65; margin-bottom:40px; max-width:520px; }
 
-  .stats { display:flex; gap:32px; margin-bottom:40px; flex-wrap:wrap; }
-  .stat .odometer { display:inline-flex; font-size:26px; font-weight:800; font-family:'JetBrains Mono',monospace; text-shadow:0 0 20px rgba(232,200,150,.3); }
-  .digit-wrap { display:inline-block; height:1em; overflow:hidden; vertical-align:top; }
-  .digit-strip { display:flex; flex-direction:column; transition:transform 1.1s cubic-bezier(.22,1,.36,1); }
-  .digit-strip span { height:1em; line-height:1; display:flex; align-items:center; justify-content:center; }
-  .stat .lbl { font-size:12px; color:var(--muted); margin-top:2px; }
-  .stat .static { font-size:26px; font-weight:800; text-shadow:0 0 20px rgba(232,200,150,.3); }
+  .irony-line { margin-bottom:40px; max-width:560px; }
+  .irony-text { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600;
+    font-style:italic; line-height:1.55; letter-spacing:-0.01em;
+    background:linear-gradient(100deg,#f2b134 0%,#f0654a 20%,#ec4899 40%,#a855f7 60%,#3b82f6 80%,#f2b134 100%);
+    background-size:250% auto; -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; animation:shimmer 6s linear infinite;
+    text-shadow:0 0 30px rgba(236,72,153,.25); }
 
   .tilt { transform-style:preserve-3d; transition:transform .15s ease-out; will-change:transform; }
 
@@ -150,6 +150,12 @@
   .count { font-size:11px; color:var(--muted); text-align:right; margin-top:5px; transition:color .2s; }
   .count.over { color:#e77; }
 
+  .amount-input-wrap { position:relative; }
+  .amount-prefix { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:14px; pointer-events:none; }
+  .amount-input-wrap input { padding-left:26px; }
+  .amount-input-wrap input::-webkit-outer-spin-button, .amount-input-wrap input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .amount-input-wrap input[type="number"] { -moz-appearance:textfield; }
+
   #submitBtn { margin-top:4px; background:linear-gradient(135deg,var(--gold),var(--rose)); color:#1a1408; border:none;
            border-radius:9px; padding:14px; font-weight:700; font-size:14px; cursor:pointer;
            transition:transform .15s ease, box-shadow .15s ease; position:relative; overflow:hidden; isolation:isolate; }
@@ -168,7 +174,7 @@
   .status.err { color:#e77; }
 
   /* ---- guided two-step form -- was one flat form with all five fields
-     at once, no relationship to the "1. submit ad, 2. pick a block, 3.
+     at once, no relationship to the "1. submit ad, 2. choose budget, 3.
      goes live" tier preview shown right above it. Now the form's actual
      steps ARE those tiers -- the tier indicator highlights the real
      current step instead of always showing step 1 as a static decoration. ---- */
@@ -213,16 +219,8 @@
   <h1 class="reveal glitch" data-text="Sponsor a developer's status line.">Sponsor a developer's status line.</h1>
   <p class="sub reveal">A persistent line in the developer's terminal — visible while the AI works and stays on screen after, not a flash that vanishes. One clear "(sponsored)" label. No hidden math to trust — you pay for what actually renders.</p>
 
-  <div class="stats reveal">
-    <div class="stat"><div class="odometer" id="odCalls"></div><div class="lbl">status lines served</div></div>
-    <div class="stat"><div class="static" id="statRatio">–</div><div class="lbl">sponsor fill rate</div></div>
-    <div class="stat"><div class="static">$2</div><div class="lbl">per 1,000 impressions</div></div>
-  </div>
-
-  <div class="demo reveal tilt">
-    <span class="label">what it looks like, live</span>
-    <div class="line"><span class="spinner">✻</span> Meandering…</div>
-    <div class="sponsor">&nbsp;&nbsp;└ <span class="tag">(sponsored)</span> Ramp — time is money. Save both. <span class="url">→ ramp.com</span></div>
+  <div class="irony-line reveal">
+    <span class="irony-text">The only ad space where "please don't skip" isn't a lie — the agent's not going anywhere.</span>
   </div>
 
   <div class="trust reveal">
@@ -237,7 +235,7 @@
       </linearGradient></defs>
     </svg>
     <div class="tier active" id="tier1"><div class="tier-dot">1</div><div class="tier-body"><h4>Submit your ad</h4><p>Line, link, company, email — takes 30 seconds</p></div></div>
-    <div class="tier" id="tier2"><div class="tier-dot">2</div><div class="tier-body"><h4>Pick a block size</h4><p>Each block = 1,000 real impressions, $2 flat</p></div></div>
+    <div class="tier" id="tier2"><div class="tier-dot">2</div><div class="tier-body"><h4>Choose your budget</h4><p>Any amount — $15 CPM, no minimum block to buy into</p></div></div>
     <div class="tier" id="tier3"><div class="tier-dot">3</div><div class="tier-body"><h4>Goes live automatically</h4><p>Once payment clears, your ad enters rotation immediately — no manual review delay</p></div></div>
   </div>
 
@@ -266,17 +264,15 @@
 
     <div class="form-step" id="step2" hidden>
       <div class="field">
-        <label for="blocks">Blocks (1,000 impressions each, $2/block)</label>
-        <select id="blocks">
-          <option value="1">1 block — $2 — 1,000 impressions</option>
-          <option value="5">5 blocks — $10 — 5,000 impressions</option>
-          <option value="10">10 blocks — $20 — 10,000 impressions</option>
-          <option value="25">25 blocks — $50 — 25,000 impressions</option>
-        </select>
+        <label for="amount">How much do you want to spend?</label>
+        <div class="amount-input-wrap">
+          <span class="amount-prefix">$</span>
+          <input id="amount" type="number" min="0" step="1" placeholder="1" inputmode="decimal">
+        </div>
       </div>
       <div class="block-summary" id="blockSummary">
-        <div class="block-summary-amount" id="blockAmount">$2.00</div>
-        <div class="block-summary-sub" id="blockImpressions">1,000 impressions</div>
+        <div class="block-summary-amount" id="blockAmount">$0.00</div>
+        <div class="block-summary-sub" id="blockImpressions">0 impressions</div>
       </div>
       <div class="step2-actions">
         <button type="button" id="step2Back" class="ghost-btn">← Back</button>
@@ -286,6 +282,12 @@
       <div id="status" class="status"></div>
     </div>
   </form>
+
+  <div class="demo reveal tilt">
+    <span class="label">what it looks like, live</span>
+    <div class="line"><span class="spinner">✻</span> Meandering…</div>
+    <div class="sponsor">&nbsp;&nbsp;└ <span class="tag">(sponsored)</span> <span id="previewLine">Ramp — time is money. Save both.</span> <span class="url">→ <span id="previewUrl">ramp.com</span></span></div>
+  </div>
 
   <div class="mega-wrap reveal">
     <div class="mega-word" id="megaWord" aria-hidden="true">
@@ -334,8 +336,26 @@ const step1Status = document.getElementById('step1Status');
 const urlInput = document.getElementById('url');
 const companyInput = document.getElementById('company');
 const emailInput = document.getElementById('email');
+const step1Next = document.getElementById('step1Next');
 
-function goToStep2() {
+/* ---------- live terminal preview -- what an advertiser actually types
+   updates the demo box in real time, so they see exactly what a real
+   developer's terminal will show before they've paid anything ---- */
+const previewLine = document.getElementById('previewLine');
+const previewUrl = document.getElementById('previewUrl');
+function updatePreview() {
+  previewLine.textContent = lineInput.value.trim() || 'Ramp — time is money. Save both.';
+  let host = 'ramp.com';
+  if (urlInput.value.trim()) {
+    try { host = new URL(urlInput.value).hostname.replace(/^www\./, ''); }
+    catch { host = urlInput.value.trim(); }
+  }
+  previewUrl.textContent = host;
+}
+lineInput.addEventListener('input', updatePreview);
+urlInput.addEventListener('input', updatePreview);
+
+async function goToStep2() {
   // "6 words" is a soft suggestion (shown via the live counter turning red),
   // never a hard rule -- the server only enforces a 60-character cap. Was
   // briefly a hard block here, which is real config the word-counter's own
@@ -362,13 +382,55 @@ function goToStep2() {
     emailInput.focus();
     return;
   }
+
+  // Format checks passed -- now confirm both are real, not just
+  // well-shaped (a syntactically valid URL or email can still be
+  // complete nonsense). Server fetches the URL live and runs the email
+  // through Abstract API's mailbox-level check.
+  step1Status.classList.remove('err');
+  step1Status.textContent = 'Checking your URL and email…';
+  step1Next.disabled = true;
+  try {
+    const res = await fetch(`${API}/verify-advertiser`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: urlInput.value.trim(), email: emailInput.value.trim() }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      step1Status.classList.add('err');
+      step1Status.textContent = result.error || 'Verification failed -- try again.';
+      return;
+    }
+    if (result.url_ok === false) {
+      step1Status.classList.add('err');
+      step1Status.textContent = result.url_reason || "We couldn't verify this URL is live.";
+      urlInput.focus();
+      return;
+    }
+    if (result.email_ok === false) {
+      step1Status.classList.add('err');
+      step1Status.textContent = result.email_reason || "We couldn't verify this email.";
+      emailInput.focus();
+      return;
+    }
+  } catch {
+    // Network hiccup talking to our own verification endpoint -- fail
+    // open rather than blocking a legitimate advertiser over our own
+    // connectivity issue. PayPal is still the real backstop before any
+    // money moves.
+  } finally {
+    step1Next.disabled = false;
+  }
+
+  step1Status.classList.remove('err');
   step1Status.textContent = '';
   step1.hidden = true;
   step2.hidden = false;
   document.getElementById('tier1').classList.remove('active');
   document.getElementById('tier2').classList.add('active');
 }
-document.getElementById('step1Next').addEventListener('click', goToStep2);
+step1Next.addEventListener('click', goToStep2);
 
 document.getElementById('step2Back').addEventListener('click', () => {
   step2.hidden = true;
@@ -377,19 +439,24 @@ document.getElementById('step2Back').addEventListener('click', () => {
   document.getElementById('tier1').classList.add('active');
 });
 
-const USD_PER_BLOCK = 2, IMPRESSIONS_PER_BLOCK = 1000;
-const blocksSelect = document.getElementById('blocks');
+/* ---------- pay whatever you want -- impressions computed live from
+   the dollar amount typed, no fixed tiers. Same CPM math as the
+   server (worker.js's USD_PER_BLOCK), just run client-side for the
+   live preview; the server is the actual source of truth on submit. */
+const USD_PER_BLOCK = 15, IMPRESSIONS_PER_BLOCK = 1000;
+const amountInput = document.getElementById('amount');
 const blockAmount = document.getElementById('blockAmount');
 const blockImpressions = document.getElementById('blockImpressions');
 function updateBlockSummary() {
-  const n = parseInt(blocksSelect.value, 10);
-  blockAmount.textContent = '$' + (n * USD_PER_BLOCK).toFixed(2);
-  blockImpressions.textContent = (n * IMPRESSIONS_PER_BLOCK).toLocaleString() + ' impressions';
+  const amount = Math.max(0, parseFloat(amountInput.value) || 0);
+  const impressions = Math.round((amount / USD_PER_BLOCK) * IMPRESSIONS_PER_BLOCK);
+  blockAmount.textContent = '$' + amount.toFixed(2);
+  blockImpressions.textContent = impressions.toLocaleString() + ' impressions';
   blockAmount.classList.remove('bump');
   void blockAmount.offsetWidth;
   blockAmount.classList.add('bump');
 }
-blocksSelect.addEventListener('change', updateBlockSummary);
+amountInput.addEventListener('input', updateBlockSummary);
 updateBlockSummary();
 
 function renderOdometer(el, value) {
@@ -407,34 +474,27 @@ function renderOdometer(el, value) {
   });
 }
 
-async function loadStats() {
-  try {
-    const res = await fetch('https://trymeanwhile.online/network-stats');
-    if (!res.ok) throw new Error('stats unavailable');
-    const s = await res.json();
-    renderOdometer(document.getElementById('odCalls'), s.total_calls);
-    document.getElementById('statRatio').textContent = Math.round(s.sponsor_ratio * 100) + '%';
-  } catch (e) {
-    renderOdometer(document.getElementById('odCalls'), 0);
-    document.getElementById('statRatio').textContent = '–';
-  }
-}
-loadStats();
-
 const API = 'https://trymeanwhile.online';
 
 document.getElementById('adForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const status = document.getElementById('status');
+  const amountValue = parseFloat(document.getElementById('amount').value);
+  if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    status.className = 'status err';
+    status.textContent = 'Enter how much you want to spend.';
+    amountInput.focus();
+    return;
+  }
   document.getElementById('tier2').classList.remove('active');
   document.getElementById('tier3').classList.add('active');
   const btn = document.getElementById('submitBtn');
-  const status = document.getElementById('status');
   const payload = {
     line: lineInput.value.trim(),
     url: document.getElementById('url').value.trim(),
     company: document.getElementById('company').value.trim(),
     email: document.getElementById('email').value.trim(),
-    blocks: parseInt(document.getElementById('blocks').value, 10),
+    amount_usd: amountValue,
   };
   btn.disabled = true;
   btn.textContent = 'Creating campaign…';

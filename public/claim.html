@@ -5,6 +5,7 @@
 <title>Meanwhile — your dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
   :root {
@@ -44,6 +45,16 @@
                    background:rgba(63,185,104,.1); border:1px solid rgba(63,185,104,.25);
                    padding:5px 12px; border-radius:100px; margin-bottom:20px; }
 
+  /* permanent, not a decoration -- this number never changes once
+     assigned, so it gets its own distinct gold identity instead of
+     blending into the green "secured" badge above it. */
+  .promo-badge { display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:var(--gold);
+                    background:linear-gradient(120deg, rgba(232,200,150,.16), rgba(242,177,52,.08));
+                    border:1px solid rgba(232,200,150,.4); padding:7px 14px; border-radius:100px;
+                    margin-top:2px; margin-bottom:8px; text-shadow:0 0 14px rgba(232,200,150,.35); }
+  .promo-badge .fb-dot { width:6px; height:6px; border-radius:50%; background:var(--gold);
+                            box-shadow:0 0 8px rgba(232,200,150,.8); flex-shrink:0; }
+
   h1 { font-family:'Fraunces',serif; font-size:27px; font-weight:600; margin-bottom:8px; letter-spacing:-0.01em;
        background:linear-gradient(100deg,#f2b134,#f0654a,#ec4899,#a855f7,#3b82f6,#14c9a5,#f2b134);
        background-size:180% auto; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
@@ -51,10 +62,36 @@
   @keyframes shimmer { to { background-position:180% center; } }
   .sub { color:var(--muted); font-size:14px; line-height:1.6; margin-bottom:28px; }
 
+  /* ---- real glass, same engine as the campaign dashboard: an SVG
+     displacement-map filter for genuine edge refraction (not a fake
+     blur+tint), a motion-lagged specular highlight, and content-adaptive
+     tint sampled from this page's own aurora blobs. Applied to every
+     card that isn't the hero balance/electric-border, which keeps its
+     own distinct signature look on purpose. .flash fires only from a
+     real new-line-shown event (see loadBalance()), not a timer. ---- */
+  .glass-panel { position:relative; overflow:hidden;
+    background:linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+    backdrop-filter:blur(22px) saturate(170%); -webkit-backdrop-filter:blur(22px) saturate(170%);
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 16px 36px -22px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.4);
+    transition:transform .35s cubic-bezier(.16,1,.3,1), box-shadow .35s ease, border-color .25s ease; }
+  .glass-panel::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2; border-radius:inherit;
+    background:radial-gradient(circle at var(--mx,50%) var(--my,15%), rgba(255,255,255,.3), transparent 62%);
+    opacity:.5; mix-blend-mode:overlay; transition:opacity .3s ease; }
+  .glass-panel:hover::after { opacity:.85; }
+  .glass-panel.flash { border-color:rgba(232,200,150,.65);
+    box-shadow:0 16px 36px -22px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14),
+               inset 0 1px 0 rgba(255,255,255,.4), 0 0 34px -4px rgba(232,200,150,.5); }
+  @media (prefers-reduced-motion: reduce) { .glass-panel::after { display:none; } }
+
+  /* real press response -- glass compresses and brightens on actual
+     pointer-down, springs back on release, same recipe used site-wide. */
+  button, .cmd-box button { transition:transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s ease, background .2s ease, filter .15s ease; }
+  button:active, .cmd-box button:active { transform:scale(.94) !important; filter:brightness(1.15); transition:transform .08s ease, filter .08s ease; }
+
   /* ---- destination card: where the money actually goes ---- */
-  .destination { display:flex; align-items:center; gap:16px; background:var(--panel);
-                  border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:20px;
-                  position:relative; overflow:hidden; }
+  .destination { display:flex; align-items:center; gap:16px;
+                  border-radius:14px; padding:18px 20px; margin-bottom:20px; }
   .pp-badge-wrap { position:relative; width:54px; height:54px; flex-shrink:0; }
   .pp-badge { width:54px; height:54px; border-radius:50%; background:#ffffff;
               display:flex; align-items:center; justify-content:center; position:relative; z-index:2;
@@ -95,18 +132,11 @@
   .digit-strip { display:flex; flex-direction:column; transition:transform 1s cubic-bezier(.22,1,.36,1); }
   .digit-strip span { height:1em; line-height:1; display:flex; align-items:center; justify-content:center; }
 
-  /* ---- electric border (reactbits.dev), wraps the real earnings amount ---- */
-  .electric-border { --electric-light-color: oklch(from var(--electric-border-color, #f2b134) l c h);
-    position:relative; border-radius:inherit; overflow:visible; isolation:isolate; }
-  .eb-canvas-container { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:2; }
-  .eb-canvas { display:block; }
-  .eb-content { position:relative; border-radius:inherit; z-index:1; }
-  .eb-layers { position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0; }
-  .eb-glow-1, .eb-glow-2, .eb-background-glow { position:absolute; inset:0; border-radius:inherit; pointer-events:none; box-sizing:border-box; }
-  .eb-glow-1 { border:2px solid oklch(from var(--electric-border-color, #f2b134) l c h / 0.6); filter:blur(1px); }
-  .eb-glow-2 { border:2px solid var(--electric-light-color); filter:blur(4px); }
-  .eb-background-glow { z-index:-1; transform:scale(1.1); filter:blur(32px); opacity:.3;
-    background:linear-gradient(-30deg, var(--electric-light-color), transparent, var(--electric-border-color, #f2b134)); }
+  /* the hero card: real glass like everything else, but with more
+     visual weight -- a soft warm ambient glow instead of the jagged
+     electric-noise border that used to mark it as "the important one." */
+  .balance-card.glass-panel { border-radius:22px; box-shadow:0 16px 36px -22px rgba(0,0,0,.55),
+    inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.4), 0 0 70px -18px rgba(232,200,150,.32); }
   .progress-track { height:6px; background:var(--border); border-radius:100px; margin-top:18px; overflow:hidden; position:relative; }
   .progress-fill { height:100%; background:linear-gradient(90deg,#f2b134,#ec4899); border-radius:100px; transition:width .6s ease; position:relative; overflow:hidden; }
   .progress-fill::after { content:''; position:absolute; inset:0; width:40%;
@@ -115,16 +145,21 @@
   @keyframes progressShine { 0%{ transform:translateX(-120%); } 100%{ transform:translateX(350%); } }
   .progress-note { font-size:12px; color:var(--muted); margin-top:8px; }
 
-  .steps { display:flex; flex-direction:column; gap:12px; background:var(--panel); border:1px solid var(--border);
-            border-radius:12px; padding:20px 22px; margin-bottom:0; }
-  .step { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
-  .step .check { flex-shrink:0; width:18px; height:18px; border-radius:50%; border:1.5px solid var(--border);
-                  display:flex; align-items:center; justify-content:center;
-                  transition:background .3s, border-color .3s, transform .35s cubic-bezier(.34,1.56,.64,1); }
-  .step.done .check { background:var(--green); border-color:var(--green); transform:scale(1.15); }
-  .step.done { color:var(--text); }
+  /* one progress story, not two: this replaces the old checklist card
+     that duplicated the progress bar above it -- same timeline pattern
+     as the campaign dashboard, living inside the hero card instead of
+     next to it. */
+  .timeline { display:flex; align-items:flex-start; justify-content:space-between; margin-top:20px; }
+  .tl-step { display:flex; flex-direction:column; align-items:center; text-align:center; flex:1; position:relative; }
+  .tl-dot { width:12px; height:12px; border-radius:50%; background:rgba(255,255,255,.15); border:2px solid rgba(255,255,255,.2);
+            margin-bottom:8px; transition:background .3s, border-color .3s, box-shadow .3s; position:relative; z-index:1; }
+  .tl-step.done .tl-dot { background:var(--gold); border-color:var(--gold); box-shadow:0 0 12px rgba(232,200,150,.6); }
+  .tl-step::before { content:''; position:absolute; top:5px; left:-50%; width:100%; height:2px; background:rgba(255,255,255,.12); z-index:0; }
+  .tl-step:first-child::before { display:none; }
+  .tl-step.done::before { background:linear-gradient(90deg, var(--gold), rgba(232,200,150,.3)); }
+  .tl-label { font-size:11.5px; color:var(--text); font-weight:600; }
 
-  .badge-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+  .badge-card { border-radius:12px; padding:20px 22px; margin-bottom:20px; }
   .badge-card-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
   .badge-card-sub { font-size:13px; color:var(--muted); line-height:1.55; margin-bottom:14px; }
   .badge-preview { display:block; margin-bottom:14px; }
@@ -137,9 +172,33 @@
                      transition:background .2s; flex-shrink:0; }
   .cmd-box button:hover { background:rgba(255,255,255,.16); }
 
-  .form-panel { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:12px;
-                padding:22px; min-height:150px; }
+  .chart-card { border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+  #dailyEarningsChart { width:100%; height:150px; display:block; margin-top:10px; }
+  .chart-empty { font-size:12.5px; color:var(--muted); margin-top:10px; }
+
+  .share-card-panel { border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+  #shareCardCanvas { width:100%; height:auto; display:block; border-radius:12px; margin-bottom:14px;
+    background:#07070a; border:1px solid var(--border); }
+  .share-card-actions { display:flex; gap:10px; }
+  .share-card-actions button { flex:1; }
+  .share-card-note { font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5; }
+
+  .jackpot-card { background:linear-gradient(160deg, rgba(242,177,52,.08), var(--panel)); border:1px solid rgba(242,177,52,.25);
+                  border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+  .jackpot-header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .jackpot-pool { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:800; color:var(--gold);
+                  text-shadow:0 0 20px rgba(232,200,150,.35); }
+  .jackpot-status { font-size:13px; color:var(--muted); line-height:1.55; margin-bottom:14px; }
+  .jackpot-status.eligible { color:var(--green); }
+  .jackpot-history { border-top:1px solid var(--border); padding-top:12px; }
+  .jackpot-history-label { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+  .jackpot-draw { display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); padding:4px 0; }
+  .jackpot-draw .amt { color:var(--gold); font-family:'JetBrains Mono',monospace; }
+  .jackpot-empty { font-size:12.5px; color:var(--muted); }
+
+  .form-panel { border-radius:12px; padding:22px; min-height:150px; }
   form { display:flex; flex-direction:column; gap:14px; transition:opacity .3s ease, transform .3s ease; }
+  .cf-turnstile { max-width:100%; overflow:hidden; }
   form.hidden { opacity:0; transform:scale(.97); pointer-events:none; position:absolute; inset:22px; }
   label { font-size:12px; color:var(--muted); margin-bottom:6px; display:block; font-weight:500; }
   input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px;
@@ -164,8 +223,7 @@
   .trust-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:18px; }
   .trust-row svg { flex-shrink:0; color:var(--green); }
 
-  .note { font-size:12px; color:var(--muted); margin-top:18px; line-height:1.6; padding:14px 16px;
-          background:var(--panel); border-radius:8px; border:1px solid var(--border); }
+  .note { font-size:12px; color:var(--muted); margin-top:18px; line-height:1.6; padding:14px 16px; border-radius:8px; }
   .no-id { text-align:center; color:var(--muted); font-size:14px; padding:60px 20px; }
 
   /* ---- one-time name gate ---- */
@@ -228,6 +286,327 @@
 <div class="orb" id="orb"></div>
 
 <script>
+/* ---- Liquid Glass engine (MIT, github.com/rizroze/liquid-glass), same
+   one running on the campaign dashboard and install page -- real SVG-
+   displacement edge refraction + chromatic aberration, plus a motion-
+   lagged specular highlight and content-adaptive tint sampled from this
+   page's own aurora blobs (b1 purple, b2 teal, b3 gold). Applied to
+   every .glass-panel; the hero balance card keeps its own distinct
+   electric-border look on purpose, same call made on every other page. */
+function glassResolveConfig(el, opts) {
+  const rect = el.getBoundingClientRect();
+  const ab = opts.aberration ?? [0, 10, 20];
+  return {
+    width: opts.width ?? Math.round(rect.width), height: opts.height ?? Math.round(rect.height),
+    radius: opts.borderRadius ?? 50, scale: opts.scale ?? -180, border: opts.border ?? 0.07,
+    lightness: opts.lightness ?? 50, alpha: opts.alpha ?? 0.93, blur: opts.blur ?? 11,
+    r: ab[0], g: ab[1], b: ab[2], frost: opts.frost ?? 0, saturation: opts.saturation ?? 1,
+    displace: opts.displaceBlur ?? 0,
+  };
+}
+const glassIsChromium = typeof navigator !== 'undefined' && /Chrome\//.test(navigator.userAgent);
+const _glassMapCache = new Map();
+function glassBuildDisplacementMap(c) {
+  const key = `${c.width}:${c.height}:${c.radius}:${c.scale}:${c.border}:${c.blur}:${c.lightness}:${c.alpha}`;
+  const cached = _glassMapCache.get(key);
+  if (cached) return cached;
+  const maxDisplace = Math.max(Math.abs(c.scale) * 0.5, 20);
+  const padX = Math.ceil(maxDisplace), padY = Math.ceil(maxDisplace);
+  const totalW = c.width + padX * 2, totalH = c.height + padY * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = totalW; canvas.height = totalH;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgb(128, 128, 128)';
+  ctx.fillRect(0, 0, totalW, totalH);
+  const ox = padX, oy = padY;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(ox, oy, c.width, c.height, c.radius);
+  ctx.clip();
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(ox, oy, c.width, c.height);
+  const redGrad = ctx.createLinearGradient(ox + c.width, oy, ox, oy);
+  redGrad.addColorStop(0, '#000000'); redGrad.addColorStop(1, '#ff0000');
+  ctx.fillStyle = redGrad;
+  ctx.fillRect(ox, oy, c.width, c.height);
+  ctx.globalCompositeOperation = 'difference';
+  const blueGrad = ctx.createLinearGradient(ox, oy, ox, oy + c.height);
+  blueGrad.addColorStop(0, '#000000'); blueGrad.addColorStop(1, '#0000ff');
+  ctx.fillStyle = blueGrad;
+  ctx.fillRect(ox, oy, c.width, c.height);
+  ctx.globalCompositeOperation = 'source-over';
+  const borderPx = Math.min(c.width, c.height) * (c.border * 0.5);
+  ctx.filter = `blur(${c.blur}px)`;
+  ctx.fillStyle = `hsla(0, 0%, ${c.lightness}%, ${c.alpha})`;
+  ctx.beginPath();
+  ctx.roundRect(ox + borderPx, oy + borderPx, c.width - borderPx * 2, c.height - borderPx * 2, c.radius);
+  ctx.fill();
+  ctx.restore();
+  const uri = canvas.toDataURL();
+  _glassMapCache.set(key, uri);
+  return uri;
+}
+let _glassInstanceCount = 0;
+function glassCreateFilterSVG(id) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+  svg.innerHTML = `
+    <defs>
+      <filter id="${id}" color-interpolation-filters="sRGB" x="-38%" y="-188%" width="176%" height="476%">
+        <feImage result="map" preserveAspectRatio="none" />
+        <feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" result="dispRed" data-channel="red" />
+        <feColorMatrix in="dispRed" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red" />
+        <feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" result="dispGreen" data-channel="green" />
+        <feColorMatrix in="dispGreen" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green" />
+        <feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" result="dispBlue" data-channel="blue" />
+        <feColorMatrix in="dispBlue" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue" />
+        <feBlend in="red" in2="green" mode="screen" result="rg" />
+        <feBlend in="rg" in2="blue" mode="screen" result="output" />
+        <feGaussianBlur in="output" stdDeviation="0" />
+      </filter>
+    </defs>
+  `;
+  return {
+    svg, filter: svg.querySelector('filter'), feImage: svg.querySelector('feImage'),
+    red: svg.querySelector('[data-channel="red"]'), green: svg.querySelector('[data-channel="green"]'),
+    blue: svg.querySelector('[data-channel="blue"]'), blur: svg.querySelector('feGaussianBlur'),
+  };
+}
+function glassApplyConfig(c, refs) {
+  const uri = glassBuildDisplacementMap(c);
+  const maxD = Math.max(Math.abs(c.scale) * 0.5, 20);
+  const pctX = Math.ceil(maxD / c.width * 100), pctY = Math.ceil(maxD / c.height * 100);
+  refs.filter.setAttribute('x', `-${pctX}%`); refs.filter.setAttribute('y', `-${pctY}%`);
+  refs.filter.setAttribute('width', `${100 + pctX * 2}%`); refs.filter.setAttribute('height', `${100 + pctY * 2}%`);
+  refs.feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'href', uri);
+  refs.feImage.setAttribute('href', uri);
+  refs.red.setAttribute('scale', String(c.scale + c.r));
+  refs.green.setAttribute('scale', String(c.scale + c.g));
+  refs.blue.setAttribute('scale', String(c.scale + c.b));
+  refs.blur.setAttribute('stdDeviation', String(c.displace));
+}
+function createLiquidGlass(element, options = {}) {
+  const fallback = options.fallbackFilter ?? 'blur(20px) saturate(180%)';
+  if (!glassIsChromium) {
+    element.style.backdropFilter = fallback;
+    element.style.setProperty('-webkit-backdrop-filter', fallback);
+    return { isActive: false, destroy() {} };
+  }
+  const id = options.filterId ?? `liquid-glass-${++_glassInstanceCount}`;
+  const refs = glassCreateFilterSVG(id);
+  document.body.appendChild(refs.svg);
+  let currentOpts = { ...options };
+  let config = glassResolveConfig(element, currentOpts);
+  glassApplyConfig(config, refs);
+  const applyStyles = (c) => {
+    element.style.backdropFilter = `url(#${id}) saturate(${c.saturation})`;
+    element.style.setProperty('-webkit-backdrop-filter', `url(#${id}) saturate(${c.saturation})`);
+  };
+  applyStyles(config);
+  return {
+    isActive: true,
+    destroy() { refs.svg.remove(); element.style.backdropFilter = ''; element.style.setProperty('-webkit-backdrop-filter', ''); },
+  };
+}
+
+const CLAIM_GLASS_BLOBS = [
+  { sel: '.b1', color: [168, 85, 247] },
+  { sel: '.b2', color: [20, 201, 165] },
+  { sel: '.b3', color: [242, 177, 52] },
+];
+const claimGlassReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+let claimGlassPointer = { x: window.innerWidth / 2, y: window.innerHeight * 0.4 };
+let claimGlassInstances = [];
+const claimGlassCurrent = new Map();
+const claimGlassFlaring = new Set();
+
+function updateClaimGlassHighlight() {
+  document.querySelectorAll('.glass-panel').forEach((card) => {
+    if (claimGlassFlaring.has(card)) return;
+    const r = card.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const targetMx = ((claimGlassPointer.x - r.left) / r.width) * 100;
+    const targetMy = ((claimGlassPointer.y - r.top) / r.height) * 100;
+    let cur = claimGlassCurrent.get(card);
+    if (!cur) { cur = { mx: targetMx, my: targetMy }; claimGlassCurrent.set(card, cur); }
+    else { cur.mx += (targetMx - cur.mx) * 0.18; cur.my += (targetMy - cur.my) * 0.18; }
+    card.style.setProperty('--mx', `${cur.mx}%`);
+    card.style.setProperty('--my', `${cur.my}%`);
+  });
+}
+
+function updateClaimGlassTint() {
+  const blobs = CLAIM_GLASS_BLOBS.map((b) => {
+    const el = document.querySelector(b.sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, radius: r.width / 2, color: b.color };
+  }).filter(Boolean);
+  if (!blobs.length) return;
+
+  document.querySelectorAll('.glass-panel').forEach((card) => {
+    const r = card.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let wSum = 0, cr = 0, cg = 0, cb = 0;
+    blobs.forEach((b) => {
+      const d = Math.hypot(cx - b.cx, cy - b.cy);
+      const influence = Math.max(0, 1 - d / (b.radius * 2.4)) * 0.32;
+      wSum += influence;
+      cr += b.color[0] * influence; cg += b.color[1] * influence; cb += b.color[2] * influence;
+    });
+    if (wSum > 0.01) {
+      const strength = Math.min(0.24, wSum).toFixed(3);
+      const lift = Math.min(0.06, wSum * 0.2);
+      const r_ = Math.round(cr / wSum), g_ = Math.round(cg / wSum), b_ = Math.round(cb / wSum);
+      card.style.background = `linear-gradient(180deg, rgba(255,255,255,${(0.1 + lift).toFixed(3)}), rgba(255,255,255,${(0.03 + lift).toFixed(3)})), radial-gradient(120% 100% at 50% 0%, rgba(${r_},${g_},${b_},${strength}), transparent 70%)`;
+    } else {
+      card.style.background = '';
+    }
+  });
+}
+
+/* runs only while the highlight is actually still catching up, not
+   forever -- settles for ~500ms after the last real pointer move
+   (comfortably past convergence at the 0.18/frame lerp rate) and stops
+   until the next one, instead of a 60x/sec rAF chain for the whole tab
+   lifetime. */
+let claimGlassMoveUntil = 0;
+let claimGlassLoopActive = false;
+function claimGlassTick(now) {
+  updateClaimGlassHighlight();
+  if (now < claimGlassMoveUntil) requestAnimationFrame(claimGlassTick);
+  else claimGlassLoopActive = false;
+}
+function scheduleClaimGlassSettle() {
+  claimGlassMoveUntil = performance.now() + 500;
+  if (claimGlassLoopActive) return;
+  claimGlassLoopActive = true;
+  requestAnimationFrame(claimGlassTick);
+}
+if (!claimGlassReducedMotion) {
+  window.addEventListener('mousemove', (e) => {
+    claimGlassPointer = { x: e.clientX, y: e.clientY };
+    scheduleClaimGlassSettle();
+  });
+}
+setInterval(() => { if (!document.hidden) updateClaimGlassTint(); }, 500);
+
+function initGlassPanels() {
+  claimGlassInstances.forEach((inst) => inst.destroy());
+  claimGlassInstances = [];
+  document.querySelectorAll('.glass-panel').forEach((el) => {
+    claimGlassInstances.push(createLiquidGlass(el, {
+      borderRadius: 14, scale: -60, border: 0.07, blur: 13,
+      aberration: [0, 4, 8], saturation: 1.6,
+    }));
+  });
+  updateClaimGlassHighlight();
+  updateClaimGlassTint();
+  armElasticGlass();
+}
+
+/* Real rubber-band physics, same family as iOS's pull-to-refresh bounce:
+   grab a glass card and it resists with diminishing tension the further
+   you pull (sqrt curve, not linear) plus a slight contraction, like the
+   material has real give. Let go and it springs back with genuine
+   overshoot -- a live position/velocity simulation, not a fixed-duration
+   CSS ease, so it actually oscillates and settles the way something
+   physical would. Purely tactile, nothing actually moves anywhere, so a
+   4px movement threshold before engaging keeps ordinary clicks on
+   buttons/links inside a card working exactly as before. */
+function armElasticGlass() {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('.glass-panel').forEach((el) => {
+    let dragging = false, moved = false;
+    let startX = 0, startY = 0, curX = 0, curY = 0;
+    let animId = null;
+
+    function rubberBand(delta) {
+      const sign = delta < 0 ? -1 : 1;
+      return sign * Math.sqrt(Math.abs(delta)) * 3.2;
+    }
+    function applyTransform(x, y) {
+      const dist = Math.hypot(x, y);
+      const scale = 1 - Math.min(dist / 900, 0.035);
+      el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    }
+    function onDown(e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      dragging = true; moved = false;
+      startX = e.clientX; startY = e.clientY;
+      cancelAnimationFrame(animId);
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) > 4) moved = true;
+      if (!moved) return;
+      curX = rubberBand(dx); curY = rubberBand(dy);
+      applyTransform(curX, curY);
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      if (moved) springBack();
+    }
+    function springBack() {
+      let x = curX, y = curY, vx = 0, vy = 0;
+      const stiffness = 0.16, damping = 0.74;
+      function step() {
+        vx = (vx - x * stiffness) * damping;
+        vy = (vy - y * stiffness) * damping;
+        x += vx; y += vy;
+        applyTransform(x, y);
+        if (Math.abs(x) > 0.4 || Math.abs(y) > 0.4 || Math.abs(vx) > 0.4 || Math.abs(vy) > 0.4) {
+          animId = requestAnimationFrame(step);
+        } else {
+          el.style.transform = '';
+        }
+      }
+      animId = requestAnimationFrame(step);
+    }
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointerleave', onUp);
+    el.addEventListener('pointercancel', onUp);
+  });
+}
+
+/* the "something new" for this page specifically: the glass panels
+   catch light at the exact instant a REAL new line was shown and money
+   was actually earned (same total_calls delta loadBalance() already
+   uses to spawn particle pulses) -- not a decorative timer. Fitting for
+   the one page whose entire job is showing you real money arriving. */
+function flashGlassPanels() {
+  if (claimGlassReducedMotion) {
+    document.querySelectorAll('.glass-panel').forEach((el) => {
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 900);
+    });
+    return;
+  }
+  document.querySelectorAll('.glass-panel').forEach((card) => {
+    card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
+    setTimeout(() => card.classList.remove('flash'), 900);
+
+    claimGlassFlaring.add(card);
+    const start = performance.now();
+    const duration = 700;
+    function step(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      card.style.setProperty('--mx', `${-20 + ease * 140}%`);
+      card.style.setProperty('--my', `4%`);
+      if (t < 1) requestAnimationFrame(step);
+      else { claimGlassCurrent.delete(card); claimGlassFlaring.delete(card); }
+    }
+    requestAnimationFrame(step);
+  });
+}
+
 const params = new URLSearchParams(location.search);
 // Fall back to this browser's remembered ID if the URL didn't carry one --
 // covers bookmarking this page, retyping the bare URL, or navigating here
@@ -237,6 +616,29 @@ let id = params.get('id');
 if (!id) { try { id = localStorage.getItem('meanwhile_id'); } catch (e) {} }
 const app = document.getElementById('app');
 const THRESHOLD = 25;
+// Cloudflare Turnstile site key -- public by design, pairs with the secret
+// key held server-side (TURNSTILE_SECRET_KEY, in the Worker's env).
+const TURNSTILE_SITE_KEY = '0x4AAAAAAEixUo8dgz5g4v5m';
+const turnstileWidgetIds = {};
+// The forms carrying .cf-turnstile divs are inserted via innerHTML well
+// after page load (name gate -> email gate -> dashboard, each swapped in
+// on the fly), so the api.js script's own auto-scan (which only runs once,
+// at initial page load) never sees them -- explicit render is required, and
+// since the async/defer script may still be loading when a form first
+// mounts, this retries until window.turnstile actually exists.
+function mountTurnstile(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!window.turnstile) { setTimeout(() => mountTurnstile(elId), 150); return; }
+  turnstileWidgetIds[elId] = window.turnstile.render(`#${elId}`, { sitekey: TURNSTILE_SITE_KEY, theme: 'dark' });
+}
+function getTurnstileToken(elId) {
+  if (!window.turnstile || turnstileWidgetIds[elId] === undefined) return null;
+  return window.turnstile.getResponse(turnstileWidgetIds[elId]);
+}
+function resetTurnstile(elId) {
+  if (window.turnstile && turnstileWidgetIds[elId] !== undefined) window.turnstile.reset(turnstileWidgetIds[elId]);
+}
 const checkIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0d1117" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>`;
 const ppMark = `<img src="paypal-mark.png" alt="PayPal">`;
 
@@ -302,15 +704,17 @@ function renderEmailGate(name) {
       <form id="emailGateForm" style="flex-direction:column;">
         <input id="emailGateInput" type="email" placeholder="you@example.com" required autocomplete="email">
         <input id="emailGateConfirm" type="email" placeholder="type it again to confirm" required autocomplete="off">
+        <div class="cf-turnstile" id="emailGateTurnstile"></div>
         <button type="submit" class="magnetic">Save and see my dashboard</button>
       </form>
       <div id="emailGateStatus" class="status"></div>
       <p style="margin-top:14px;"><a href="#" id="skipEmailGate" style="color:var(--muted); font-size:13px; text-decoration:underline;">Skip for now — I'll add it later</a></p>
     </div>
   `;
+  mountTurnstile('emailGateTurnstile');
   document.getElementById('skipEmailGate').addEventListener('click', (e) => {
     e.preventDefault();
-    renderDashboard(name, null);
+    renderDashboard(name, null, true);
   });
   document.getElementById('emailGateForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -322,6 +726,12 @@ function renderEmailGate(name) {
       status.className = 'status err';
       return;
     }
+    const turnstileToken = getTurnstileToken('emailGateTurnstile');
+    if (window.turnstile && !turnstileToken) {
+      status.textContent = 'Complete the verification check above first.';
+      status.className = 'status err';
+      return;
+    }
     const btn = e.target.querySelector('button');
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -329,16 +739,17 @@ function renderEmailGate(name) {
       const res = await fetch('https://trymeanwhile.online/register-payout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, email }),
+        body: JSON.stringify({ id, email, turnstile_token: turnstileToken }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'failed');
-      renderDashboard(name, email);
+      renderDashboard(name, email, true);
     } catch (err) {
       status.textContent = 'Something went wrong — check the email and try again.';
       status.className = 'status err';
       btn.disabled = false;
       btn.textContent = 'Save and see my dashboard';
+      resetTurnstile('emailGateTurnstile');
     }
   });
 }
@@ -364,49 +775,49 @@ async function initDashboardFlow() {
 if (!id) {
   app.innerHTML = `
     <h1>No install ID found</h1>
-    <div class="no-id">Run <code>python3 ~/.deadtime-client/statusline.py --claim</code> in your terminal to get your personal link.</div>
+    <div class="no-id">Run <code>npx trymeanwhile claim</code> in your terminal to get your personal link.</div>
   `;
 } else {
   initDashboardFlow();
 }
 
-function renderDashboard(userName, payoutEmail) {
+function renderDashboard(userName, payoutEmail, justCompleted) {
   const isConnected = !!payoutEmail;
   app.innerHTML = `
     <div class="secure-badge">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Secured to your anonymous install ID
     </div>
+    ${justCompleted ? `
+    <div class="done-banner glass-panel" id="doneBanner" style="display:flex; align-items:flex-start; gap:12px; padding:16px 18px; margin-bottom:20px; border-color:rgba(126,231,135,.3);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ee787" stroke-width="2.5" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+      <div>
+        <div style="font-weight:700; color:#7ee787; margin-bottom:4px;">You're set — nothing else to do here.</div>
+        <div style="font-size:13.5px; color:var(--muted); line-height:1.6;">Go back to your terminal. If Claude Code or Copilot CLI is already running, restart it once — that's the only step left before lines start showing up and earning.</div>
+      </div>
+    </div>` : ''}
     <div class="intro-col">
       <h1 id="greeting">${greetingText(userName)}</h1>
       <p class="sub">Live earnings from this install — updates automatically as sponsor lines are shown, no refresh needed.</p>
+      <div class="promo-badge" id="promoBadge" style="display:none;"></div>
     </div>
 
     <div class="dashboard-grid">
-      <div class="balance-card electric-border span-all" id="balanceCard">
-        <div class="eb-canvas-container"><canvas class="eb-canvas"></canvas></div>
-        <div class="eb-layers">
-          <div class="eb-glow-1"></div>
-          <div class="eb-glow-2"></div>
-          <div class="eb-background-glow"></div>
-        </div>
-        <div class="eb-content">
-          <div class="amount" id="amount">–</div>
-          <div class="lbl">current balance</div>
-          <div class="balance-breakdown" id="balanceBreakdown"><span class="dot"></span> loading activity…</div>
-          <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-          <div class="progress-note" id="progressNote">loading…</div>
+      <div class="balance-card glass-panel span-all" id="balanceCard">
+        <div class="amount" id="amount">–</div>
+        <div class="lbl">current balance</div>
+        <div class="balance-breakdown" id="balanceBreakdown"><span class="dot"></span> loading activity…</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div class="progress-note" id="progressNote">loading…</div>
+        <div class="timeline">
+          <div class="tl-step done"><div class="tl-dot"></div><div class="tl-label">Created</div></div>
+          <div class="tl-step${isConnected ? ' done' : ''}" id="tlPayout"><div class="tl-dot"></div><div class="tl-label">Payout linked</div></div>
+          <div class="tl-step" id="tlThreshold"><div class="tl-dot"></div><div class="tl-label">$${THRESHOLD} crossed</div></div>
+          <div class="tl-step"><div class="tl-dot"></div><div class="tl-label">Paid</div></div>
         </div>
       </div>
 
-      <div class="steps">
-        <div class="step done"><span class="check">${checkIcon}</span> Install tracked and earning</div>
-        <div class="step${isConnected ? ' done' : ''}" id="stepEmail"><span class="check">${isConnected ? checkIcon : ''}</span> Register payout email</div>
-        <div class="step" id="stepThreshold"><span class="check"></span> Cross $${THRESHOLD} balance</div>
-        <div class="step"><span class="check"></span> Paid automatically, next daily run</div>
-      </div>
-
-      <div class="destination">
+      <div class="destination glass-panel">
         <div class="pp-badge-wrap">
           <div class="pp-ring-idle"></div>
           <div class="pp-ring" id="ppRing"></div>
@@ -420,7 +831,7 @@ function renderDashboard(userName, payoutEmail) {
         ${isConnected ? `<button type="button" id="changeEmailBtn" class="magnetic" style="background:none; border:none; color:var(--muted); font-size:12.5px; text-decoration:underline; cursor:pointer; flex-shrink:0;">Change</button>` : ''}
       </div>
 
-      <div class="badge-card">
+      <div class="badge-card glass-panel">
         <div class="badge-card-label">Show it off</div>
         <p class="badge-card-sub">A live badge for your GitHub README or profile — updates automatically as you earn, no login needed to view it.</p>
         <img class="badge-preview" id="badgePreview" src="https://trymeanwhile.online/badge?id=${id}" alt="meanwhile earnings badge" width="132" height="20">
@@ -430,7 +841,33 @@ function renderDashboard(userName, payoutEmail) {
         </div>
       </div>
 
-      <div class="form-panel span-all" id="payoutFormPanel" style="${isConnected ? 'display:none;' : ''}">
+      <div class="share-card-panel glass-panel span-all" id="shareCardPanel">
+        <div class="badge-card-label">Share your earnings</div>
+        <p class="badge-card-sub">A shareable card, made right here in your browser — nothing sent anywhere.</p>
+        <canvas id="shareCardCanvas" width="1200" height="630"></canvas>
+        <div class="share-card-actions">
+          <button id="downloadCardBtn" class="magnetic" type="button">Download card</button>
+          <button id="shareXBtn" class="magnetic" type="button" style="background:none; border:1px solid var(--border); color:var(--text);">Share on X</button>
+        </div>
+        <p class="share-card-note">Only your earnings, line count, and promo status are on the card — no email, no install ID, nothing that identifies you beyond what you choose to post.</p>
+      </div>
+
+      <div class="chart-card glass-panel span-all" id="chartCard">
+        <div class="card-label">Daily earnings (last 14 days)</div>
+        <canvas id="dailyEarningsChart"></canvas>
+        <div class="chart-empty" id="chartEmpty" style="display:none;">No earnings yet — open Claude Code to start.</div>
+      </div>
+
+      <div class="jackpot-card span-all" id="jackpotCard" style="display:none;">
+        <div class="jackpot-header">
+          <div class="badge-card-label">This month's jackpot</div>
+          <div class="jackpot-pool" id="jackpotPool">$–</div>
+        </div>
+        <p class="jackpot-status" id="jackpotStatus">loading…</p>
+        <div class="jackpot-history" id="jackpotHistory"></div>
+      </div>
+
+      <div class="form-panel glass-panel span-all" id="payoutFormPanel" style="${isConnected ? 'display:none;' : ''}">
         <div class="card-label">Payout settings</div>
         <form id="claimForm">
           <div id="currentEmailWrap" style="display:${isConnected ? 'block' : 'none'};">
@@ -446,6 +883,7 @@ function renderDashboard(userName, payoutEmail) {
             <input id="emailConfirm" type="email" placeholder="you@example.com" ${isConnected ? '' : 'required'} autocomplete="off">
           </div>
           <div id="emailMismatch" class="status err" style="display:none;">Those don't match — real money goes to whatever's registered here, worth getting right.</div>
+          <div class="cf-turnstile" id="claimFormTurnstile"></div>
           <button type="submit" id="submitBtn" class="magnetic">${isConnected ? 'Update payout email' : 'Register for payout'}</button>
           <div id="status" class="status"></div>
         </form>
@@ -463,7 +901,7 @@ function renderDashboard(userName, payoutEmail) {
         We only store your email and this ID — nothing else, ever shared
       </div>
 
-      <p class="note">Payouts run automatically, once a day, the moment you cross $${THRESHOLD}. No manual step.</p>
+      <p class="note glass-panel">Payouts run automatically, once a day, the moment you cross $${THRESHOLD}. No manual step.</p>
 
       <details class="tech-details">
         <summary>Technical details</summary>
@@ -472,6 +910,7 @@ function renderDashboard(userName, payoutEmail) {
       </details>
     </div>
   `;
+  initGlassPanels();
 
   const copyBadgeBtn = document.getElementById('copyBadgeBtn');
   if (copyBadgeBtn) {
@@ -484,17 +923,36 @@ function renderDashboard(userName, payoutEmail) {
     });
   }
 
-  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!prefersReducedMotion) import('./electricborder.js').then(({ initElectricBorder }) => {
-    const balanceCard = document.getElementById('balanceCard');
-    if (balanceCard) {
-      try { initElectricBorder(balanceCard, { color: '#f2b134', speed: 1, chaos: 0.1, borderRadius: 12 }); } catch (e) { console.warn('[meanwhile] ElectricBorder failed:', e); }
-    }
-    const idCard = document.getElementById('idCard');
-    if (idCard) {
-      try { initElectricBorder(idCard, { color: '#a855f7', speed: 0.8, chaos: 0.08, borderRadius: 12 }); } catch (e) { console.warn('[meanwhile] ElectricBorder failed:', e); }
-    }
-  });
+  const downloadCardBtn = document.getElementById('downloadCardBtn');
+  if (downloadCardBtn) {
+    downloadCardBtn.addEventListener('click', () => {
+      const canvasEl = document.getElementById('shareCardCanvas');
+      canvasEl.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'meanwhile-earnings.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        const original = downloadCardBtn.textContent;
+        downloadCardBtn.textContent = 'Downloaded!';
+        setTimeout(() => { downloadCardBtn.textContent = original; }, 1500);
+      }, 'image/png');
+    });
+  }
+
+  const shareXBtn = document.getElementById('shareXBtn');
+  if (shareXBtn) {
+    shareXBtn.addEventListener('click', () => {
+      const amountText = lastAmountText || '$0.00';
+      const text = `I made ${amountText} while my AI agent thought. No cold ads, just real revenue.`;
+      const url = 'https://trymeanwhile.online/install';
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
+    });
+  }
 
   function flyOrbToBadge(fromEl) {
     const orb = document.getElementById('orb');
@@ -543,6 +1001,204 @@ function renderDashboard(userName, payoutEmail) {
   /* same odometer digit-roll technique as the advertiser dashboard --
      non-digit characters ($ and .) just render flat, only the digits
      roll, so this works fine on a dollar amount as-is. */
+  /* same technique as the campaign dashboard's daily-impressions chart --
+     a running total alone can't show "is this picking up or slowing
+     down," so this is the day-by-day version of that same idea, just in
+     dollars instead of raw impression counts. */
+  function drawDailyEarningsChart(canvasEl, daily) {
+    const days = Object.keys(daily).sort().slice(-14);
+    if (days.length === 0) return false;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvasEl.clientWidth, h = 150;
+    const baseline = h - 26;
+    canvasEl.width = w * dpr; canvasEl.height = h * dpr;
+    const c = canvasEl.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    c.scale(dpr, dpr);
+    const max = Math.max(...days.map(d => daily[d]), 0.01);
+    const barW = w / days.length;
+    days.forEach((d, i) => {
+      const val = daily[d];
+      const barH = Math.max(2, (val / max) * (baseline - 24));
+      const x = i * barW + barW * 0.2;
+      const bw = barW * 0.6;
+      const cx = x + bw / 2;
+      const grad = c.createLinearGradient(0, baseline - barH, 0, baseline);
+      grad.addColorStop(0, '#e8c896');
+      grad.addColorStop(1, 'rgba(232,200,150,.3)');
+      c.fillStyle = grad;
+      c.beginPath();
+      c.roundRect(x, baseline - barH, bw, barH, 3);
+      c.fill();
+      if (val > 0 && barW > 22) {
+        c.fillStyle = 'rgba(245,240,230,.75)';
+        c.font = '10px "JetBrains Mono", monospace';
+        c.textAlign = 'center';
+        c.fillText('$' + val.toFixed(val < 1 ? 3 : 2), cx, baseline - barH - 6);
+      }
+      const date = new Date(d + 'T00:00:00Z');
+      const label = barW > 46
+        ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })
+        : String(date.getUTCDate());
+      c.fillStyle = 'rgba(140,140,150,.8)';
+      c.font = '10px Inter, sans-serif';
+      c.textAlign = 'center';
+      c.fillText(label, cx, h - 8);
+    });
+    return true;
+  }
+
+  /** The whole point of this card is that it gets screenshotted and
+   * shared -- it has to hold up at full resolution, not just look fine
+   * shrunk down in the dashboard. Drawn at a fixed 1200x630 logical size
+   * (standard social-card ratio) and scaled by devicePixelRatio so a
+   * download from a Retina screen isn't blurry. Waits on document.fonts
+   * before drawing so Fraunces/JetBrains Mono are actually loaded --
+   * drawing one frame too early silently falls back to a generic serif/
+   * mono and every export from a fresh page load would look wrong. */
+  async function drawShareCard(canvasEl, data) {
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (e) {}
+    }
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = 1200, H = 630;
+    canvasEl.width = W * dpr;
+    canvasEl.height = H * dpr;
+    const c = canvasEl.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    c.scale(dpr, dpr);
+
+    c.fillStyle = '#07070a';
+    c.fillRect(0, 0, W, H);
+
+    const glow1 = c.createRadialGradient(980, 70, 0, 980, 70, 440);
+    glow1.addColorStop(0, 'rgba(242,177,52,.22)');
+    glow1.addColorStop(1, 'rgba(242,177,52,0)');
+    c.fillStyle = glow1;
+    c.fillRect(0, 0, W, H);
+
+    const glow2 = c.createRadialGradient(120, 580, 0, 120, 580, 400);
+    glow2.addColorStop(0, 'rgba(168,85,247,.16)');
+    glow2.addColorStop(1, 'rgba(168,85,247,0)');
+    c.fillStyle = glow2;
+    c.fillRect(0, 0, W, H);
+
+    // faint ghost wordmark, echoing the same big-type treatment used
+    // elsewhere on the site -- fills the right-side negative space
+    // without competing with the real numbers
+    c.save();
+    c.fillStyle = 'rgba(255,255,255,.035)';
+    c.font = '700 210px Fraunces, serif';
+    c.textAlign = 'right';
+    c.textBaseline = 'middle';
+    c.fillText('Meanwhile', W - 40, H / 2 + 10);
+    c.restore();
+
+    c.strokeStyle = 'rgba(255,255,255,.08)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.roundRect(0.5, 0.5, W - 1, H - 1, 28);
+    c.stroke();
+
+    // wordmark
+    const dotColors = ['#f2b134', '#ec4899', '#a855f7'];
+    dotColors.forEach((color, i) => {
+      c.fillStyle = color;
+      c.beginPath();
+      c.arc(64 + i * 14, 62, 4, 0, Math.PI * 2);
+      c.fill();
+    });
+    c.fillStyle = '#f5f0e6';
+    c.font = '700 26px Fraunces, serif';
+    c.textAlign = 'left';
+    c.textBaseline = 'middle';
+    c.fillText('Meanwhile', 118, 63);
+
+    c.fillStyle = 'rgba(140,140,150,.85)';
+    c.font = '13px "JetBrains Mono", monospace';
+    c.textAlign = 'right';
+    c.fillText('trymeanwhile.online', W - 64, 63);
+
+    // small tracked label
+    c.textAlign = 'left';
+    c.fillStyle = '#e8c896';
+    c.font = '600 15px Inter, sans-serif';
+    try { c.letterSpacing = '2px'; } catch (e) {}
+    c.fillText('MADE WHILE MY AGENT THOUGHT', 64, 195);
+    try { c.letterSpacing = '0px'; } catch (e) {}
+
+    // big amount -- shrinks to fit rather than ever overflowing the card
+    const amountText = '$' + data.amount.toFixed(2);
+    const maxAmountWidth = W - 128;
+    let amountSize = 150;
+    c.textBaseline = 'alphabetic';
+    do {
+      c.font = `800 ${amountSize}px "JetBrains Mono", monospace`;
+      amountSize -= 4;
+    } while (c.measureText(amountText).width > maxAmountWidth && amountSize > 60);
+    const amountGrad = c.createLinearGradient(64, 0, 64 + c.measureText(amountText).width, 0);
+    amountGrad.addColorStop(0, '#f2b134');
+    amountGrad.addColorStop(0.4, '#f0654a');
+    amountGrad.addColorStop(0.7, '#ec4899');
+    amountGrad.addColorStop(1, '#a855f7');
+    c.fillStyle = amountGrad;
+    c.fillText(amountText, 64, 340);
+
+    // subtitle
+    c.fillStyle = 'rgba(245,240,230,.92)';
+    c.font = 'italic 400 32px Fraunces, serif';
+    c.fillText('earned while my AI agent thought.', 64, 390);
+
+    // promo pill, only if the window's still actually active
+    let statsY = 462;
+    if (data.promoActive && data.promoNumber) {
+      const label = `EARLY DEVELOPER #${data.promoNumber} — 100% FOR ${data.promoDaysLeft} MORE DAY${data.promoDaysLeft === 1 ? '' : 'S'}`;
+      c.font = '700 15px "JetBrains Mono", monospace';
+      const pillW = c.measureText(label).width + 32;
+      const pillH = 34;
+      c.fillStyle = 'rgba(242,177,52,.12)';
+      c.strokeStyle = 'rgba(242,177,52,.4)';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.roundRect(64, statsY - pillH - 2, pillW, pillH, 17);
+      c.fill();
+      c.stroke();
+      c.fillStyle = '#f2b134';
+      c.textBaseline = 'middle';
+      c.fillText(label, 80, statsY - pillH / 2 - 2);
+      c.textBaseline = 'alphabetic';
+      statsY += 48;
+    }
+
+    // stats line
+    c.fillStyle = 'rgba(180,180,190,.95)';
+    c.font = '22px Inter, sans-serif';
+    const statsText = data.totalCalls > 0
+      ? `${data.totalCalls} line${data.totalCalls === 1 ? '' : 's'} shown · ${data.sponsorCalls} sponsored (${data.ratio}%)`
+      : 'just getting started — more to come';
+    c.fillText(statsText, 64, statsY);
+
+    // divider + install line
+    c.strokeStyle = 'rgba(255,255,255,.08)';
+    c.beginPath();
+    c.moveTo(64, 520);
+    c.lineTo(W - 64, 520);
+    c.stroke();
+
+    c.textBaseline = 'middle';
+    c.fillStyle = 'rgba(63,185,104,.95)';
+    c.font = '600 17px "JetBrains Mono", monospace';
+    c.textAlign = 'left';
+    c.fillText('$ npx trymeanwhile', 64, 566);
+
+    c.fillStyle = 'rgba(140,140,150,.85)';
+    c.font = '15px Inter, sans-serif';
+    c.textAlign = 'right';
+    c.fillText('half the money, none of the cold ads →', W - 64, 566);
+  }
+
   function renderOdometer(el, text) {
     const chars = text.split('');
     el.innerHTML = chars.map(ch => {
@@ -557,9 +1213,84 @@ function renderDashboard(userName, payoutEmail) {
     });
   }
 
+  /* ---------- jackpot ----------
+     Mirrors worker.js's JACKPOT_MIN_CALLS -- if that constant ever
+     changes, this needs to change with it. No endpoint exposes it, so
+     this is the one place that has to be kept in sync by hand. */
+  const JACKPOT_MIN_CALLS = 10;
+  let currentTotalCalls = 0;
+  let currentHasPayoutEmail = false;
+  let currentJackpotWonTotal = 0;
+  let jackpotPoolAmount = null;
+
+  function renderJackpotStatus() {
+    const statusEl = document.getElementById('jackpotStatus');
+    if (jackpotPoolAmount === null) return; // pool hasn't loaded yet
+    const wonNote = currentJackpotWonTotal > 0
+      ? ` You've won $${currentJackpotWonTotal.toFixed(2)} from it so far.`
+      : '';
+    if (currentHasPayoutEmail && currentTotalCalls >= JACKPOT_MIN_CALLS) {
+      statusEl.className = 'jackpot-status eligible';
+      statusEl.textContent = `You're in the running — every install with a registered payout and real usage gets an equal shot, drawn once a month.${wonNote}`;
+    } else if (!currentHasPayoutEmail) {
+      statusEl.className = 'jackpot-status';
+      statusEl.textContent = `Register your payout email above to enter.${wonNote}`;
+    } else {
+      const remaining = JACKPOT_MIN_CALLS - currentTotalCalls;
+      statusEl.className = 'jackpot-status';
+      statusEl.textContent = `${remaining} more line${remaining === 1 ? '' : 's'} of real usage to qualify for this month's draw.${wonNote}`;
+    }
+  }
+
+  let hasLoadedJackpotOnce = false;
+  async function loadJackpotHistory() {
+    if (document.hidden && hasLoadedJackpotOnce) return;
+    hasLoadedJackpotOnce = true;
+    try {
+      const res = await fetch(`https://trymeanwhile.online/jackpot-history`);
+      const s = await res.json();
+      jackpotPoolAmount = s.current_pool_usd || 0;
+      document.getElementById('jackpotPool').textContent = '$' + jackpotPoolAmount.toFixed(2);
+      renderJackpotStatus();
+
+      const historyEl = document.getElementById('jackpotHistory');
+      const draws = (s.draws || []).slice(0, 5);
+      if (draws.length === 0) {
+        historyEl.innerHTML = '<div class="jackpot-empty">No draws yet — the first one happens once the pool clears $50.</div>';
+        return;
+      }
+      const rows = draws.map(d => {
+        const monthLabel = new Date(d.month + '-02').toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        return `<div class="jackpot-draw"><span>${monthLabel} — ${d.candidate_count} entrant${d.candidate_count === 1 ? '' : 's'}</span><span class="amt">$${d.amount_usd.toFixed(2)}</span></div>`;
+      }).join('');
+      historyEl.innerHTML = `<div class="jackpot-history-label">Recent draws</div>${rows}`;
+    } catch (e) {
+      document.getElementById('jackpotPool').textContent = '$–';
+    }
+  }
+  // Hidden until the pool actually has real money in it -- an empty
+  // "$0.00, no draws yet" card is honest but underwhelming for the
+  // first handful of devs. Flip JACKPOT_UI_ENABLED once there's
+  // something worth showing (jackpotCard's style="display:none" needs
+  // removing too).
+  const JACKPOT_UI_ENABLED = false;
+  if (JACKPOT_UI_ENABLED) {
+    loadJackpotHistory();
+    setInterval(loadJackpotHistory, 60000);
+  }
+
   let lastTotalCalls = null;
   let lastAmountText = null;
+  let lastShareCardKey = null;
+  let lastPromoBadgeState = null;
+  let hasLoadedBalanceOnce = false;
   async function loadBalance() {
+    // Never skip the very first call -- a tab opened in the background
+    // (a middle-clicked link, e.g.) still needs its initial render, or
+    // the whole dashboard is stuck on placeholder text forever until it
+    // happens to become visible. Only repeat polls are the actual waste.
+    if (document.hidden && hasLoadedBalanceOnce) return;
+    hasLoadedBalanceOnce = true;
     try {
       const res = await fetch(`https://trymeanwhile.online/earnings?id=${id}`);
       const s = await res.json();
@@ -569,19 +1300,60 @@ function renderDashboard(userName, payoutEmail) {
         renderOdometer(document.getElementById('amount'), amountText);
         lastAmountText = amountText;
       }
+      // Unlike the old permanent founder badge, this one genuinely
+      // changes over time -- days-left counts down, and the badge should
+      // disappear once the window actually closes -- so it re-renders
+      // whenever that state changes, not just once ever.
+      const promoBadgeState = `${s.promo_active}|${s.promo_days_left}|${s.promo_number || ''}`;
+      if (promoBadgeState !== lastPromoBadgeState) {
+        lastPromoBadgeState = promoBadgeState;
+        const badge = document.getElementById('promoBadge');
+        if (s.promo_active && s.promo_number) {
+          badge.innerHTML = `<span class="fb-dot"></span> Early developer #${s.promo_number} — 100% for ${s.promo_days_left} more day${s.promo_days_left === 1 ? '' : 's'}`;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
       const totalCalls = s.total_calls || 0;
       const sponsorCalls = s.sponsor_calls || 0;
       const ratio = totalCalls > 0 ? Math.round((sponsorCalls / totalCalls) * 100) : 0;
       document.getElementById('balanceBreakdown').innerHTML = totalCalls > 0
         ? `<span class="dot"></span> ${totalCalls} line${totalCalls === 1 ? '' : 's'} shown · ${sponsorCalls} sponsored (${ratio}%)`
         : `<span class="dot"></span> no lines shown yet — open Claude Code to start`;
+
+      // Only worth a redraw when a number on the card actually changed --
+      // this canvas draw is heavier than the odometer/breakdown updates
+      // above, no reason to repeat it every 8s poll if nothing moved.
+      const shareCardKey = `${amountText}|${totalCalls}|${sponsorCalls}|${s.promo_active}|${s.promo_days_left}|${s.promo_number || ''}`;
+      if (shareCardKey !== lastShareCardKey) {
+        lastShareCardKey = shareCardKey;
+        drawShareCard(document.getElementById('shareCardCanvas'), {
+          amount: amt, totalCalls, sponsorCalls, ratio,
+          promoNumber: s.promo_number || null, promoActive: s.promo_active, promoDaysLeft: s.promo_days_left,
+        });
+      }
+      const earningsChartCanvas = document.getElementById('dailyEarningsChart');
+      const hasChartData = drawDailyEarningsChart(earningsChartCanvas, s.daily_earnings || {});
+      earningsChartCanvas.style.display = hasChartData ? 'block' : 'none';
+      const chartEmptyEl = document.getElementById('chartEmpty');
+      chartEmptyEl.style.display = hasChartData ? 'none' : 'block';
+      if (!hasChartData) {
+        // Two different empty states, not one -- "nothing's happened at
+        // all" and "real activity, just no paid lines yet" look
+        // identical if you only check for chart data, but they read very
+        // differently to someone watching lines actually show up in
+        // their terminal with a $0 chart underneath.
+        chartEmptyEl.textContent = totalCalls > 0
+          ? `${totalCalls} line${totalCalls === 1 ? '' : 's'} shown so far, none sponsored yet — normal early on, more sponsors means more paid lines.`
+          : 'No earnings yet — open Claude Code to start.';
+      }
       const pct = Math.min(100, (amt / THRESHOLD) * 100);
       document.getElementById('progressFill').style.width = pct + '%';
       document.getElementById('progressNote').textContent =
         amt >= THRESHOLD ? 'Threshold reached — included in next payout' : `$${(THRESHOLD - amt).toFixed(2)} to go until payout`;
       if (amt >= THRESHOLD) {
-        document.getElementById('stepThreshold').classList.add('done');
-        document.getElementById('stepThreshold').querySelector('.check').innerHTML = checkIcon;
+        document.getElementById('tlThreshold').classList.add('done');
       }
       // Safety net only -- the initial render already reflects payout_email
       // correctly (passed straight into renderDashboard, no flash). This
@@ -589,15 +1361,19 @@ function renderDashboard(userName, payoutEmail) {
       // without clobbering the form mid-edit.
       if (s.payout_email && !originalPayoutEmail) {
         originalPayoutEmail = s.payout_email;
-        document.getElementById('stepEmail').classList.add('done');
-        document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
+        document.getElementById('tlPayout').classList.add('done');
         document.getElementById('destNote').textContent = maskEmail(s.payout_email);
       }
       if (typeof spawnYourPulse === 'function' && lastTotalCalls !== null && s.total_calls > lastTotalCalls) {
         const delta = Math.min(4, s.total_calls - lastTotalCalls);
         for (let i = 0; i < delta; i++) setTimeout(spawnYourPulse, i * 250);
+        flashGlassPanels();
       }
       lastTotalCalls = s.total_calls;
+      currentTotalCalls = totalCalls;
+      currentHasPayoutEmail = !!(s.payout_email || originalPayoutEmail);
+      currentJackpotWonTotal = s.jackpot_won_total || 0;
+      renderJackpotStatus();
       try { localStorage.setItem('meanwhile_id', id); } catch (e) {}
     } catch (e) {
       document.getElementById('progressNote').textContent = 'Could not reach server';
@@ -605,6 +1381,7 @@ function renderDashboard(userName, payoutEmail) {
   }
   loadBalance();
   setInterval(loadBalance, 8000);
+  mountTurnstile('claimFormTurnstile');
 
   document.getElementById('claimForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -635,10 +1412,17 @@ function renderDashboard(userName, payoutEmail) {
       return;
     }
 
+    const turnstileToken = getTurnstileToken('claimFormTurnstile');
+    if (window.turnstile && !turnstileToken) {
+      status.textContent = 'Complete the verification check above first.';
+      status.className = 'status err';
+      return;
+    }
+
     btn.disabled = true;
     btn.textContent = 'Registering…';
     try {
-      const body = { id, email };
+      const body = { id, email, turnstile_token: turnstileToken };
       if (originalPayoutEmail && originalPayoutEmail.toLowerCase() !== email.toLowerCase()) {
         body.current_email = currentEmail;
       }
@@ -652,8 +1436,7 @@ function renderDashboard(userName, payoutEmail) {
 
       flyOrbToBadge(btn);
       document.getElementById('destNote').textContent = email;
-      document.getElementById('stepEmail').classList.add('done');
-      document.getElementById('stepEmail').querySelector('.check').innerHTML = checkIcon;
+      document.getElementById('tlPayout').classList.add('done');
       document.getElementById('successDetail').textContent = `Payouts go to ${email} once you cross $${THRESHOLD}.`;
 
       setTimeout(() => {
@@ -665,6 +1448,7 @@ function renderDashboard(userName, payoutEmail) {
       status.className = 'status err';
       btn.disabled = false;
       btn.textContent = 'Register for payout';
+      resetTurnstile('claimFormTurnstile');
     }
   });
 }

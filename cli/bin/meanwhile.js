@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-// Node reimplementation of install.sh/install.ps1/install_copilot.sh -- one
-// script instead of three, since Node itself is already cross-platform and
-// can detect which tool(s) are actually installed. Behavior is kept in
-// lockstep with those scripts (same install dir, same settings.json shape,
-// same non-fatal certifi step) so every installer produces an identical
-// result regardless of which one someone happens to run.
+// The `npx trymeanwhile` entry point -- one cross-platform script that
+// detects which tool(s) are actually installed and wires them up. The
+// status line it wires in (statusline.js) runs on Node too, not Python:
+// Node is already guaranteed present since npx can't invoke this script
+// without it, so there's no second runtime to find, verify, or fail on.
 
 const fs = require("fs");
 const os = require("os");
@@ -16,19 +15,24 @@ const SERVER = "https://trymeanwhile.online";
 const INSTALL_DIR = path.join(os.homedir(), ".deadtime-client");
 const STATE_DIR = path.join(os.homedir(), ".deadtime");
 
+const VERBOSE = process.argv.includes("--verbose");
+
 function log(msg) {
   console.log(`meanwhile: ${msg}`);
 }
 
-function commandExists(cmd) {
-  return spawnSync(cmd, ["--version"], { stdio: "ignore" }).status === 0;
+// Wiring detail nobody needs to see on a normal run -- which settings.json,
+// which script path, that kind of thing. Real information, just not the
+// first-run experience: it used to be seven identical-looking lines with no
+// hierarchy, so the one line that actually mattered (restart your tool)
+// read the same as housekeeping noise. Still here for anyone debugging why
+// it didn't wire correctly -- just behind --verbose instead of always on.
+function vlog(msg) {
+  if (VERBOSE) log(msg);
 }
 
-function findPython() {
-  for (const candidate of ["python3", "python", "py"]) {
-    if (commandExists(candidate)) return candidate;
-  }
-  return null;
+function commandExists(cmd) {
+  return spawnSync(cmd, ["--version"], { stdio: "ignore" }).status === 0;
 }
 
 function openUrl(url) {
@@ -39,34 +43,18 @@ function openUrl(url) {
   exec(cmd, () => {});
 }
 
-async function ensureCertifi(python) {
-  const hasCertifi = spawnSync(python, ["-c", "import certifi"], { stdio: "ignore" }).status === 0;
-  if (hasCertifi) return;
-  // certifi is a nice-to-have, not a hard requirement -- both status line
-  // scripts fall back to the system's own certificate store if it's
-  // missing. Never let a failed pip install here take down the install.
-  log("installing certifi (helps with HTTPS, not required)...");
-  const pipAttempts = [
-    ["-m", "pip", "install", "--quiet", "certifi"],
-    ["-m", "pip", "install", "--quiet", "--user", "certifi"],
-    ["-m", "pip", "install", "--quiet", "--break-system-packages", "certifi"],
-  ];
-  const installed = pipAttempts.some((args) => spawnSync(python, args, { stdio: "ignore" }).status === 0);
-  if (!installed) log("couldn't install certifi, continuing without it (falls back automatically)");
-}
-
 async function downloadTo(remoteName, localPath) {
   const res = await fetch(`${SERVER}/${remoteName}`);
   if (!res.ok) throw new Error(`couldn't download ${remoteName} (${res.status})`);
   fs.writeFileSync(localPath, await res.text());
 }
 
-function wireSettings(settingsPath, python, scriptPath) {
+function wireSettings(settingsPath, runtime, scriptPath) {
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, "utf8") || "{}") : {};
-  settings.statusLine = { type: "command", command: `${python} "${scriptPath}"` };
+  settings.statusLine = { type: "command", command: `"${runtime}" "${scriptPath}"` };
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
-  log(`wired into ${settingsPath}`);
+  vlog(`wired into ${settingsPath}`);
 }
 
 // Wraps any long-running shell command (npm install, docker build, terraform
@@ -114,13 +102,49 @@ async function wrapCommand(args) {
   });
 }
 
+// `npx trymeanwhile claim` -- the whole point of this is that nobody
+// should ever need to remember (or read) a raw node/path/--claim
+// incantation just to check what they've earned. Same install ID file,
+// same /earnings endpoint statusline.js already hits, just reachable
+// through the one command name people already typed once.
+async function claimCommand() {
+  const idPath = path.join(STATE_DIR, "install_id");
+  if (!fs.existsSync(idPath)) {
+    log("nothing to claim yet -- you haven't installed. run `npx trymeanwhile` first.");
+    process.exit(1);
+  }
+  const installId = fs.readFileSync(idPath, "utf8").trim();
+  const claimUrl = `${SERVER}/claim?id=${installId}`;
+
+  console.log("meanwhile -- your account");
+  console.log(`  ID:      ${installId}`);
+  try {
+    const res = await fetch(`${SERVER}/earnings?id=${installId}`);
+    if (res.ok) {
+      const earnings = await res.json();
+      console.log(`  earned:  $${Number(earnings.user_earnings).toFixed(2)}`);
+      console.log(`  shown:   ${earnings.total_calls} lines (${earnings.sponsor_calls} sponsored)`);
+    } else {
+      console.log("  earned:  (couldn't reach server -- check your connection)");
+    }
+  } catch {
+    console.log("  earned:  (couldn't reach server -- check your connection)");
+  }
+  console.log();
+  console.log(`  register a payout email: ${claimUrl}`);
+}
+
 async function main() {
   if (process.argv[2] === "wrap") {
     await wrapCommand(process.argv.slice(3));
     return;
   }
+  if (process.argv[2] === "claim") {
+    await claimCommand();
+    return;
+  }
 
-  log(`installing to ${INSTALL_DIR}`);
+  vlog(`installing to ${INSTALL_DIR}`);
   fs.mkdirSync(INSTALL_DIR, { recursive: true });
   fs.mkdirSync(STATE_DIR, { recursive: true });
 
@@ -135,13 +159,14 @@ async function main() {
   }
   const installId = fs.readFileSync(idPath, "utf8").trim();
 
-  const python = findPython();
-  if (!python) {
-    log("couldn't find Python on your PATH.");
-    log("install it from https://python.org, then run `npx trymeanwhile` again.");
-    process.exit(1);
-  }
-  await ensureCertifi(python);
+  // Node, not Python: this script is already running under Node (it can't
+  // not be -- npx just invoked it), so there is no second runtime to find
+  // or verify. process.execPath is the absolute path to the exact node
+  // binary running right now, more robust than trusting a bare `node` on
+  // PATH (some distros only ship `nodejs`). This used to hard-require
+  // python3/python/py on top of Node and fail the whole install for
+  // anyone without it -- a real dead stop, not a cosmetic gap.
+  const node = process.execPath;
 
   // Wire whichever tool(s) are actually on this machine, so the same
   // command works everywhere instead of a different one per tool. Claude
@@ -149,20 +174,52 @@ async function main() {
   // built for -- and Copilot CLI is wired too if it's detected on PATH.
   const wireCopilot = commandExists("copilot");
 
-  const claudeScript = path.join(INSTALL_DIR, "statusline.py");
-  await downloadTo("statusline.py", claudeScript);
-  wireSettings(path.join(os.homedir(), ".claude", "settings.json"), python, claudeScript);
+  const claudeScript = path.join(INSTALL_DIR, "statusline.js");
+  await downloadTo("statusline.js", claudeScript);
+  wireSettings(path.join(os.homedir(), ".claude", "settings.json"), node, claudeScript);
 
   if (wireCopilot) {
-    const copilotScript = path.join(INSTALL_DIR, "copilot_statusline.py");
-    await downloadTo("copilot_statusline.py", copilotScript);
-    wireSettings(path.join(os.homedir(), ".copilot", "settings.json"), python, copilotScript);
-    log("Copilot CLI detected -- wired that too, same install ID, earnings share one balance.");
+    const copilotScript = path.join(INSTALL_DIR, "copilot_statusline.js");
+    await downloadTo("copilot_statusline.js", copilotScript);
+    wireSettings(path.join(os.homedir(), ".copilot", "settings.json"), node, copilotScript);
+    vlog("Copilot CLI detected -- wired that too, same install ID, earnings share one balance.");
   }
 
-  log("installed. Restart Claude Code (and Copilot CLI, if wired) to see it live.");
-  log("to check earnings or register a payout email later, run:");
-  log(`  ${python} "${claudeScript}" --claim`);
+  // Prove the connection actually works right now, before asking anyone
+  // to trust a restart they can't yet see the result of. A skeptical
+  // first-time installer shouldn't have to take "it'll work after you
+  // restart" on faith -- this is the exact same /line call the real
+  // client makes, just fired once, synchronously, during install.
+  // Non-fatal if it fails (slow network, offline install) -- the real
+  // client will pick it up fine once the tool actually restarts.
+  let sampleLine = null;
+  try {
+    const params = new URLSearchParams({ id: installId, event: "install_check", sid: "", cost: "", tok: "", cwd: "" });
+    const res = await fetch(`${SERVER}/line?${params}`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.line) sampleLine = data.line;
+    }
+  } catch {}
+
+  // The one-time summary a real person actually reads. This used to be
+  // seven identically-styled lines -- the one thing that actually matters
+  // (restart your tool) read no differently than housekeeping. Blank
+  // lines and indentation do the hierarchy work no --verbose flag can.
+  console.log("meanwhile: installed. congratulations, you now get paid to wait.");
+  console.log();
+  if (sampleLine) {
+    console.log(`  just tested the connection -- here's a real line: "${sampleLine}"`);
+    console.log();
+  }
+  console.log("  restart Claude Code to see it live");
+  console.log("  (the one step between you and money -- yes, actually do it)");
+  console.log();
+  if (wireCopilot) {
+    console.log("Copilot CLI's in on this too, if it's here. Same balance either way.");
+    console.log();
+  }
+  console.log("Check what you've earned:  npx trymeanwhile claim");
 
   // Open the browser straight to the claim page -- same pattern as
   // `gh auth login` / `vercel login` / `wrangler login`. This is the only
@@ -171,7 +228,7 @@ async function main() {
   // because someone merely copied a command.
   const claimUrl = `${SERVER}/claim.html?id=${installId}`;
   openUrl(claimUrl);
-  log(`if a browser tab didn't open: ${claimUrl}`);
+  console.log(`(if a browser tab didn't open: ${claimUrl})`);
 }
 
 main().catch((err) => {

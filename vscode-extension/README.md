@@ -4,6 +4,9 @@ A quiet line in your VS Code status bar while you code. Occasionally it's a
 clearly disclosed **sponsor** line instead — and half of what that sponsor
 pays goes to you.
 
+> Not affiliated with meanwhile.cash. This is the no-crypto, flat-rate
+> version — payouts in real dollars via PayPal, no wallet required.
+
 ## What this actually does
 
 Meanwhile adds one item to your status bar. While you're actively editing
@@ -57,9 +60,9 @@ PayPal sends it automatically.
 
 ## Links
 
-- [meanwhile.dev](https://deadtime-server.bean-picker.workers.dev/install) — full site
-- [Privacy policy](https://deadtime-server.bean-picker.workers.dev/privacy)
-- [Terms](https://deadtime-server.bean-picker.workers.dev/terms)
+- [trymeanwhile.online](https://trymeanwhile.online/install) — full site
+- [Privacy policy](https://trymeanwhile.online/privacy)
+- [Terms](https://trymeanwhile.online/terms)
 - [Source](https://github.com/heenatrivedi321-max/deadtime)
 
 ## Uninstalling

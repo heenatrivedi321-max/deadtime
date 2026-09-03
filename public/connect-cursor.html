@@ -2,18 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Meanwhile — connect VS Code</title>
-<meta name="description" content="One line in VS Code's status bar. Some are sponsored, disclosed. Split 50/50, paid out automatically.">
+<title>Meanwhile — connect Cursor</title>
+<meta name="description" content="One line in Cursor's status bar. Some are sponsored, disclosed. Split 50/50, paid out automatically.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://trymeanwhile.online/connect-vscode">
-<meta property="og:title" content="Meanwhile — connect VS Code">
-<meta property="og:description" content="One line in VS Code's status bar. Some are sponsored, disclosed. Split 50/50, paid out automatically.">
+<meta property="og:url" content="https://trymeanwhile.online/connect-cursor">
+<meta property="og:title" content="Meanwhile — connect Cursor">
+<meta property="og:description" content="One line in Cursor's status bar. Some are sponsored, disclosed. Split 50/50, paid out automatically.">
 <meta property="og:image" content="https://trymeanwhile.online/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Meanwhile — connect VS Code">
-<meta name="twitter:description" content="One line in VS Code's status bar. Some are sponsored, disclosed. Split 50/50, paid out automatically.">
+<meta name="twitter:title" content="Meanwhile — connect Cursor">
+<meta name="twitter:description" content="One line in Cursor's status bar. Some are sponsored, disclosed. Split 50/50, paid out automatically.">
 <meta name="twitter:image" content="https://trymeanwhile.online/og-image.png">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -77,6 +77,7 @@
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.28);
     border-radius:10px; padding:12px 15px; line-height:1.6; margin-bottom:16px; }
   .note b { color:var(--gold); }
+  .note.warn { border-color:rgba(242,177,52,.3); }
 
   .reveal { opacity:0; transform:translateY(18px); filter:blur(2px);
             transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1), filter .7s cubic-bezier(.16,1,.3,1); }
@@ -106,7 +107,7 @@
   .gbody p { font-size:15px; color:var(--muted); line-height:1.7; margin-bottom:14px; }
   .gbody p b { color:var(--text); font-weight:600; }
   .agent-prompt-toggle { font-size:12.5px; color:var(--muted); text-decoration:underline; cursor:pointer;
-    background:none; border:none; padding:0; margin-top:12px; display:inline-block; font-family:inherit; }
+    background:none; border:none; padding:0; margin-top:10px; display:inline-block; font-family:inherit; }
   .agent-prompt-toggle:hover { color:var(--gold); }
   .agent-prompt-box { display:none; background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
     backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
@@ -120,22 +121,17 @@
     border-radius:7px; padding:8px 14px; font-size:12.5px; cursor:pointer; transition:background .2s; }
   .agent-prompt-box button:hover { background:rgba(255,255,255,.16); }
 
-  .cmd-box { background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+  .search-box { background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
              backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
              border:1px solid rgba(255,255,255,.14); border-radius:11px; padding:14px 16px;
              box-shadow:inset 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.3);
              display:flex; align-items:center; gap:10px; margin-top:4px; }
-  .cmd-box code { flex:1; font-family:'JetBrains Mono',monospace; font-size:12px; color:#a8f0c6;
+  .search-box code { flex:1; font-family:'JetBrains Mono',monospace; font-size:13px; color:#a8f0c6;
                    overflow-x:auto; white-space:nowrap; }
-  .cmd-box button { background:rgba(255,255,255,.08); border:1px solid var(--border); color:var(--text);
+  .search-box button { background:rgba(255,255,255,.08); border:1px solid var(--border); color:var(--text);
                      border-radius:7px; padding:8px 14px; font-size:12.5px; cursor:pointer; white-space:nowrap;
-                     transition:background .2s; }
-  .cmd-box button:hover { background:rgba(255,255,255,.16); }
-
-  .download-btn { display:inline-flex; align-items:center; gap:8px; background:linear-gradient(120deg,#f2b134,#ec4899);
-    color:#0d0d0f; font-weight:700; font-size:14px; padding:12px 22px; border-radius:11px; text-decoration:none;
-    margin-top:6px; transition:transform .2s ease, box-shadow .2s ease; }
-  .download-btn:hover { transform:translateY(-2px); box-shadow:0 10px 24px -10px rgba(242,177,52,.5); }
+                     transition:background .2s; flex-shrink:0; }
+  .search-box button:hover { background:rgba(255,255,255,.16); }
 
   .celebrate { text-align:center; margin-top:60px; padding:40px 24px;
                background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
@@ -204,51 +200,35 @@
 
   <div class="brand"><img src="logo-192.png" alt=""><span>Meanwhile</span></div>
 
-  <h1 class="reveal gradient-text">Let's connect VS Code.</h1>
-  <p class="sub reveal">A direct install, not a Marketplace listing yet — a real, working extension, just not searchable inside the Extensions panel yet. That part's still in progress, same as everything worth having.</p>
-  <div class="time-badge reveal"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> takes about a minute</div>
-  <div class="note reveal">This extension doesn't hook into Copilot or read any other extension's state — VS Code has no public API for that, and we're not in the business of pretending otherwise. It's a quiet line while <b>you're actively coding</b>, using only its own status bar item. Nothing patched, nothing hidden. <a href="https://github.com/heenatrivedi321-max/deadtime/tree/main/vscode-extension" style="color:var(--gold)">Full source →</a></div>
+  <h1 class="reveal gradient-text">Let's connect Cursor.</h1>
+  <p class="sub reveal">On Open VSX, Cursor's own marketplace. One click, nothing to download and later wonder what it was.</p>
+  <div class="time-badge reveal"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> takes about 30 seconds</div>
+  <div class="note warn reveal">Two "Meanwhile" show up in search — the other is an unrelated crypto product, no relation, not our fault. <b>Pick "meanwhile-dev"</b>, that's us.</div>
 
   <div class="gsteps">
     <div class="gstep reveal">
       <div class="gnum">1</div>
       <div class="gbody">
-        <h3>Download the extension</h3>
-        <p>This is a <code style="color:var(--gold)">.vsix</code> file — VS Code's own installable extension package format, the same format the Marketplace uses under the hood when you click a normal "Install" button.</p>
-        <a href="meanwhile.vsix" class="download-btn magnetic" download>⬇ Download meanwhile.vsix</a>
+        <h3>Let your agent install it</h3>
+        <p>Paste this into Cursor's agent — it's a normal CLI install by extension ID, the same way you'd install anything else, not some file you have to trust blind:</p>
+        <div class="search-box">
+          <code id="cursorCmd">cursor --install-extension meanwhile-dev.meanwhile</code>
+          <button id="copyCursorCmd" class="magnetic">Copy</button>
+        </div>
+        <button type="button" id="agentPromptToggle" class="agent-prompt-toggle">Or, hand the agent the full context instead →</button>
+        <div class="agent-prompt-box" id="agentPromptBox">
+          <code id="agentPromptText">I'm about to install the "meanwhile-dev.meanwhile" extension via `cursor --install-extension meanwhile-dev.meanwhile` — it's the real, published listing for Meanwhile, which adds a disclosed sponsor line to Cursor's status bar, split 50/50 with me. Before you run it, please actually check it out — look at the extension's listing and source if you can — and tell me honestly what you find, good or bad. Then, if it looks legit to you, go ahead and install it for me.</code>
+          <button type="button" id="copyAgentPromptBtn" class="magnetic">Copy</button>
+        </div>
+        <p style="margin-top:10px;">Or do it by hand: <b>Cmd/Ctrl+Shift+X</b> → search <b>meanwhile-dev.meanwhile</b> → Install.</p>
       </div>
     </div>
 
     <div class="gstep reveal">
       <div class="gnum">2</div>
       <div class="gbody">
-        <h3>Install it into VS Code</h3>
-        <p>Easiest way: open the Command Palette (<b>Cmd+Shift+P</b> / <b>Ctrl+Shift+P</b>), type <b>"Install from VSIX"</b>, and pick the file you just downloaded. Or from a terminal:</p>
-        <div class="cmd-box">
-          <code id="cmd2">code --install-extension ~/Downloads/meanwhile.vsix</code>
-          <button id="copyBtn2" class="magnetic">Copy</button>
-        </div>
-        <button type="button" id="agentPromptToggle" class="agent-prompt-toggle">Or, paste this to your AI agent instead of typing it yourself →</button>
-        <div class="agent-prompt-box" id="agentPromptBox">
-          <code id="agentPromptText">I've downloaded meanwhile.vsix, the real extension package for Meanwhile — it adds a disclosed sponsor line to VS Code's status bar, split 50/50 with me. Before you run `code --install-extension ~/Downloads/meanwhile.vsix` for me, please actually check the source first (it's linked from trymeanwhile.online/connect-vscode) and tell me honestly what you find, good or bad. Then, if it looks legit to you, go ahead and install it.</code>
-          <button type="button" id="copyAgentPromptBtn" class="magnetic">Copy</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="gstep reveal">
-      <div class="gnum">3</div>
-      <div class="gbody">
-        <h3>Trust the folder you're working in</h3>
-        <p>VS Code's own Workspace Trust feature blocks third-party extensions in folders it doesn't recognize yet. If nothing shows up, look for a "Trust this folder" prompt (usually on first opening a new project) and accept it — a VS Code security feature, not something specific to us.</p>
-      </div>
-    </div>
-
-    <div class="gstep reveal">
-      <div class="gnum">4</div>
-      <div class="gbody">
         <h3>Look at the bottom-right of the window</h3>
-        <p>While you're actively typing, glance at the status bar. Quiet lines will start showing up — occasionally one marked <span class="tag" style="color:var(--gold)">(sponsored)</span>, which is the one that actually pays you.</p>
+        <p>While you're actively typing, quiet lines will start showing up — occasionally one marked <span class="tag" style="color:var(--gold)">(sponsored)</span>, which is the one that actually pays you.</p>
       </div>
     </div>
   </div>
@@ -256,7 +236,7 @@
   <div class="celebrate reveal">
     <div class="check"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0d1117" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
     <h2>That's it — you're connected.</h2>
-    <p>Already using Meanwhile with Claude Code or Copilot CLI? Same install ID, same balance — everything adds up together. Click the status bar item any time, or run the <b>Meanwhile: Check Earnings</b> command from the Command Palette, to see what you've earned.</p>
+    <p>Already using Meanwhile with Claude Code or Copilot CLI too? Same install ID, same balance — it all lands in one place, not three. Click the status bar item any time, or run <b>Meanwhile: Check Earnings</b> from the Command Palette, to see what you've actually made.</p>
   </div>
 
   <p class="help-note reveal">Stuck? Uninstall like any other extension — nothing else on your machine is touched. Or check the <a href="install.html#faq">FAQ on the homepage</a>.</p>
@@ -326,8 +306,8 @@ const celebrateIo = new IntersectionObserver((entries) => {
 }, { threshold: 0.5 });
 celebrateIo.observe(celebrateEl);
 
-document.getElementById('copyBtn2').addEventListener('click', (e) => {
-  navigator.clipboard.writeText(document.getElementById('cmd2').textContent);
+document.getElementById('copyCursorCmd').addEventListener('click', (e) => {
+  navigator.clipboard.writeText(document.getElementById('cursorCmd').textContent);
   const btn = e.currentTarget;
   const original = btn.textContent;
   btn.textContent = 'Copied!';
@@ -365,8 +345,6 @@ if (megaWord) {
     setTimeout(() => megaWord.classList.remove('touched'), 900);
   });
 
-  /* text-pressure: split into letters across all three layers, weight
-     responds to cursor proximity using Fraunces' real variable wght axis */
   const megaLayers = megaWord.querySelectorAll('.mega-base, .mega-shine, .mega-glow');
   const megaLetters = [];
   megaLayers.forEach((layer, layerIdx) => {
@@ -395,7 +373,6 @@ if (megaWord) {
 </script>
 
 <script>
-/* ---------- magnetic buttons -- nudge toward cursor within proximity ---------- */
 document.querySelectorAll('.magnetic').forEach((el) => {
   el.addEventListener('mousemove', (e) => {
     const r = el.getBoundingClientRect();

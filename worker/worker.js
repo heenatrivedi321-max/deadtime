@@ -121,6 +121,17 @@ const TIPS = [
   "You are still here. After everything today asked of you, you are still here.",
 ];
 
+/** Shown only to installs currently inside their active promo window,
+ * only when there's genuinely no real sponsor to display, capped by
+ * PROMO_BONUS_DAILY_CAP -- see the constant's own comment for why this
+ * replaced a fake "(sponsored)" house line that used to bill the same
+ * money with none of the honesty. */
+const PROMO_BONUS_LINES = [
+  "meanwhile: no real sponsors yet -- this one's on us.",
+  "meanwhile: zero advertisers online right now -- have one on the house.",
+  "meanwhile: nothing to sponsor this with yet, so we're covering it ourselves.",
+];
+
 /** "Give the AI a real voice" -- instead of always picking from the
  * static TIPS list above, some fraction of non-sponsor lines are
  * generated fresh by a small, fast model on Cloudflare Workers AI
@@ -175,15 +186,62 @@ async function generateWittyLine(env, state) {
   }
 }
 
-const HOUSE_SPONSOR = "(sponsored) deadtime -- get paid while your agent thinks -> deadtime.dev";
 const IMPRESSIONS_PER_BLOCK = 1000;
-const USD_PER_BLOCK = 2.0;
+const USD_PER_BLOCK = 15.0;
 const PAYPAL_API = "https://api-m.paypal.com"; // LIVE -- real money, no sandbox fallback configured
 
 const FILL_CEILING = 0.8;
 const BILLABLE_THRESHOLD = 10;
-const CPM = 2.0;
+
+/** Before real advertisers exist, pickLine used to fall back to a house
+ * line labeled "(sponsored)" -- and handleLine's billing block counted
+ * it exactly like a real paid impression, no different check at all.
+ * That's a real, live financial hole: it billed (and would eventually
+ * PayPal-payout) real money backed by zero actual ad revenue, completely
+ * unbounded -- scales with however many people install, automatically,
+ * with no cap and no visibility into how much is owed. Worse, it's the
+ * exact kind of "claims one thing, code does another" gap this product
+ * exists specifically to NOT have.
+ *
+ * This replaces that with a decision, not an accident: a small, capped,
+ * honestly-labeled bonus, scoped only to installs currently inside their
+ * active promo window (see isInPromoWindow below) -- a known, time-
+ * bounded population, never a permanent one -- with its own low daily
+ * ceiling completely separate from the real DAILY_BILLABLE_CAP. It's
+ * tracked separately (bonus_calls, not sponsor_calls) so it never
+ * inflates the honest "X% sponsored" stat shown back to the user or on
+ * the public badge. */
+const PROMO_BONUS_DAILY_CAP = 20;
+const CPM = 15.0;
 const USER_SHARE = 0.5;
+
+/** Early-adopter deal, replacing the old permanent "first 100 keep 60%
+ * forever" founder scheme entirely -- deliberately chosen instead of
+ * layering a second forever-perk on top of it, since a permanent
+ * zero/reduced-margin commitment on 1,000 people (10x the old founder
+ * pool) compounds into real, unbounded-over-time cost in a way a
+ * *time-boxed* perk on the same population doesn't. The first
+ * PROMO_SPOTS installs ever to touch the server get PROMO_RATE (100%)
+ * of every real sponsor dollar for PROMO_WINDOW_DAYS days from their own
+ * first contact -- not a shared clock, each install's window starts
+ * when THEY start. After their window closes, they fall to the exact
+ * same USER_SHARE everyone else gets. No permanent tier, for anyone --
+ * the whole promo is bounded by count (1,000) and by time (90 days per
+ * person), so total lifetime exposure is knowable in advance instead of
+ * growing forever the way the old permanent scheme did. */
+const PROMO_SPOTS = 1000;
+const PROMO_RATE = 1.0;
+const PROMO_WINDOW_DAYS = 90;
+const PROMO_WINDOW_SECONDS = PROMO_WINDOW_DAYS * 24 * 60 * 60;
+
+function isInPromoWindow(state) {
+  if (!state || !state.promo_number || !state.promo_started_at) return false;
+  return Date.now() / 1000 - state.promo_started_at < PROMO_WINDOW_SECONDS;
+}
+
+function userShareFor(state) {
+  return isInPromoWindow(state) ? PROMO_RATE : USER_SHARE;
+}
 
 /** ---- The Meanwhile Jackpot ----
  * Once a month, one currently-active developer with a registered payout
@@ -236,6 +294,8 @@ function defaultState() {
   return {
     total_calls: 0,
     sponsor_calls: 0,
+    bonus_calls: 0,
+    bonus_today: 0,
     current_kind: null,
     current_line: null,
     line_started: 0,
@@ -246,7 +306,64 @@ function defaultState() {
     last_payout_at: null,
     billing_day: null,
     billed_today: 0,
+    promo_number: null,
+    promo_started_at: null,
+    daily_earnings: {},
   };
+}
+
+/** Assigns a promo number exactly once, at true first contact with the
+ * server -- whichever endpoint an install hits first (usually /line or
+ * the name-claim call right after install opens the browser). Existing
+ * installs are returned untouched; only a genuinely new one competes for
+ * a spot. KV has no atomic increment, so this is read-modify-write, not
+ * a real compare-and-swap -- at PROMO_SPOTS = 1000 and the traffic this
+ * system sees, a lost race is a real but small risk (worst case, a
+ * spot's number gets reused or the count runs slightly over 1000), not
+ * worth a Durable Object for. Once a number is written it is never
+ * reassigned or revoked -- but unlike the old founder scheme, the RATE
+ * it unlocks still expires after PROMO_WINDOW_DAYS regardless. */
+async function getOrCreateState(env, installId) {
+  const key = `install:${installId}`;
+  const raw = await env.INSTALLS.get(key);
+  if (raw) return JSON.parse(raw);
+
+  const state = defaultState();
+  // meta:promo_count is one shared key across every brand-new install --
+  // fine at low signup volume, but a real burst of concurrent new
+  // installs (a launch spike is exactly this) all try to read-then-write
+  // that same key at once, and Cloudflare KV enforces roughly one write
+  // per second per key. Found live via a 30-concurrent-request stress
+  // test against /line: some of those writes come back "429 Too Many
+  // Requests" from KV itself. Missing out on a promo slot during a
+  // burst is a real but survivable loss (the perk doesn't fire, this
+  // one time); crashing the whole /line call so the new install never
+  // even gets its first line is a much worse failure for exactly the
+  // moment (a launch spike) this matters most. Fail toward the survivable
+  // outcome.
+  try {
+    const countRaw = await env.INSTALLS.get("meta:promo_count");
+    const count = countRaw ? parseInt(countRaw, 10) : 0;
+    if (count < PROMO_SPOTS) {
+      state.promo_number = count + 1;
+      state.promo_started_at = Date.now() / 1000;
+      await env.INSTALLS.put("meta:promo_count", String(count + 1));
+    }
+  } catch (e) {
+    await logError(env, "promo_count_write_failed", `install ${installId} may have missed a promo slot due to KV contention`, e.message);
+  }
+  // Same reasoning as handleLine's final write -- a brand-new install
+  // still needs its first line even if this particular persist fails.
+  // The in-memory `state` returned below is enough for THIS call; if the
+  // write keeps failing, the next call just repeats getOrCreateState's
+  // "no raw record yet" path and tries again, rather than the install
+  // being stuck erroring forever.
+  try {
+    await env.INSTALLS.put(key, JSON.stringify(state));
+  } catch (e) {
+    await logError(env, "install_state_write_failed", `new install ${installId} couldn't be persisted this call`, e.message);
+  }
+  return state;
 }
 
 /** No signup exists anywhere in this system -- an install_id is just a
@@ -346,9 +463,9 @@ function formatCampaignLine(campaign) {
   return `(sponsored) ${campaign.line} -> ${campaign.url}`;
 }
 
-/** Active campaigns are the real, paid-and-activated ad pool -- falls back
- * to the house ad only when nothing real is running, so the slot is never
- * fully empty during early testing. */
+/** Active campaigns are the real, paid-and-activated ad pool. When it's
+ * empty, pickLine falls through to the promo bonus (capped, honestly
+ * labeled) or a plain tip -- never a fake ad standing in for a real one. */
 async function getActiveCampaigns(env) {
   const raw = await env.CAMPAIGNS.get("index");
   const ids = raw ? JSON.parse(raw) : [];
@@ -362,6 +479,30 @@ async function getActiveCampaigns(env) {
     }
   }
   return campaigns;
+}
+
+/** Replaces the old flat FILL_CEILING-as-eligibility-rate with real
+ * pacing math: how much real, remaining, PAID campaign budget is
+ * actually left, right now, versus a reference level considered
+ * "healthy" supply. Rich inventory lets the ceiling approach
+ * FILL_CEILING (still the hard upper bound -- "never 5/5" stays true no
+ * matter how much budget is queued up). Thin inventory scales the
+ * ceiling down toward MIN_CEILING instead of burning through whatever's
+ * left at full rate and then hitting a wall -- the same pacing idea
+ * real ad platforms use to spread a budget across a campaign's full
+ * window instead of exhausting it in the first hour. No active budget
+ * at all returns 0 -- handled honestly by the promo-bonus/tip
+ * fallback in pickLine, never a fake ad standing in for a real one. */
+const PACING_REFERENCE_IMPRESSIONS = 200;
+const MIN_CEILING = 0.15;
+function computeEffectiveCeiling(activeCampaigns) {
+  const totalRemaining = activeCampaigns.reduce(
+    (sum, c) => sum + Math.max(0, c.impressions_total - c.impressions_delivered),
+    0
+  );
+  if (totalRemaining <= 0) return 0;
+  const pressure = Math.min(1, totalRemaining / PACING_REFERENCE_IMPRESSIONS);
+  return MIN_CEILING + (FILL_CEILING - MIN_CEILING) * pressure;
 }
 
 async function pickLine(env, state) {
@@ -386,23 +527,47 @@ async function pickLine(env, state) {
     return { kind: "heartbeat", line };
   }
 
-  const ratio = sponsorRatio(state);
-  const eligible = ratio < FILL_CEILING && Math.random() < FILL_CEILING;
-  if (!eligible) {
-    if (Math.random() < WITTY_CHANCE) {
-      const witty = await generateWittyLine(env, state);
-      if (witty) return { kind: "tip", line: witty };
-    }
-    return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
-  }
-
+  // Real supply/demand math, not a call to a model -- this runs on every
+  // single /line request, the hottest path in the app, and it's a
+  // numeric decision (how much real inventory is actually left), not a
+  // creative one. Fetched here, not after the eligibility check, so the
+  // real remaining budget across active campaigns can inform that check
+  // instead of the other way around -- no extra KV read versus before,
+  // getActiveCampaigns() was already called further down regardless.
   const active = await getActiveCampaigns(env);
-  if (active.length > 0) {
+  const effectiveCeiling = computeEffectiveCeiling(active);
+  const ratio = sponsorRatio(state);
+
+  // Real sponsor slot, paced by real remaining campaign budget.
+  if (active.length > 0 && effectiveCeiling > 0 && ratio < effectiveCeiling && Math.random() < effectiveCeiling) {
     const campaign = active[Math.floor(Math.random() * active.length)];
     return { kind: "sponsor", line: formatCampaignLine(campaign), campaign_id: campaign.id };
   }
-  // no real paid campaigns yet -- house ad keeps the mechanism testable
-  return { kind: "sponsor", line: HOUSE_SPONSOR, campaign_id: null };
+
+  // No real sponsor this time -- either there's genuinely no active
+  // campaign, or there is but the pacing roll didn't land one. Installs
+  // currently inside their active promo window (a known, time-bounded
+  // population) still get a shot at an honestly-labeled bonus instead of
+  // a fake ad, gated by the FLAT FILL_CEILING rate a real sponsor slot
+  // would've used in a demand-rich world -- deliberately NOT the real-
+  // inventory-aware effectiveCeiling above. Tying the bonus to that
+  // instead would make it structurally unreachable exactly when it's
+  // needed most: confirmed live, with zero active campaigns
+  // effectiveCeiling is always 0, and the original single shared
+  // eligibility check meant this whole branch could never fire at all
+  // while real advertiser demand was zero -- precisely the condition
+  // the bonus exists to cover. Everyone outside their promo window just
+  // gets a real tip; showing NOTHING paid is the honest answer when
+  // there's genuinely nothing to sponsor it with, not a disguised ad.
+  if (isInPromoWindow(state) && (state.bonus_today || 0) < PROMO_BONUS_DAILY_CAP && Math.random() < FILL_CEILING) {
+    const line = PROMO_BONUS_LINES[Math.floor(Math.random() * PROMO_BONUS_LINES.length)];
+    return { kind: "bonus", line };
+  }
+  if (Math.random() < WITTY_CHANCE) {
+    const witty = await generateWittyLine(env, state);
+    if (witty) return { kind: "tip", line: witty };
+  }
+  return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
 }
 
 /** Public, stateless, no install_id, no KV write, no billing -- exists
@@ -504,7 +669,17 @@ export class CampaignCounter {
     delivered += 1;
     await this.state.storage.put("impressions_delivered", delivered);
 
+    // Same durable-first pattern for the per-day breakdown, so the
+    // advertiser dashboard has something to chart -- a running total
+    // alone can't show "is this picking up or slowing down."
+    let daily = await this.state.storage.get("daily_impressions");
+    if (daily === undefined) daily = campaign.daily_impressions || {};
+    const today = todayUTC();
+    daily[today] = (daily[today] || 0) + 1;
+    await this.state.storage.put("daily_impressions", daily);
+
     campaign.impressions_delivered = delivered;
+    campaign.daily_impressions = daily;
     if (delivered >= campaign.impressions_total) {
       campaign.status = "exhausted";
     }
@@ -514,10 +689,65 @@ export class CampaignCounter {
   }
 }
 
-async function handleLine(env, installId, eventName) {
+/** Does this call carry ANY real session telemetry at all? A script just
+ * pinging /line on a timer, with no genuine Claude Code/Copilot process
+ * behind it, has nothing to put in these fields -- they only exist
+ * because a real client read them off real session state. */
+function hasSessionEvidence(ev) {
+  return !!(ev.sessionId || ev.cwdHash || ev.cost !== null || ev.tokens !== null);
+}
+
+/** Did the session actually move between when this line started and now?
+ * No baseline to compare against (fresh state) can't be penalized -- but
+ * in practice that path is already unreachable, since a fresh install's
+ * current_line starts null and nothing bills on the very first call.
+ *
+ * cost/tokens must strictly INCREASE, not merely differ -- a real turn
+ * always costs something more than the last one, but "differ" is also
+ * satisfied by a static-then-decremented fake, or by a script that just
+ * flips a value back and forth. Checking `>` instead of `!==` closes
+ * that off for free.
+ *
+ * cwdHash/sessionId no longer count on their own. They used to be
+ * independent OR branches -- which meant a scripted loop could skip
+ * faking cost/tokens entirely and just randomize a fake sessionId (or
+ * cwd) every call, since either one alone was accepted as "progress".
+ * That's the actual gap a static analysis of this function doesn't
+ * show but a scripted client trivially exploits: sessionId/cwdHash are
+ * arbitrary client strings with no cost to change, unlike cost/tokens
+ * which at least have to look like real accumulating usage. They're
+ * kept only as a fallback for clients that never send cost/tokens at
+ * all (hasSessionEvidence still admits sessionId/cwdHash-only evidence
+ * as "some" evidence, so this keeps that path honest rather than
+ * silently billing it as free real usage).
+ *
+ * Real trade-off, accepted on purpose: total_input_tokens/cost are
+ * per-session counters, so the very first event right after a genuinely
+ * new Claude Code session starts (new terminal, etc.) can show a lower
+ * number than the just-ended session's baseline -- that one event goes
+ * unbilled. Every event after it bills normally once the new session's
+ * own counters climb past its own baseline. There's no way to tell that
+ * real reset apart from an attacker claiming one (both look identical
+ * from the server's side), so this fails in the safe direction -- same
+ * philosophy as the jackpot ledger elsewhere in this file: missing one
+ * legitimate billable event beats leaving the trivial-to-fake shortcut
+ * open. */
+function sessionProgressed(baseline, current) {
+  if (!baseline) return true;
+  if (current.cost !== null && baseline.cost !== null && current.cost > baseline.cost) return true;
+  if (current.tokens !== null && baseline.tokens !== null && current.tokens > baseline.tokens) return true;
+  const noCostEvidence = current.cost === null && baseline.cost === null;
+  const noTokenEvidence = current.tokens === null && baseline.tokens === null;
+  if (noCostEvidence && noTokenEvidence) {
+    if (current.cwdHash && baseline.cwdHash && current.cwdHash !== baseline.cwdHash) return true;
+    if (current.sessionId && baseline.sessionId && current.sessionId !== baseline.sessionId) return true;
+  }
+  return false;
+}
+
+async function handleLine(env, installId, eventName, sessionEvidence) {
   const key = `install:${installId}`;
-  const raw = await env.INSTALLS.get(key);
-  const state = raw ? JSON.parse(raw) : defaultState();
+  const state = await getOrCreateState(env, installId);
   const now = Date.now() / 1000;
 
   // Claude Code only calls us on real events (new message, session start,
@@ -529,17 +759,55 @@ async function handleLine(env, installId, eventName) {
   if (state.billing_day !== today) {
     state.billing_day = today;
     state.billed_today = 0;
+    state.bonus_today = 0;
   }
 
   if (state.current_line !== null && !state.billed_current) {
     const visibleFor = now - state.line_started;
-    if (visibleFor >= BILLABLE_THRESHOLD) {
+    // Time alone was the whole check before -- but an install ID is just a
+    // UUID sitting in a local file, readable (and fakeable) by whoever
+    // owns that install. A script that knows its own ID can ping /line on
+    // a timer with zero real Claude Code session behind it, and time-only
+    // billing couldn't tell the difference -- worse, sponsor calls bill
+    // real advertiser budget for impressions nobody ever saw. Requiring
+    // genuine session evidence, and requiring it to have actually moved
+    // since this line started, closes that off without needing to trust
+    // anything the client merely claims.
+    // The `wrap` command (npx trymeanwhile wrap -- <any shell command>) has
+    // no Claude Code/Copilot session to read telemetry from -- it's a
+    // different, trusted client polling on its own fixed 15s loop while a
+    // real child process it spawned is genuinely still running. Not the
+    // vector this fix targets, so it keeps the time-only check it always
+    // had rather than being broken by a requirement it has no way to meet.
+    const isWrapCommand = eventName === "cli_wrap";
+    const hasEvidence = isWrapCommand || hasSessionEvidence(sessionEvidence);
+    const progressed = isWrapCommand || (hasEvidence && sessionProgressed(state.line_started_session || null, sessionEvidence));
+    if (visibleFor >= BILLABLE_THRESHOLD && progressed) {
       if (state.billed_today < DAILY_BILLABLE_CAP) {
+        state.billed_current = true;
         state.total_calls += 1;
         state.billed_today += 1;
         if (state.current_kind === "sponsor") {
           state.sponsor_calls += 1;
+          // Same reasoning as campaigns' daily_impressions: a running
+          // total alone can't show "is this picking up or slowing down,"
+          // so the user's own dashboard needs a day-by-day breakdown too.
+          if (!state.daily_earnings) state.daily_earnings = {};
+          const earnedThisCall = userShareFor(state) * (CPM / 1000);
+          state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
           await deliverImpression(env, state.current_campaign_id);
+        } else if (state.current_kind === "bonus" && (state.bonus_today || 0) < PROMO_BONUS_DAILY_CAP) {
+          // Real money, same as a sponsor call, but tracked completely
+          // separately (bonus_calls, not sponsor_calls) so it never
+          // inflates the honest "X% sponsored" stat this same state
+          // feeds into elsewhere -- this was never a sponsor, it's an
+          // admitted, capped, on-purpose subsidy. No deliverImpression
+          // call: there's no real campaign budget to decrement.
+          state.bonus_calls = (state.bonus_calls || 0) + 1;
+          state.bonus_today = (state.bonus_today || 0) + 1;
+          if (!state.daily_earnings) state.daily_earnings = {};
+          const earnedThisCall = userShareFor(state) * (CPM / 1000);
+          state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
         }
       } else if (state.billed_today === DAILY_BILLABLE_CAP) {
         // Log once, not on every call past the cap -- a real signal
@@ -547,6 +815,13 @@ async function handleLine(env, installId, eventName) {
         state.billed_today += 1;
         await logError(env, "daily_billable_cap_hit", `install ${installId} hit the ${DAILY_BILLABLE_CAP}/day billable cap`, "either a genuinely extreme real user, or automated polling -- worth a look");
       }
+    } else if (visibleFor >= BILLABLE_THRESHOLD && !progressed) {
+      // Time threshold cleared but nothing about the session moved --
+      // looks like a faked/static ping, not real usage. Don't bill, and
+      // don't log per-call (a slow real session between rare events could
+      // still legitimately trip this occasionally); only a sustained
+      // pattern is worth a human looking at, which the daily-cap log
+      // already exists to catch for the volume side of that.
     }
   }
 
@@ -556,26 +831,54 @@ async function handleLine(env, installId, eventName) {
   state.current_line = picked.line;
   state.current_campaign_id = picked.campaign_id || null;
   state.line_started = now;
+  state.line_started_session = hasSessionEvidence(sessionEvidence) ? sessionEvidence : null;
   state.billed_current = false;
   state.last_event = eventName || "unknown";
 
-  await env.INSTALLS.put(key, JSON.stringify(state));
-  return json({ line: state.current_line, kind: state.current_kind });
+  // The one thing that actually matters to a real user is getting a line
+  // back -- state persistence (billing, daily_earnings, session baseline
+  // for next call's progressed-check) is real but secondary. A downstream
+  // KV outage (quota exhaustion, a transient Cloudflare incident) should
+  // degrade to "this call's billing/tracking silently doesn't stick" --
+  // survivable, self-heals the moment KV writes work again -- not "every
+  // real developer's status line goes blank and the whole product looks
+  // down." Found live: a KV daily-write-quota exhaustion turned this one
+  // unguarded put() into a 500 for every single /line call account-wide.
+  try {
+    await env.INSTALLS.put(key, JSON.stringify(state));
+  } catch (e) {
+    await logError(env, "install_state_write_failed", `install ${installId}'s state didn't persist this call`, e.message);
+  }
+  // Real money can sit uncollected forever if someone skips the payout
+  // step during onboarding and never comes back to it -- the terminal is
+  // the only channel that reaches them regularly, so it's the only place
+  // this reminder can actually land. Gated on total_calls so a brand-new
+  // install isn't nagged before it's earned anything worth collecting.
+  const needsPayout = !state.payout_email && state.total_calls >= 5;
+  return json({ line: state.current_line, kind: state.current_kind, needs_payout: needsPayout });
 }
 
 async function handleEarnings(env, installId) {
   const raw = await env.INSTALLS.get(`install:${installId}`);
   const state = raw ? JSON.parse(raw) : defaultState();
-  const revenue = state.sponsor_calls * (CPM / 1000);
+  const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+  const inPromo = isInPromoWindow(state);
+  const promoDaysLeft = inPromo
+    ? Math.max(0, Math.ceil((PROMO_WINDOW_SECONDS - (Date.now() / 1000 - state.promo_started_at)) / 86400))
+    : 0;
   return json({
     total_calls: state.total_calls,
     sponsor_calls: state.sponsor_calls,
     sponsor_ratio: sponsorRatio(state),
     gross_revenue: revenue,
-    user_earnings: revenue * USER_SHARE,
+    user_earnings: revenue * userShareFor(state),
     payout_email: state.payout_email || null,
     jackpot_won_total: state.jackpot_won_total || 0,
     name: state.name || null,
+    promo_number: state.promo_number || null,
+    promo_active: inPromo,
+    promo_days_left: promoDaysLeft,
+    daily_earnings: state.daily_earnings || {},
   });
 }
 
@@ -599,12 +902,20 @@ async function handleSetName(request, env) {
   if (!trimmed || /[<>]/.test(trimmed)) return json({ error: "invalid name" }, 400);
 
   const key = `install:${id}`;
-  const raw = await env.INSTALLS.get(key);
-  const state = raw ? JSON.parse(raw) : defaultState();
+  const state = await getOrCreateState(env, id);
   state.name = trimmed.slice(0, NAME_MAX_LEN);
-  await env.INSTALLS.put(key, JSON.stringify(state));
+  // Same reasoning as handleLine's final write -- this is step one of
+  // onboarding for a brand-new user. A write failure here (KV quota,
+  // a transient outage) must not hard-block every new signup; worst
+  // case the name doesn't stick and they're asked again next visit,
+  // which is recoverable. A 500 here is not.
+  try {
+    await env.INSTALLS.put(key, JSON.stringify(state));
+  } catch (e) {
+    await logError(env, "install_state_write_failed", `set-name for install ${id} didn't persist`, e.message);
+  }
 
-  return json({ ok: true, name: state.name });
+  return json({ ok: true, name: state.name, promo_number: state.promo_number || null });
 }
 
 /** Shields.io-style embeddable SVG badge -- "prove your earnings are
@@ -672,8 +983,8 @@ async function handleBadge(env, request) {
     const raw = await env.INSTALLS.get(`install:${id}`);
     if (raw) {
       const state = JSON.parse(raw);
-      const revenue = state.sponsor_calls * (CPM / 1000);
-      const earnings = revenue * USER_SHARE;
+      const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+      const earnings = revenue * userShareFor(state);
       value = `$${earnings.toFixed(2)}`;
       color = "#e8c896";
     } else {
@@ -717,6 +1028,39 @@ const PAYOUT_THRESHOLD_USD = 25;
  * already-registered one requires proving you know the current value
  * too -- an install ID alone is no longer enough once real money has a
  * real destination attached. */
+/** register-payout is the cash-out step -- the one place a scripted fake
+ * install (random UUID, faked-but-"progressing" session evidence to get
+ * past sessionProgressed in handleLine) actually turns into real money
+ * moving. Turnstile is the cheapest choke point: a human solves it once
+ * per registration, a script can't. Fails open only while the secret
+ * isn't configured yet (so the endpoint doesn't break before ops sets
+ * it up) -- once TURNSTILE_SECRET_KEY exists, a missing/invalid token
+ * is a hard reject, not a soft warning. */
+async function checkTurnstile(token, ip, env) {
+  if (!env.TURNSTILE_SECRET_KEY) return { ok: true };
+  if (!token) return { ok: false, reason: "verification required" };
+  try {
+    const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET_KEY, response: token });
+    if (ip && ip !== "unknown") body.set("remoteip", ip);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const result = await res.json();
+    if (!result.success) return { ok: false, reason: "verification failed -- try again" };
+    return { ok: true };
+  } catch {
+    // Cloudflare's own verify endpoint being unreachable isn't the
+    // registrant's fault -- fail open on transport errors, same as the
+    // advertiser email check does on its own API's downtime.
+    return { ok: true };
+  }
+}
+
 async function handleRegisterPayout(request, env) {
   let data;
   try {
@@ -724,14 +1068,16 @@ async function handleRegisterPayout(request, env) {
   } catch {
     return json({ error: "bad json" }, 400);
   }
-  const { id, email, current_email } = data;
+  const { id, email, current_email, turnstile_token } = data;
   if (!id || !email) return json({ error: "missing id or email" }, 400);
   if (!isValidId(id)) return json({ error: "invalid id" }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "invalid email" }, 400);
 
+  const turnstileResult = await checkTurnstile(turnstile_token, request.headers.get("CF-Connecting-IP"), env);
+  if (!turnstileResult.ok) return json({ error: turnstileResult.reason }, 403);
+
   const key = `install:${id}`;
-  const raw = await env.INSTALLS.get(key);
-  const state = raw ? JSON.parse(raw) : defaultState();
+  const state = await getOrCreateState(env, id);
 
   if (state.payout_email && state.payout_email.toLowerCase() !== email.toLowerCase()) {
     if (!current_email || current_email.toLowerCase() !== state.payout_email.toLowerCase()) {
@@ -741,15 +1087,27 @@ async function handleRegisterPayout(request, env) {
   }
 
   state.payout_email = email;
-  await env.INSTALLS.put(key, JSON.stringify(state));
+  // Unlike handleLine's or set-name's writes, this one can't fail soft --
+  // it's the actual money destination. Silently claiming "ok" while the
+  // email never persisted would mean a real payout later has nowhere to
+  // go, which is worse than an honest "try again" now. So this stays a
+  // hard failure, just an accurate one instead of a raw KV error leaking
+  // through the generic 500 handler.
+  try {
+    await env.INSTALLS.put(key, JSON.stringify(state));
+  } catch (e) {
+    await logError(env, "install_state_write_failed", `register-payout for install ${id} couldn't persist the email`, e.message);
+    return json({ error: "couldn't save this right now -- try again in a few minutes" }, 503);
+  }
 
-  const revenue = state.sponsor_calls * (CPM / 1000);
-  const earnings = revenue * USER_SHARE;
+  const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+  const earnings = revenue * userShareFor(state);
   return json({
     ok: true,
     email,
     current_earnings: earnings,
     payout_threshold: PAYOUT_THRESHOLD_USD,
+    promo_number: state.promo_number || null,
   });
 }
 
@@ -848,6 +1206,42 @@ async function runPayouts(env) {
   }
 }
 
+/** The product's own stated model is one person = one install ID,
+ * shared across every tool they connect (terms.html says as much). So
+ * the same payout email legitimately paying out from more than a
+ * couple of *different* install IDs is already outside how the system
+ * is supposed to be used -- exactly the shape a script minting fake
+ * UUIDs and routing them all to one real email would produce. Generous
+ * on purpose (a shared family machine, a lost-and-reinstalled ID) --
+ * this flags for manual review rather than hard-blocking, since a false
+ * positive here means a real developer's real money gets held, not
+ * just delayed. */
+const MAX_PAID_INSTALLS_PER_EMAIL = 3;
+function payeeKey(email) {
+  return `payee_installs:${email.toLowerCase()}`;
+}
+async function getPaidInstallsForEmail(env, email) {
+  const raw = await env.INSTALLS.get(payeeKey(email));
+  return raw ? JSON.parse(raw) : [];
+}
+async function recordPaidInstallForEmail(env, email, installId) {
+  const ids = await getPaidInstallsForEmail(env, email);
+  if (!ids.includes(installId)) {
+    ids.push(installId);
+    await env.INSTALLS.put(payeeKey(email), JSON.stringify(ids));
+  }
+}
+
+/** Informational only -- a real install can legitimately run near-100%
+ * sponsor fill whenever advertiser demand is high, so this can't be a
+ * hard block without risking real users' payouts. But it's exactly the
+ * signature a scripted fake install produces (every billable call lands
+ * as "sponsor" since there's no real tip/sponsor mix from genuine
+ * variable usage), so it's worth a human glancing at before or after
+ * the money moves, not worth blocking on its own. */
+const SPONSOR_RATIO_ALERT_THRESHOLD = 0.97;
+const SPONSOR_RATIO_ALERT_MIN_CALLS = 30;
+
 async function runPayoutsLocked(env) {
   const results = [];
   let cursor;
@@ -859,12 +1253,24 @@ async function runPayoutsLocked(env) {
       const state = JSON.parse(raw);
       if (!state.payout_email) continue;
 
-      const revenue = state.sponsor_calls * (CPM / 1000);
-      const earnings = revenue * USER_SHARE;
+      const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+      const earnings = revenue * userShareFor(state);
       const unpaid = earnings - (state.paid_out_usd || 0);
       if (unpaid < PAYOUT_THRESHOLD_USD) continue;
 
       const installId = key.name.replace(/^install:/, "");
+      const ratio = sponsorRatio(state);
+      if (ratio >= SPONSOR_RATIO_ALERT_THRESHOLD && state.total_calls >= SPONSOR_RATIO_ALERT_MIN_CALLS) {
+        await logError(env, "sponsor_ratio_anomaly", `install ${installId} is at ${(ratio * 100).toFixed(1)}% sponsor fill over ${state.total_calls} calls, about to pay $${unpaid.toFixed(2)}`, `payout_email: ${state.payout_email}`);
+      }
+
+      const paidInstallsForEmail = await getPaidInstallsForEmail(env, state.payout_email);
+      if (!paidInstallsForEmail.includes(installId) && paidInstallsForEmail.length >= MAX_PAID_INSTALLS_PER_EMAIL) {
+        results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "held_for_review", detail: "email already paid out from too many other install IDs" });
+        await logError(env, "payout_held_email_cap", `install ${installId} held -- ${state.payout_email} already has ${paidInstallsForEmail.length} other paid-out install IDs (cap ${MAX_PAID_INSTALLS_PER_EMAIL})`, JSON.stringify(paidInstallsForEmail));
+        continue;
+      }
+
       try {
         const outcome = await sendPayPalPayout(env, installId, state.payout_email, unpaid);
         const status = outcome.item_status;
@@ -885,6 +1291,7 @@ async function runPayoutsLocked(env) {
         state.last_payout_at = Date.now() / 1000;
         state.last_payout_status = status;
         await env.INSTALLS.put(key.name, JSON.stringify(state));
+        await recordPaidInstallForEmail(env, state.payout_email, installId);
         results.push({ install_id: installId, email: state.payout_email, amount: unpaid, status: "sent", detail: status });
         if (status !== "SUCCESS") {
           await logError(env, "payout_needs_review", `payout of $${unpaid.toFixed(2)} to install ${installId} (${state.payout_email}) is not a confirmed SUCCESS`, `PayPal status: ${status} -- check if the email is actually a real PayPal account`);
@@ -1120,13 +1527,191 @@ const LEAD_RATE_WINDOW_SECONDS = 3600;
  * this -- it's bound in wrangler.toml but was otherwise completely
  * unused. KV's native TTL expiration makes this genuinely free
  * cleanup, no cron needed. */
+// Same fail-open reasoning as checkLineRateLimit -- a rate limiter's own
+// KV read/write breaking (quota exhaustion, a transient outage) must
+// never itself block the real request it's guarding. Found live: this
+// exact gap was crashing verify-advertiser -- the FIRST step of the
+// advertiser signup form -- for every new advertiser while KV writes
+// were failing account-wide, blocking real paying customers from ever
+// reaching the payment step.
 async function checkLeadRateLimit(env, ip) {
   const key = `ratelimit:lead:${ip}`;
-  const raw = await env.LEADS.get(key);
-  const count = raw ? parseInt(raw, 10) : 0;
-  if (count >= LEAD_RATE_LIMIT) return false;
-  await env.LEADS.put(key, String(count + 1), { expirationTtl: LEAD_RATE_WINDOW_SECONDS });
+  try {
+    const raw = await env.LEADS.get(key);
+    const count = raw ? parseInt(raw, 10) : 0;
+    if (count >= LEAD_RATE_LIMIT) return false;
+    await env.LEADS.put(key, String(count + 1), { expirationTtl: LEAD_RATE_WINDOW_SECONDS });
+  } catch (e) {
+    await logError(env, "lead_rate_limit_check_failed", `rate limit check for ${ip} failed open`, e.message);
+  }
   return true;
+}
+
+/** /line is the hottest endpoint in the app by a wide margin -- every
+ * real event from every real running install hits it, event-driven with
+ * no refreshInterval (see handleLine), so genuine usage realistically
+ * never approaches more than a handful of calls a minute even from
+ * someone coding hard. Scoped to install ID only, on purpose: install
+ * IDs are unique UUIDs, so concurrent requests for different installs
+ * never collide on the same KV key. An earlier version of this also
+ * kept a per-IP counter -- one shared key written on every single call
+ * from that IP -- which sounds fine until enough concurrent traffic
+ * from one IP (an office network, a VPN, or just a burst of real
+ * requests) hits Cloudflare KV's own ~1-write/sec-per-key ceiling and
+ * the writes themselves start failing with real 500s. Caught live via
+ * a 25-request concurrent stress test against this exact endpoint --
+ * every failure was "KV PUT failed: 429 Too Many Requests" on that one
+ * shared key, not anything about the rate-limit logic itself. Per-
+ * install keys don't have this problem since no two different installs
+ * ever write the same key, and the install-level cap already covers
+ * the main threat (one fake install hammered). The "many fake installs
+ * from one IP" case is still bounded elsewhere -- Turnstile on cash-out,
+ * the monotonic sessionProgressed check, and the per-email payout cap
+ * all sit downstream of this and don't share this hot-key problem. */
+const LINE_RATE_LIMIT_PER_INSTALL = 40;
+const LINE_RATE_WINDOW_PER_INSTALL_SECONDS = 60;
+
+async function checkLineRateLimit(env, installId) {
+  const installKey = `ratelimit:line:install:${installId}`;
+  // This check runs before handleLine even starts, so an unguarded
+  // failure here would crash /line entirely -- worse than the thing
+  // it's meant to protect against. If KV itself can't be read or
+  // written to right now (quota exhaustion, a transient outage), fail
+  // open: let the real line through uncounted rather than block every
+  // real user because the rate limiter's own bookkeeping broke.
+  try {
+    const installRaw = await env.LEADS.get(installKey);
+    const installCount = installRaw ? parseInt(installRaw, 10) : 0;
+    if (installCount >= LINE_RATE_LIMIT_PER_INSTALL) {
+      return { ok: false };
+    }
+    await env.LEADS.put(installKey, String(installCount + 1), { expirationTtl: LINE_RATE_WINDOW_PER_INSTALL_SECONDS });
+  } catch (e) {
+    await logError(env, "line_rate_limit_check_failed", `rate limit check for install ${installId} failed open`, e.message);
+  }
+  return { ok: true };
+}
+
+const VERIFY_RATE_LIMIT = 10;
+const VERIFY_RATE_WINDOW_SECONDS = 3600;
+
+/** Same KV-TTL rate-limit pattern as checkLeadRateLimit, separate key
+ * prefix -- Abstract API's free tier is only 100 checks/month, so this
+ * endpoint needs its own tighter cap or a handful of bots could burn
+ * the whole month's quota in minutes. */
+async function checkVerifyRateLimit(env, ip) {
+  const key = `ratelimit:verify:${ip}`;
+  try {
+    const raw = await env.LEADS.get(key);
+    const count = raw ? parseInt(raw, 10) : 0;
+    if (count >= VERIFY_RATE_LIMIT) return false;
+    await env.LEADS.put(key, String(count + 1), { expirationTtl: VERIFY_RATE_WINDOW_SECONDS });
+  } catch (e) {
+    await logError(env, "verify_rate_limit_check_failed", `rate limit check for ${ip} failed open`, e.message);
+  }
+  return true;
+}
+
+/** Real checks, not just format validation -- format-valid doesn't mean
+ * real (https://imgonnakillmeanwhile.com parses fine and isn't a real
+ * business). URL: fetch it live, confirm the domain actually resolves
+ * and serves something. Email: Abstract API's Email Reputation product,
+ * which does a real SMTP-level check against the receiving mail server
+ * (confirmed working even against Gmail) plus disposable/fake-domain
+ * detection. */
+async function handleVerifyAdvertiser(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const allowed = await checkVerifyRateLimit(env, ip);
+  if (!allowed) {
+    return json({ error: `too many verification attempts -- try again in under an hour (limit: ${VERIFY_RATE_LIMIT}/hour)` }, 429);
+  }
+
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  const { url: rawUrl, email } = data;
+  if (!rawUrl || !email) {
+    return json({ error: "missing url or email" }, 400);
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(rawUrl);
+    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") throw new Error("bad protocol");
+  } catch {
+    return json({ url_ok: false, url_reason: "not a valid, complete URL", email_ok: null, email_reason: null });
+  }
+
+  const [urlResult, emailResult] = await Promise.all([
+    checkUrlIsLive(parsedUrl.toString()),
+    checkEmailIsReal(email, env),
+  ]);
+
+  return json({
+    url_ok: urlResult.ok,
+    url_reason: urlResult.reason,
+    email_ok: emailResult.ok,
+    email_reason: emailResult.reason,
+  });
+}
+
+async function checkUrlIsLive(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    let res;
+    try {
+      res = await fetch(url, { method: "HEAD", redirect: "follow", signal: controller.signal });
+    } catch {
+      // Some servers reject HEAD outright -- fall back to a real GET
+      // before concluding the site is unreachable.
+      res = await fetch(url, { method: "GET", redirect: "follow", signal: controller.signal });
+    }
+    clearTimeout(timeout);
+    if (res.status >= 200 && res.status < 500) {
+      return { ok: true, reason: null };
+    }
+    return { ok: false, reason: `site responded with ${res.status}` };
+  } catch (e) {
+    clearTimeout(timeout);
+    return { ok: false, reason: "couldn't reach this site -- check the URL is live" };
+  }
+}
+
+async function checkEmailIsReal(email, env) {
+  if (!env.ABSTRACT_API_KEY) {
+    // Key not configured -- fail open rather than blocking every advertiser
+    // because of an ops gap. Format was already checked client-side.
+    return { ok: true, reason: null };
+  }
+  try {
+    const apiUrl = `https://emailreputation.abstractapi.com/v1/?api_key=${env.ABSTRACT_API_KEY}&email=${encodeURIComponent(email)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      return { ok: true, reason: null }; // fail open on API-side errors
+    }
+    const result = await res.json();
+    if (result?.email_quality?.is_disposable === true) {
+      return { ok: false, reason: "disposable/temporary email addresses aren't allowed" };
+    }
+    const status = result?.email_deliverability?.status;
+    if (status === "undeliverable") {
+      return { ok: false, reason: "this mailbox doesn't appear to exist" };
+    }
+    // "deliverable" or "unknown" -- unknown means the API genuinely
+    // couldn't determine mailbox existence (rare), treat as a pass
+    // rather than blocking a legitimate advertiser on an inconclusive
+    // signal.
+    return { ok: true, reason: null };
+  } catch {
+    return { ok: true, reason: null }; // fail open on timeout/network error
+  }
 }
 
 async function handleAdvertiserLead(request, env) {
@@ -1170,7 +1755,15 @@ async function handleAdvertiserLead(request, env) {
   if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
     return json({ error: "url must start with http:// or https://" }, 400);
   }
-  const blocks = Math.max(1, Math.min(1000, parseInt(data.blocks, 10) || 1));
+  // Pay whatever you want, get impressions computed from it -- no fixed
+  // tiers, no artificial block sizes. Just enough sanitizing to keep the
+  // number real: a positive, finite dollar amount, not NaN/Infinity/
+  // negative from a malformed or hostile request.
+  const amountUsd = Math.round(parseFloat(data.amount_usd) * 100) / 100;
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+    return json({ error: "amount_usd must be a positive number" }, 400);
+  }
+  const impressionsTotal = Math.round((amountUsd / USD_PER_BLOCK) * IMPRESSIONS_PER_BLOCK);
 
   const id = crypto.randomUUID();
   const campaign = {
@@ -1179,10 +1772,10 @@ async function handleAdvertiserLead(request, env) {
     url: String(data.url).slice(0, 300),
     company: String(data.company).slice(0, 100),
     email: String(data.email).slice(0, 200),
-    blocks,
-    price_usd: blocks * USD_PER_BLOCK,
-    impressions_total: blocks * IMPRESSIONS_PER_BLOCK,
+    price_usd: amountUsd,
+    impressions_total: impressionsTotal,
     impressions_delivered: 0,
+    daily_impressions: {},
     status: "pending_payment",
     created_at: Date.now() / 1000,
     activated_at: null,
@@ -1709,10 +2302,10 @@ async function handleCampaignStatus(env, campaignId) {
     line: c.line,
     url: c.url,
     company: c.company,
-    blocks: c.blocks,
     price_usd: c.price_usd,
     impressions_total: c.impressions_total,
     impressions_delivered: c.impressions_delivered,
+    daily_impressions: c.daily_impressions || {},
     status: c.status,
     created_at: c.created_at,
     activated_at: c.activated_at,
@@ -1881,8 +2474,25 @@ export default {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "missing ?id=" }, 400);
       if (!isValidId(id)) return json({ error: "invalid id" }, 400);
+
+      const rateLimit = await checkLineRateLimit(env, id);
+      if (!rateLimit.ok) {
+        return json({ error: "too many requests -- slow down" }, 429);
+      }
+
       const eventName = url.searchParams.get("event");
-      return handleLine(env, id, eventName);
+      // 0 is a real, meaningful value here (a session's very first call has
+      // genuinely spent $0 and 0 tokens) -- `|| null` would wrongly treat
+      // that as "missing", so check finiteness explicitly instead.
+      const parsedCost = parseFloat(url.searchParams.get("cost"));
+      const parsedTokens = parseInt(url.searchParams.get("tok"), 10);
+      const sessionEvidence = {
+        sessionId: url.searchParams.get("sid") || "",
+        cost: Number.isFinite(parsedCost) ? parsedCost : null,
+        tokens: Number.isFinite(parsedTokens) ? parsedTokens : null,
+        cwdHash: url.searchParams.get("cwd") || "",
+      };
+      return handleLine(env, id, eventName, sessionEvidence);
     }
 
     if (request.method === "GET" && url.pathname === "/earnings") {
@@ -1911,6 +2521,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/advertiser-lead") {
       return handleAdvertiserLead(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/verify-advertiser") {
+      return handleVerifyAdvertiser(request, env);
     }
 
     if (request.method === "GET" && url.pathname === "/campaign-status") {
@@ -2003,7 +2617,12 @@ export default {
     // Anything else falls through to the static site (install.html,
     // advertiser.html, claim.html) served from the same Worker via assets.
     // Root and /claim have no matching filename -- rewrite explicitly.
-    if (request.method === "GET") {
+    // HEAD is included alongside GET: link-checkers, crawlers, and some
+    // social-card unfurlers probe with HEAD before ever issuing a GET, and
+    // env.ASSETS.fetch handles HEAD correctly (headers only, no body) on
+    // its own -- this was previously GET-only, so every HEAD request to
+    // every page on the site returned a bare 404.
+    if (request.method === "GET" || request.method === "HEAD") {
       if (url.pathname === "/") {
         return env.ASSETS.fetch(new Request(new URL("/install.html", url), request));
       }

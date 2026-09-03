@@ -74,9 +74,33 @@
      one used to not exist at all outside a banner only returning users
      could see -- a first-time visitor had genuinely no persistent way to
      find their own balance later. ---- */
+  /* real glass, same engine as .platform-card below -- see initPlatformGlass() */
   .advertiser-nav-link, .dashboard-nav-link { position:fixed; top:20px; z-index:10; font-size:12px; color:var(--muted);
-    text-decoration:none; padding:6px 13px; border-radius:100px; background:rgba(0,0,0,.35);
-    backdrop-filter:blur(10px); border:1px solid var(--border); transition:color .2s ease, border-color .2s ease; }
+    text-decoration:none; padding:6px 13px; border-radius:100px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+    backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 10px 24px -14px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.12), inset 0 1px 0 rgba(255,255,255,.35);
+    transition:color .2s ease, border-color .2s ease, transform .15s cubic-bezier(.34,1.56,.64,1), filter .15s ease; }
+  /* the contrast floor the tint cap alone couldn't cover: backdrop-filter
+     shows whatever's actually behind the pill (bright wordmark letters,
+     a blob at full brightness) independent of the adaptive-tint math
+     above -- this darkens that unconditionally, before the specular
+     highlight or text ever get drawn. */
+  .advertiser-nav-link::before, .dashboard-nav-link::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
+    border-radius:inherit; background:rgba(0,0,0,.5); }
+  .advertiser-nav-link::after, .dashboard-nav-link::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+    border-radius:inherit; background:radial-gradient(circle at var(--mx,50%) var(--my,20%), rgba(255,255,255,.3), transparent 62%);
+    opacity:.5; mix-blend-mode:overlay; transition:opacity .3s ease; }
+  .advertiser-nav-link:hover::after, .dashboard-nav-link:hover::after { opacity:.85; }
+  /* the text has to win regardless of what the tint or the specular
+     highlight are doing underneath -- real bug, not cosmetic: a bright
+     blob behind the pill plus the overlay-blended highlight could wash
+     the text out entirely. z-index:3 keeps it above both glass layers,
+     the shadow is the hard contrast floor under that. */
+  .nav-pill-text { position:relative; z-index:3; text-shadow:0 1px 4px rgba(0,0,0,.7), 0 0 1px rgba(0,0,0,.5); }
+  .advertiser-nav-link:active, .dashboard-nav-link:active { transform:scale(.93); filter:brightness(1.15); transition:transform .08s ease, filter .08s ease; }
+  @media (prefers-reduced-motion: reduce) { .advertiser-nav-link::after, .dashboard-nav-link::after { display:none; } }
   .advertiser-nav-link { right:22px; }
   .dashboard-nav-link { left:22px; }
   .advertiser-nav-link:hover, .dashboard-nav-link:hover { color:var(--gold); border-color:rgba(232,200,150,.35); }
@@ -166,13 +190,23 @@
   .flip-card:hover { transform:translateY(-3px); }
   .flip-inner { position:relative; width:100%; height:100%; transition:transform .65s cubic-bezier(.34,1.56,.64,1); transform-style:preserve-3d; }
   .flip-card.flipped .flip-inner { transform:rotateY(180deg); }
+  /* static glass -- backdrop-filter + a real rim highlight, same look as
+     the rest of the site, but no JS engine behind it: these flip 3D on
+     tap already (a real GPU cost on its own), so this deliberately skips
+     the SVG-displacement refraction and the continuous highlight-tracking
+     loop rather than stacking a second animated system on top of a
+     rotating element. */
   .flip-face { position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden;
-    border-radius:16px; border:1px solid var(--border); padding:18px 20px; display:flex; flex-direction:column; justify-content:center;
-    overflow:hidden; }
-  .flip-front { background:rgba(150,150,160,.04); transition:border-color .25s ease, box-shadow .25s ease; }
-  .flip-card:hover .flip-front { border-color:rgba(255,255,255,.18); box-shadow:0 10px 30px -16px rgba(0,0,0,.6); }
-  .flip-back { background:linear-gradient(160deg, rgba(242,177,52,.18), rgba(232,200,150,.08));
-    border-color:rgba(242,177,52,.4); transform:rotateY(180deg); box-shadow:0 0 36px -12px rgba(242,177,52,.5); }
+    border-radius:16px; border:1px solid rgba(255,255,255,.16); padding:18px 20px; display:flex; flex-direction:column; justify-content:center;
+    overflow:hidden; backdrop-filter:blur(18px) saturate(160%); -webkit-backdrop-filter:blur(18px) saturate(160%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), inset 0 1px 0 rgba(255,255,255,.32); }
+  .flip-front { background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    transition:border-color .25s ease, box-shadow .25s ease; }
+  .flip-card:hover .flip-front { border-color:rgba(255,255,255,.28);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18), inset 0 1px 0 rgba(255,255,255,.4), 0 10px 30px -16px rgba(0,0,0,.6); }
+  .flip-back { background:linear-gradient(160deg, rgba(242,177,52,.22), rgba(232,200,150,.1));
+    border-color:rgba(242,177,52,.4); transform:rotateY(180deg);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.12), inset 0 1px 0 rgba(255,255,255,.32), 0 0 36px -12px rgba(242,177,52,.5); }
   .flip-back::before { content:''; position:absolute; inset:-1.5px; border-radius:17px; padding:1.5px;
     background:linear-gradient(120deg,#f2b134,#f0654a,#ec4899,#a855f7,#3b82f6,#14c9a5,#f2b134);
     background-size:300% auto; animation:shimmer 6s linear infinite;
@@ -283,20 +317,39 @@
          transition:color 1.1s ease .15s; }
   .sub.in { color:#f0a860; }
 
-  .whatitis { display:flex; gap:12px; align-items:flex-start; max-width:540px; margin-bottom:44px;
-              padding:16px 18px; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.02); }
-  .whatitis .wi-mark { flex:none; width:20px; height:20px; border-radius:50%; border:1.5px solid var(--teal);
-                        color:var(--teal); font-size:12px; font-weight:800; display:flex; align-items:center;
-                        justify-content:center; font-family:'JetBrains Mono',monospace; margin-top:1px;
-                        box-shadow:0 0 0 0 rgba(143,214,201,.5); animation:wiPulse 2.6s ease-in-out infinite; }
-  @keyframes wiPulse { 0%,100% { box-shadow:0 0 0 0 rgba(143,214,201,.35); } 50% { box-shadow:0 0 0 5px rgba(143,214,201,0); } }
-  .whatitis p { font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.7; color:#c8c4d0; margin:0; }
-  .whatitis .wi-line { display:block; margin-bottom:2px; }
+  /* real glass, same engine as .platform-card -- registered separately
+     in initPlatformGlass() below since it's a wider panel, not a card
+     or pill. The copy inside gets real hierarchy too: the sponsored
+     label reads as an actual badge, 50/50 carries real weight, and the
+     closing line settles rather than matching the rest verbatim. */
+  .whatitis { position:relative; overflow:hidden; display:flex; gap:14px; align-items:flex-start; max-width:540px;
+              margin-bottom:44px; padding:20px 22px; border-radius:18px;
+              background:linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+              backdrop-filter:blur(20px) saturate(170%); -webkit-backdrop-filter:blur(20px) saturate(170%);
+              border:1px solid rgba(255,255,255,.16);
+              box-shadow:0 18px 40px -24px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.4); }
+  .whatitis::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2; border-radius:inherit;
+    background:radial-gradient(circle at var(--mx,50%) var(--my,15%), rgba(255,255,255,.28), transparent 62%);
+    opacity:.45; mix-blend-mode:overlay; }
+  @media (prefers-reduced-motion: reduce) { .whatitis::after { display:none; } }
+  .whatitis .wi-mark { position:relative; z-index:1; flex:none; width:26px; height:26px; border-radius:50%;
+                        background:radial-gradient(circle at 35% 30%, rgba(143,214,201,.35), rgba(143,214,201,.08));
+                        border:1.5px solid rgba(143,214,201,.6); color:var(--teal); font-size:13px; font-weight:800;
+                        display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
+                        margin-top:1px; box-shadow:0 0 0 0 rgba(143,214,201,.5), 0 0 14px -4px rgba(143,214,201,.6);
+                        animation:wiPulse 2.6s ease-in-out infinite; }
+  @keyframes wiPulse { 0%,100% { box-shadow:0 0 0 0 rgba(143,214,201,.35), 0 0 14px -4px rgba(143,214,201,.6); }
+                        50% { box-shadow:0 0 0 6px rgba(143,214,201,0), 0 0 18px -2px rgba(143,214,201,.7); } }
+  .whatitis p { position:relative; z-index:1; font-family:'JetBrains Mono',monospace; font-size:14px; line-height:1.85; color:#dcd9e2; margin:0; }
+  .whatitis .wi-line { display:block; margin-bottom:5px; }
   .whatitis .wi-line.wi-typing::after { content:'\258C'; display:inline-block; margin-left:1px; color:var(--teal);
                                          animation:wiCaret .8s step-end infinite; }
   @keyframes wiCaret { 0%,100% { opacity:1; } 50% { opacity:0; } }
-  .whatitis strong { color:var(--text); }
-  .whatitis code { color:var(--gold); font-weight:600; }
+  .whatitis strong { color:var(--gold); font-weight:800; text-shadow:0 0 16px rgba(232,200,150,.35); }
+  .whatitis code { display:inline-flex; align-items:center; color:var(--gold); font-weight:700; font-size:12px;
+                    background:rgba(232,200,150,.14); border:1px solid rgba(232,200,150,.4); border-radius:6px;
+                    padding:1px 7px; }
+  .whatitis .wi-final { color:#9d99a8; font-style:italic; }
   .whatitis .wi-flash { animation:wiFlash 1s ease; }
   @keyframes wiFlash { 0% { text-shadow:none; } 35% { text-shadow:0 0 12px currentColor; } 100% { text-shadow:none; } }
 
@@ -346,17 +399,49 @@
   /* ---- platforms ---- */
   .platforms { margin-bottom:64px; }
   .platforms-label { color:var(--muted); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px; display:block; }
-  .platform-row { display:flex; gap:14px; flex-wrap:wrap; }
-  .platform-card { flex:1; min-width:130px; display:flex; flex-direction:column; align-items:center; gap:8px;
-    text-align:center; text-decoration:none; color:inherit; background:rgba(0,0,0,.4); border:1px solid var(--border);
-    border-radius:14px; padding:20px 14px; transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
-    opacity:0; transform:translateY(16px) scale(.96); }
+  .platform-row { display:flex; gap:14px; flex-wrap:wrap; perspective:1400px; }
+  /* accordion expand -- pure flex-grow, no JS needed: the hovered card
+     asks for more of the row's width, every other card's share shrinks
+     automatically since flex-grow is comparative within one container.
+     Paired with a mild desaturate/dim on the resting state and a tilt
+     on whichever cards aren't the one being hovered, so the row reads
+     as one connected panel reacting to you, not four independent cards. */
+  /* real glass material, same recipe as the dashboard cards -- backdrop
+     blur is the fallback/base layer, createLiquidGlass() swaps it for
+     the true SVG-displacement refraction on load, and the background
+     gradient here is what updatePlatformGlassTint() overrides once it
+     samples an actual nearby blob. Without JS this still reads as a
+     translucent panel, not text floating on the page background. */
+  .platform-card { position:relative; overflow:hidden; flex:1 1 0; min-width:130px; display:flex; flex-direction:column;
+    align-items:center; gap:8px; text-align:center; text-decoration:none; color:inherit;
+    background:linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03));
+    backdrop-filter:blur(22px) saturate(170%); -webkit-backdrop-filter:blur(22px) saturate(170%);
+    border:1px solid rgba(255,255,255,.16); border-radius:16px; padding:20px 14px;
+    box-shadow:0 16px 36px -22px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.14), inset 0 1px 0 rgba(255,255,255,.4);
+    /* the expand overshoots its target width slightly then settles back
+       -- real viscosity, not a linear snap to size. Same back-ease curve
+       already used for the card-pop-in animation below. */
+    transition:flex-grow .6s cubic-bezier(.34,1.56,.64,1), transform .4s cubic-bezier(.16,1,.3,1),
+               filter .4s ease, border-color .25s ease, box-shadow .35s ease;
+    opacity:0; transform:translateY(16px) scale(.96); filter:saturate(.7) brightness(.88); }
+  .platform-card::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2; border-radius:inherit;
+    background:radial-gradient(circle at var(--mx,50%) var(--my,20%), rgba(255,255,255,.3), transparent 62%);
+    opacity:.5; mix-blend-mode:overlay; transition:opacity .3s ease; }
+  .platform-card:hover::after { opacity:.85; }
+  @media (prefers-reduced-motion: reduce) { .platform-card::after { display:none; } }
+  .platform-row:has(.platform-card:hover) .platform-card { flex-grow:1; }
+  .platform-row:has(.platform-card:hover) .platform-card:hover { flex-grow:2.35; filter:saturate(1.15) brightness(1.07); }
+  .platform-row:has(.platform-card:hover) .platform-card:not(:hover) { transform:rotateY(5deg) scale(.97); filter:saturate(.45) brightness(.7); }
+  @media (prefers-reduced-motion: reduce) {
+    .platform-row:has(.platform-card:hover) .platform-card:not(:hover) { transform:none; }
+  }
   .platforms.in .platform-card { animation:cardPop .6s cubic-bezier(.34,1.56,.64,1) forwards; }
   .platforms.in .platform-card:nth-child(1) { animation-delay:.05s; }
   .platforms.in .platform-card:nth-child(2) { animation-delay:.18s; }
   .platforms.in .platform-card:nth-child(3) { animation-delay:.31s; }
   @keyframes cardPop { to { opacity:1; transform:translateY(0) scale(1); } }
-  .platform-card.live { border-color:rgba(242,177,52,.4); background:rgba(242,177,52,.05); cursor:pointer; position:relative; overflow:hidden; }
+  .platform-card.live { border-color:rgba(242,177,52,.4); cursor:pointer;
+    background:linear-gradient(180deg, rgba(255,255,255,.1), rgba(255,255,255,.03)), radial-gradient(120% 100% at 50% 0%, rgba(242,177,52,.09), transparent 70%); }
   .platform-card.live::before { content:''; position:absolute; inset:-1.5px; border-radius:14px; padding:1.5px; z-index:-1;
     background:linear-gradient(120deg,#f2b134,#f0654a,#ec4899,#f2b134); background-size:250% auto;
     animation:shimmer 7s linear infinite;
@@ -387,6 +472,8 @@
     transition:background .2s ease, transform .2s ease, box-shadow .2s ease; white-space:nowrap; }
   .platform-card.live:hover .platform-connect-btn { background:rgba(242,177,52,.26); transform:translateY(-1px);
     box-shadow:0 6px 16px -6px rgba(242,177,52,.5); }
+  .platform-card.live:active .platform-connect-btn { transform:scale(.92); filter:brightness(1.2);
+    transition:transform .08s ease, filter .08s ease; }
   .platform-connect-btn.soon { background:rgba(255,255,255,.05); border-color:var(--border); color:var(--muted); font-weight:600; }
   @media (max-width:480px) { .platform-row { flex-wrap:wrap; } .platform-card { min-width:0; flex:1 1 calc(50% - 7px); } }
 
@@ -653,8 +740,8 @@
 </style>
 </head>
 <body>
-<a href="advertiser.html" class="advertiser-nav-link">for advertisers →</a>
-<a href="claim.html" class="dashboard-nav-link">your dashboard →</a>
+<a href="advertiser.html" class="advertiser-nav-link glass-nav"><span class="nav-pill-text">for advertisers →</span></a>
+<a href="claim.html" class="dashboard-nav-link glass-nav"><span class="nav-pill-text">your dashboard →</span></a>
 <canvas id="clickSparkCanvas"></canvas>
 <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
 <div class="bg-shimmer"></div>
@@ -694,6 +781,7 @@
     <p>
       <span class="wi-line">One small, labeled <code>(sponsored)</code> line in your terminal while your agent works.</span>
       <span class="wi-line">We split what it earns <strong>50/50</strong>, straight to PayPal.</span>
+      <span class="wi-line">It never reads your code, your prompts, or your conversations. <strong>Never.</strong></span>
       <span class="wi-line wi-final">That's it.</span>
     </p>
   </div>
@@ -753,6 +841,7 @@
     <div class="stat"><div class="pct">100%</div><div class="lbl">sponsor lines disclosed</div></div>
     <div class="stat"><div class="pct">$0</div><div class="lbl">to install, ever</div></div>
     <div class="stat"><div class="pct"><a href="https://github.com/heenatrivedi321-max/deadtime" style="color:inherit;text-decoration:none;">open</a></div><div class="lbl">source, on GitHub</div></div>
+    <div class="stat"><div class="pct"><a href="stats.html" style="color:inherit;text-decoration:none;">live</a></div><div class="lbl">network stats, no login needed</div></div>
   </div>
 
   <div class="steps reveal">
@@ -848,12 +937,12 @@
         <div class="platform-status live">● connected today</div>
         <span class="platform-connect-btn">Connect now →</span>
       </a>
-      <div class="platform-card soon">
+      <a href="connect-cursor.html" class="platform-card live">
         <div class="platform-icon"><img src="logo-cursor.svg" alt="Cursor" loading="lazy"></div>
         <div class="platform-name">Cursor</div>
-        <div class="platform-status">coming soon</div>
-        <span class="platform-connect-btn soon">Coming soon</span>
-      </div>
+        <div class="platform-status live">● live</div>
+        <span class="platform-connect-btn">Connect now →</span>
+      </a>
       <a href="connect-copilot.html" class="platform-card live">
         <div class="platform-icon on-white"><img src="logo-github-copilot.png" alt="GitHub Copilot" loading="lazy"></div>
         <div class="platform-name">GitHub Copilot</div>
@@ -881,13 +970,14 @@
     <div class="calc-webthreads-bg" id="calcWebThreadsBg" aria-hidden="true"></div>
     <div class="calc-content">
       <h3 class="blur-heading">What could you earn?</h3>
-      <p class="calc-sub">Real math, not a guess. A ceiling, not a promise.</p>
-      <div class="calc-row"><span>Time spent using MCP tools per day</span><span class="val" id="hoursVal">3.0 hrs</span></div>
-      <input type="range" id="hoursSlider" min="0.5" max="8" step="0.5" value="3">
+      <p class="calc-sub">Real math, not a guess. Based on 160 impressions per 30 min of agent work.</p>
+      <div class="calc-row"><span>Time spent coding with an AI agent per day</span><span class="val" id="hoursVal">0.5 hrs</span></div>
+      <input type="range" id="hoursSlider" min="0.5" max="8" step="0.5" value="0.5">
       <div class="calc-result">
-        <div class="amount" id="calcAmount">$6.48</div>
-        <div class="lbl">estimated / month<br>at today's $2 CPM, 4-in-5 ceiling</div>
+        <div class="amount" id="calcAmount">$28.80</div>
+        <div class="lbl">estimated / month<br>at today's rate, assuming 80% of that time has a sponsor to show</div>
       </div>
+      <p class="calc-note" style="color:var(--gold); font-weight:600;">30 minutes a day covers your Claude Pro subscription. What are you waiting for?</p>
       <p class="calc-note">Nobody's earned this yet. Could be you first.</p>
     </div>
   </div>
@@ -928,6 +1018,254 @@
 </div>
 
 <script>
+/* ---- Liquid Glass engine (MIT, github.com/rizroze/liquid-glass), same
+   one running on the campaign dashboard -- real SVG-displacement edge
+   refraction + chromatic aberration, not a fake blur/tint. Applied here
+   to .platform-card so the "works with" row reads as actual glass
+   panels sitting over the aurora, not text and a border on flat bg. */
+function glassResolveConfig(el, opts) {
+  const rect = el.getBoundingClientRect();
+  const ab = opts.aberration ?? [0, 10, 20];
+  return {
+    width: opts.width ?? Math.round(rect.width), height: opts.height ?? Math.round(rect.height),
+    radius: opts.borderRadius ?? 50, scale: opts.scale ?? -180, border: opts.border ?? 0.07,
+    lightness: opts.lightness ?? 50, alpha: opts.alpha ?? 0.93, blur: opts.blur ?? 11,
+    r: ab[0], g: ab[1], b: ab[2], frost: opts.frost ?? 0, saturation: opts.saturation ?? 1,
+    displace: opts.displaceBlur ?? 0,
+  };
+}
+const glassIsChromium = typeof navigator !== 'undefined' && /Chrome\//.test(navigator.userAgent);
+const _glassMapCache = new Map();
+function glassBuildDisplacementMap(c) {
+  const key = `${c.width}:${c.height}:${c.radius}:${c.scale}:${c.border}:${c.blur}:${c.lightness}:${c.alpha}`;
+  const cached = _glassMapCache.get(key);
+  if (cached) return cached;
+  const maxDisplace = Math.max(Math.abs(c.scale) * 0.5, 20);
+  const padX = Math.ceil(maxDisplace), padY = Math.ceil(maxDisplace);
+  const totalW = c.width + padX * 2, totalH = c.height + padY * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = totalW; canvas.height = totalH;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgb(128, 128, 128)';
+  ctx.fillRect(0, 0, totalW, totalH);
+  const ox = padX, oy = padY;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(ox, oy, c.width, c.height, c.radius);
+  ctx.clip();
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(ox, oy, c.width, c.height);
+  const redGrad = ctx.createLinearGradient(ox + c.width, oy, ox, oy);
+  redGrad.addColorStop(0, '#000000'); redGrad.addColorStop(1, '#ff0000');
+  ctx.fillStyle = redGrad;
+  ctx.fillRect(ox, oy, c.width, c.height);
+  ctx.globalCompositeOperation = 'difference';
+  const blueGrad = ctx.createLinearGradient(ox, oy, ox, oy + c.height);
+  blueGrad.addColorStop(0, '#000000'); blueGrad.addColorStop(1, '#0000ff');
+  ctx.fillStyle = blueGrad;
+  ctx.fillRect(ox, oy, c.width, c.height);
+  ctx.globalCompositeOperation = 'source-over';
+  const borderPx = Math.min(c.width, c.height) * (c.border * 0.5);
+  ctx.filter = `blur(${c.blur}px)`;
+  ctx.fillStyle = `hsla(0, 0%, ${c.lightness}%, ${c.alpha})`;
+  ctx.beginPath();
+  ctx.roundRect(ox + borderPx, oy + borderPx, c.width - borderPx * 2, c.height - borderPx * 2, c.radius);
+  ctx.fill();
+  ctx.restore();
+  const uri = canvas.toDataURL();
+  _glassMapCache.set(key, uri);
+  return uri;
+}
+let _glassInstanceCount = 0;
+function glassCreateFilterSVG(id) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svg.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+  svg.innerHTML = `
+    <defs>
+      <filter id="${id}" color-interpolation-filters="sRGB" x="-38%" y="-188%" width="176%" height="476%">
+        <feImage result="map" preserveAspectRatio="none" />
+        <feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" result="dispRed" data-channel="red" />
+        <feColorMatrix in="dispRed" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red" />
+        <feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" result="dispGreen" data-channel="green" />
+        <feColorMatrix in="dispGreen" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green" />
+        <feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" result="dispBlue" data-channel="blue" />
+        <feColorMatrix in="dispBlue" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue" />
+        <feBlend in="red" in2="green" mode="screen" result="rg" />
+        <feBlend in="rg" in2="blue" mode="screen" result="output" />
+        <feGaussianBlur in="output" stdDeviation="0" />
+      </filter>
+    </defs>
+  `;
+  return {
+    svg, filter: svg.querySelector('filter'), feImage: svg.querySelector('feImage'),
+    red: svg.querySelector('[data-channel="red"]'), green: svg.querySelector('[data-channel="green"]'),
+    blue: svg.querySelector('[data-channel="blue"]'), blur: svg.querySelector('feGaussianBlur'),
+  };
+}
+function glassApplyConfig(c, refs) {
+  const uri = glassBuildDisplacementMap(c);
+  const maxD = Math.max(Math.abs(c.scale) * 0.5, 20);
+  const pctX = Math.ceil(maxD / c.width * 100), pctY = Math.ceil(maxD / c.height * 100);
+  refs.filter.setAttribute('x', `-${pctX}%`); refs.filter.setAttribute('y', `-${pctY}%`);
+  refs.filter.setAttribute('width', `${100 + pctX * 2}%`); refs.filter.setAttribute('height', `${100 + pctY * 2}%`);
+  refs.feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'href', uri);
+  refs.feImage.setAttribute('href', uri);
+  refs.red.setAttribute('scale', String(c.scale + c.r));
+  refs.green.setAttribute('scale', String(c.scale + c.g));
+  refs.blue.setAttribute('scale', String(c.scale + c.b));
+  refs.blur.setAttribute('stdDeviation', String(c.displace));
+}
+function createLiquidGlass(element, options = {}) {
+  const fallback = options.fallbackFilter ?? 'blur(20px) saturate(180%)';
+  if (!glassIsChromium) {
+    element.style.backdropFilter = fallback;
+    element.style.setProperty('-webkit-backdrop-filter', fallback);
+    return { isActive: false, destroy() {} };
+  }
+  const id = options.filterId ?? `liquid-glass-${++_glassInstanceCount}`;
+  const refs = glassCreateFilterSVG(id);
+  document.body.appendChild(refs.svg);
+  let currentOpts = { ...options };
+  let config = glassResolveConfig(element, currentOpts);
+  glassApplyConfig(config, refs);
+  const applyStyles = (c) => {
+    element.style.backdropFilter = `url(#${id}) saturate(${c.saturation})`;
+    element.style.setProperty('-webkit-backdrop-filter', `url(#${id}) saturate(${c.saturation})`);
+  };
+  applyStyles(config);
+  return {
+    isActive: true,
+    destroy() { refs.svg.remove(); element.style.backdropFilter = ''; element.style.setProperty('-webkit-backdrop-filter', ''); },
+  };
+}
+
+const PLATFORM_GLASS_BLOBS = [
+  { sel: '.b1', color: [168, 85, 247] },
+  { sel: '.b2', color: [59, 130, 246] },
+  { sel: '.b3', color: [20, 201, 165] },
+  { sel: '.b4', color: [236, 72, 153] },
+];
+const platformGlassReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+let platformGlassPointer = { x: window.innerWidth / 2, y: window.innerHeight * 0.5 };
+let platformGlassInstances = [];
+/* highlight lags toward its target instead of snapping -- same viscous
+   catch-up feel as the dashboard's glass system. */
+const platformGlassCurrent = new Map();
+const PLATFORM_GLASS_SELECTOR = '.platform-card, .glass-nav, .whatitis';
+
+function updatePlatformGlassHighlight() {
+  document.querySelectorAll(PLATFORM_GLASS_SELECTOR).forEach((card) => {
+    const r = card.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const targetMx = ((platformGlassPointer.x - r.left) / r.width) * 100;
+    const targetMy = ((platformGlassPointer.y - r.top) / r.height) * 100;
+    let cur = platformGlassCurrent.get(card);
+    if (!cur) { cur = { mx: targetMx, my: targetMy }; platformGlassCurrent.set(card, cur); }
+    else { cur.mx += (targetMx - cur.mx) * 0.18; cur.my += (targetMy - cur.my) * 0.18; }
+    card.style.setProperty('--mx', `${cur.mx}%`);
+    card.style.setProperty('--my', `${cur.my}%`);
+  });
+}
+
+function updatePlatformGlassTint() {
+  if (document.hidden) return;
+  const blobs = PLATFORM_GLASS_BLOBS.map((b) => {
+    const el = document.querySelector(b.sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, radius: r.width / 2, color: b.color };
+  }).filter(Boolean);
+  if (!blobs.length) return;
+
+  document.querySelectorAll(PLATFORM_GLASS_SELECTOR).forEach((card) => {
+    const r = card.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let wSum = 0, cr = 0, cg = 0, cb = 0;
+    blobs.forEach((b) => {
+      const d = Math.hypot(cx - b.cx, cy - b.cy);
+      const influence = Math.max(0, 1 - d / (b.radius * 2.4)) * 0.32;
+      wSum += influence;
+      cr += b.color[0] * influence; cg += b.color[1] * influence; cb += b.color[2] * influence;
+    });
+    if (wSum > 0.01) {
+      // .glass-nav pills carry small, dense text with nothing else on the
+      // card to absorb a bright tint -- capped much lower than the big
+      // cards, and never brightened past their base, so real color still
+      // bleeds through without ever threatening text contrast. The
+      // text-shadow on the pills themselves (see CSS) is the hard floor
+      // under this -- this cap is what keeps that floor from being needed
+      // most of the time.
+      const isNav = card.classList.contains('glass-nav');
+      const maxStrength = isNav ? 0.13 : 0.24;
+      const maxLift = isNav ? 0 : 0.06;
+      const strength = Math.min(maxStrength, wSum).toFixed(3);
+      const lift = Math.min(maxLift, wSum * 0.2);
+      const r_ = Math.round(cr / wSum), g_ = Math.round(cg / wSum), b_ = Math.round(cb / wSum);
+      card.style.background = `linear-gradient(180deg, rgba(255,255,255,${(0.1 + lift).toFixed(3)}), rgba(255,255,255,${(0.03 + lift).toFixed(3)})), radial-gradient(120% 100% at 50% 0%, rgba(${r_},${g_},${b_},${strength}), transparent 70%)`;
+    } else {
+      card.style.background = '';
+    }
+  });
+}
+
+/* runs only while the highlight is actually still catching up, not
+   forever -- the old version kept a rAF chain going 60x/sec for the
+   entire life of the tab, even sitting idle with the cursor still. This
+   settles for ~500ms after the last real pointer move (comfortably past
+   convergence at the 0.18/frame lerp rate) and stops until the next one. */
+let platformGlassMoveUntil = 0;
+let platformGlassLoopActive = false;
+function platformGlassTick(now) {
+  updatePlatformGlassHighlight();
+  if (now < platformGlassMoveUntil) requestAnimationFrame(platformGlassTick);
+  else platformGlassLoopActive = false;
+}
+function schedulePlatformGlassSettle() {
+  platformGlassMoveUntil = performance.now() + 500;
+  if (platformGlassLoopActive) return;
+  platformGlassLoopActive = true;
+  requestAnimationFrame(platformGlassTick);
+}
+if (!platformGlassReducedMotion) {
+  window.addEventListener('mousemove', (e) => {
+    platformGlassPointer = { x: e.clientX, y: e.clientY };
+    schedulePlatformGlassSettle();
+  });
+}
+
+function initPlatformGlass() {
+  platformGlassInstances.forEach((inst) => inst.destroy());
+  platformGlassInstances = [];
+  document.querySelectorAll('.platform-card').forEach((el) => {
+    platformGlassInstances.push(createLiquidGlass(el, {
+      borderRadius: 16, scale: -60, border: 0.07, blur: 13,
+      aberration: [0, 4, 8], saturation: 1.6,
+    }));
+  });
+  document.querySelectorAll('.glass-nav').forEach((el) => {
+    platformGlassInstances.push(createLiquidGlass(el, {
+      borderRadius: 100, scale: -30, border: 0.16, blur: 8,
+      aberration: [0, 2, 4], saturation: 1.5,
+    }));
+  });
+  document.querySelectorAll('.whatitis').forEach((el) => {
+    platformGlassInstances.push(createLiquidGlass(el, {
+      borderRadius: 18, scale: -55, border: 0.08, blur: 12,
+      aberration: [0, 4, 8], saturation: 1.6,
+    }));
+  });
+  updatePlatformGlassHighlight();
+  updatePlatformGlassTint();
+}
+setInterval(updatePlatformGlassTint, 500);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPlatformGlass);
+} else {
+  initPlatformGlass();
+}
+
 /* ---------- typewriter for .whatitis ---------- */
 (function(){
   const box = document.querySelector('.whatitis');
@@ -1112,15 +1450,16 @@ document.querySelectorAll('.apple-line[data-apple-reveal]').forEach((el) => appl
   scrambleIo.observe(el);
 })();
 
-/* ---------- earnings calculator ---------- */
-const ROTATE_SECONDS = 20, FILL_CEILING = 0.8, CPM = 2.0, USER_SHARE = 0.5;
+/* ---------- earnings calculator ----------
+   Anchored to 160 impressions per 30 min of agent work -> 320 impressions/hr */
+const IMPRESSIONS_PER_HOUR = 320, FILL_CEILING = 0.8, CPM = 15.0, USER_SHARE = 0.5;
 const hoursSlider = document.getElementById('hoursSlider');
 const hoursVal = document.getElementById('hoursVal');
 const calcAmount = document.getElementById('calcAmount');
 function updateCalc() {
   const hours = parseFloat(hoursSlider.value);
   hoursVal.textContent = hours.toFixed(1) + ' hrs';
-  const impressionsPerDay = (hours * 3600) / ROTATE_SECONDS;
+  const impressionsPerDay = hours * IMPRESSIONS_PER_HOUR;
   const sponsorPerDay = impressionsPerDay * FILL_CEILING;
   const revenuePerDay = sponsorPerDay * (CPM / 1000);
   const userPerDay = revenuePerDay * USER_SHARE;
@@ -1379,6 +1718,10 @@ requestAnimationFrame(tick);
 /* poll real backend activity and flare the network on genuine change */
 let lastTotalCalls = null;
 async function pollNetworkActivity() {
+  // background tabs still run setInterval (throttled, not paused, unlike
+  // requestAnimationFrame which the browser suspends outright) -- skip
+  // the real network fetch when nobody's actually looking at the page.
+  if (document.hidden) return;
   try {
     const res = await fetch('https://trymeanwhile.online/network-stats');
     if (!res.ok) return;
@@ -1462,6 +1805,7 @@ setInterval(() => { if (Math.random() < 0.5) spawnPulse(); }, 4000);
 
   let lastTotal = null;
   async function pollRiver() {
+    if (document.hidden) return;
     try {
       const res = await fetch('https://trymeanwhile.online/network-stats');
       if (!res.ok) return;

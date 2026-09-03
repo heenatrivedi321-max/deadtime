@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Meanwhile — admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#07070a; --panel:#111114; --panel-2:#17171b; --border:rgba(255,255,255,0.09);
+    --text:#f0ede4; --muted:#8c8c96; --red:#e8636a; --amber:#e8c896; --green:#5cc784;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+  .wrap { max-width:1000px; margin:0 auto; padding:32px 20px 80px; }
+  h1 { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:24px; }
+
+  .gate { max-width:400px; margin:120px auto; text-align:center; }
+  .gate input { width:100%; background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); padding:12px 14px; font-size:14px; margin-top:16px; font-family:'JetBrains Mono',monospace; }
+  .gate button { width:100%; margin-top:10px; background:var(--text); color:#0a0a0c; border:none;
+    border-radius:8px; padding:12px; font-weight:600; font-size:14px; cursor:pointer; }
+  .gate .err { color:var(--red); font-size:13px; margin-top:10px; min-height:18px; }
+
+  .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:18px; flex-wrap:wrap; }
+  select, .toolbar input { background:var(--panel); border:1px solid var(--border); border-radius:7px;
+    color:var(--text); padding:8px 10px; font-size:13px; font-family:inherit; }
+  .toolbar input { flex:1; min-width:160px; }
+  button.ghost { background:none; border:1px solid var(--border); color:var(--muted); border-radius:7px;
+    padding:8px 12px; font-size:13px; cursor:pointer; }
+  button.ghost:hover { color:var(--text); border-color:rgba(255,255,255,.25); }
+  .stat { color:var(--muted); font-size:12.5px; margin-left:auto; }
+
+  .row { background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; margin-bottom:8px; cursor:pointer; }
+  .row-head { display:flex; align-items:flex-start; gap:10px; }
+  .badge { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    padding:2px 7px; border-radius:5px; flex-shrink:0; margin-top:2px; white-space:nowrap; }
+  .badge.critical { background:rgba(232,99,106,.15); color:var(--red); }
+  .badge.warning { background:rgba(232,200,150,.15); color:var(--amber); }
+  .badge.info { background:rgba(140,140,150,.15); color:var(--muted); }
+  .row-body { flex:1; min-width:0; }
+  .row-msg { font-size:13.5px; line-height:1.5; }
+  .row-meta { font-size:11.5px; color:var(--muted); margin-top:3px; font-family:'JetBrains Mono',monospace; }
+  .row-details { display:none; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+    font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; white-space:pre-wrap;
+    word-break:break-word; }
+  .row.open .row-details { display:block; }
+
+  .empty { text-align:center; color:var(--muted); padding:60px 20px; font-size:14px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const API = 'https://trymeanwhile.online';
+let TOKEN = null;
+try { TOKEN = localStorage.getItem('meanwhile_admin_token'); } catch (e) {}
+
+const CRITICAL = /failed|crash|rejected|unhandled|blocked/i;
+const INFO = /fired|skipped|healed/i;
+function severity(category) {
+  if (CRITICAL.test(category)) return 'critical';
+  if (INFO.test(category)) return 'info';
+  return 'warning';
+}
+
+function timeAgo(unixSeconds) {
+  const diff = Date.now() / 1000 - unixSeconds;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+const app = document.getElementById('app');
+
+function renderGate(errMsg) {
+  app.innerHTML = `
+    <div class="gate">
+      <h1>Admin</h1>
+      <p class="sub">Paste the admin token -- stored only in this browser.</p>
+      <input id="tokenInput" type="password" placeholder="X-Admin-Token" autocomplete="off">
+      <button id="tokenSubmit">Continue</button>
+      <div class="err">${errMsg || ''}</div>
+    </div>
+  `;
+  const submit = () => {
+    const val = document.getElementById('tokenInput').value.trim();
+    if (!val) return;
+    TOKEN = val;
+    loadAndRender();
+  };
+  document.getElementById('tokenSubmit').addEventListener('click', submit);
+  document.getElementById('tokenInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  document.getElementById('tokenInput').focus();
+}
+
+let allErrors = [];
+let currentFilter = 'all';
+let currentSearch = '';
+
+function renderList() {
+  const filtered = allErrors.filter(e => {
+    if (currentFilter !== 'all' && severity(e.category) !== currentFilter) return false;
+    if (currentSearch && !(`${e.category} ${e.message} ${e.details || ''}`.toLowerCase().includes(currentSearch.toLowerCase()))) return false;
+    return true;
+  });
+
+  const counts = { critical: 0, warning: 0, info: 0 };
+  allErrors.forEach(e => counts[severity(e.category)]++);
+
+  document.getElementById('list').innerHTML = filtered.length === 0
+    ? `<div class="empty">No entries match.</div>`
+    : filtered.map((e, i) => `
+      <div class="row" data-i="${i}">
+        <div class="row-head">
+          <span class="badge ${severity(e.category)}">${e.category.replace(/_/g, ' ')}</span>
+          <div class="row-body">
+            <div class="row-msg">${escapeHtml(e.message)}</div>
+            <div class="row-meta">${timeAgo(e.at)} &middot; ${new Date(e.at * 1000).toLocaleString()}</div>
+            ${e.details ? `<div class="row-details">${escapeHtml(e.details)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+  document.getElementById('stat').textContent =
+    `${filtered.length} shown &middot; ${counts.critical} critical &middot; ${counts.warning} warning &middot; ${counts.info} info`.replace(/&middot;/g, '·');
+
+  document.querySelectorAll('.row').forEach(row => {
+    row.addEventListener('click', () => row.classList.toggle('open'));
+  });
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function loadAndRender() {
+  app.innerHTML = `
+    <div class="wrap">
+      <h1>Admin — errors &amp; anomalies</h1>
+      <p class="sub" id="subline">Loading…</p>
+      <div class="toolbar">
+        <select id="filterSelect">
+          <option value="all">All</option>
+          <option value="critical">Critical</option>
+          <option value="warning">Warning</option>
+          <option value="info">Info</option>
+        </select>
+        <input id="searchInput" type="text" placeholder="Search category, message, details…">
+        <button class="ghost" id="refreshBtn">Refresh</button>
+        <button class="ghost" id="logoutBtn">Log out</button>
+        <span class="stat" id="stat"></span>
+      </div>
+      <div id="list"></div>
+    </div>
+  `;
+  document.getElementById('filterSelect').addEventListener('change', (e) => { currentFilter = e.target.value; renderList(); });
+  document.getElementById('searchInput').addEventListener('input', (e) => { currentSearch = e.target.value; renderList(); });
+  document.getElementById('refreshBtn').addEventListener('click', loadAndRender);
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    try { localStorage.removeItem('meanwhile_admin_token'); } catch (e) {}
+    TOKEN = null;
+    renderGate();
+  });
+
+  try {
+    const res = await fetch(`${API}/admin/errors`, { headers: { 'X-Admin-Token': TOKEN } });
+    if (res.status === 401) {
+      renderGate('Wrong token -- try again.');
+      return;
+    }
+    if (!res.ok) throw new Error('request failed: ' + res.status);
+    const data = await res.json();
+    allErrors = data.errors || [];
+    try { localStorage.setItem('meanwhile_admin_token', TOKEN); } catch (e) {}
+    document.getElementById('subline').textContent = `${allErrors.length} most recent entries, newest first.`;
+    renderList();
+  } catch (e) {
+    document.getElementById('subline').textContent = 'Could not reach the server — try refresh.';
+  }
+}
+
+if (TOKEN) loadAndRender();
+else renderGate();
+</script>
+</body>
+</html>
