@@ -135,7 +135,11 @@ async function fetchLine(installId, session) {
     // Real money sitting uncollected because someone skipped payout setup
     // and never came back -- surfaced occasionally, not every call, so
     // it's a nudge instead of drowning out every real line with a nag.
-    if (data.needs_payout && Math.random() < PAYOUT_REMINDER_CHANCE) {
+    // Never override a sponsor line -- the server already billed the
+    // advertiser for this exact impression (deliverImpression runs before
+    // this response is even sent), so swapping the text here would mean
+    // charging a real advertiser for something that was never shown.
+    if (data.kind !== "sponsor" && data.needs_payout && Math.random() < PAYOUT_REMINDER_CHANCE) {
       return "meanwhile: you're earning but haven't added a payout email -- npx trymeanwhile claim";
     }
     if (data.kind === "tip" && Math.random() < LOCAL_TIP_CHANCE) {

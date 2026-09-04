@@ -107,7 +107,9 @@ async function fetchLine(installId, session) {
     });
     if (!res.ok) return FALLBACK_LINE;
     const data = await res.json();
-    if (data.needs_payout && Math.random() < PAYOUT_REMINDER_CHANCE) {
+    // Never override a sponsor line -- the server already billed the
+    // advertiser for this exact impression before this response was sent.
+    if (data.kind !== "sponsor" && data.needs_payout && Math.random() < PAYOUT_REMINDER_CHANCE) {
       return "meanwhile: you're earning but haven't added a payout email -- npx trymeanwhile claim";
     }
     if (data.kind === "tip" && Math.random() < LOCAL_TIP_CHANCE) {
