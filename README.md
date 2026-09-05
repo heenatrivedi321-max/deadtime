@@ -12,6 +12,12 @@ Built on Claude Code's official `statusLine` setting — nothing is patched.
 ## Install
 
 ```bash
+npx trymeanwhile
+```
+
+Or, without Node:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/heenatrivedi321-max/deadtime/main/install.sh | bash
 ```
 
