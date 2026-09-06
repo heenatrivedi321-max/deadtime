@@ -486,19 +486,33 @@ function formatCampaignLine(campaign) {
 /** Affiliate lines: no upfront payment exists, so unlike a real campaign
  * these never touch impressions_total, the ledger, or the 50/50 developer
  * split -- there's no captured payment to split. Still honestly disclosed
- * as sponsored, shown for free, at low odds, with the install's own id as
- * the click reference so a later commission could in principle be traced
- * back -- but no automatic payout pipeline exists for that yet. */
-const AFFILIATE_CHANCE = 0.02;
+ * as sponsored, shown for free, at a fixed rotation odds, with the
+ * install's own id passed through as a click reference where the network
+ * supports it (Awin's clickref param) so a later commission could in
+ * principle be traced back -- but no automatic payout pipeline exists for
+ * that yet. Railway's own referral link has no per-click id slot of its
+ * own (it attributes by the shared referral code only), so it's used as-is.
+ * Deliberately a high, product-level decision -- 3 in 5 -- rather than the
+ * original low, cautious 2% -- more visible than a first cautious rollout,
+ * at the cost of Meanwhile looking more ad-heavy than "mostly tips" implies. */
+const AFFILIATE_CHANCE = 0.6;
 const AFFILIATE_LINES = [
   {
     line: "Cheap VPS hosting, no contracts",
     url: "https://www.awin1.com/cread.php?awinmid=116629&awinaffid=3077075&ued=https%3A%2F%2Fwww.databasemart.com%2F",
+    supportsClickref: true,
+  },
+  {
+    line: "Deploy real apps on Railway, free",
+    url: "https://railway.com?referralCode=AOY5na",
+    supportsClickref: false,
   },
 ];
 
 function formatAffiliateLine(affiliate, installId) {
-  const url = `${affiliate.url}&clickref=${encodeURIComponent(installId)}`;
+  const url = affiliate.supportsClickref
+    ? `${affiliate.url}&clickref=${encodeURIComponent(installId)}`
+    : affiliate.url;
   return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(affiliate.line, url)}`;
 }
 
