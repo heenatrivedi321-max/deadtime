@@ -468,19 +468,26 @@ function sponsorRatio(state) {
 // terminal -- the whole point is legible disclosure, not decoration.
 const ANSI_BOLD = "\x1b[1m";
 const ANSI_GOLD = "\x1b[33m";
+const ANSI_DIM = "\x1b[2m";
 const ANSI_RESET = "\x1b[0m";
 
 /** OSC 8 terminal hyperlink: wraps visible text with an invisible link
  * target instead of printing the raw URL inline. Terminals that support
  * it (iTerm2, Kitty, WezTerm, VS Code's integrated terminal, etc.) render
- * only the text, clickable; terminals that don't just ignore the escape
- * codes and show the plain text -- never a broken or garbled fallback. */
+ * only the text, clickable via Cmd/Ctrl+click depending on OS -- a plain
+ * click does nothing, which reads as "broken" if that's all a person
+ * tries. Terminals without OSC 8 support just ignore the escape codes and
+ * show the plain text. Either way, a dim, plain-text copy of the URL is
+ * also appended so the link is never fully inaccessible: not every
+ * terminal supports OSC 8 (or the person doesn't know about Cmd+click),
+ * and a hidden-only link that quietly fails is worse than a slightly
+ * less pretty line that always works. */
 function osc8Link(text, url) {
-  return `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
+  return `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\ ${ANSI_DIM}(${url})${ANSI_RESET}`;
 }
 
 function formatCampaignLine(campaign) {
-  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(campaign.line, campaign.url)}`;
+  return `${ANSI_BOLD}meanwhile${ANSI_RESET} ${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(campaign.line, campaign.url)}`;
 }
 
 /** Affiliate lines: no upfront payment exists, so unlike a real campaign
@@ -513,7 +520,7 @@ function formatAffiliateLine(affiliate, installId) {
   const url = affiliate.supportsClickref
     ? `${affiliate.url}&clickref=${encodeURIComponent(installId)}`
     : affiliate.url;
-  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(affiliate.line, url)}`;
+  return `${ANSI_BOLD}meanwhile${ANSI_RESET} ${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(affiliate.line, url)}`;
 }
 
 /** Active campaigns are the real, paid-and-activated ad pool. When it's
