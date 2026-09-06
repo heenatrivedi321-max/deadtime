@@ -531,6 +531,11 @@ const AFFILIATE_LINES = [
     url: "https://www.vultr.com/?ref=9921656",
     supportsClickref: false,
   },
+  {
+    line: "Real AI voices, try ElevenLabs free",
+    url: "https://try.elevenlabs.io/1hq6d2v6vyj0",
+    supportsClickref: false,
+  },
 ];
 
 function formatAffiliateLine(affiliate, installId) {
