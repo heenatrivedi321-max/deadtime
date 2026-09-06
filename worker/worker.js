@@ -193,6 +193,16 @@ const PAYPAL_API = "https://api-m.paypal.com"; // LIVE -- real money, no sandbox
 const FILL_CEILING = 0.8;
 const BILLABLE_THRESHOLD = 10;
 
+/** One-time intro for a brand-new install: a plain greeting for the first
+ * half of the window, then a heads-up that sponsor lines exist, before
+ * falling into the normal rotation for good. Never billed (kind: "tip"),
+ * and skipped entirely for any install that existed before this feature
+ * shipped (see the install_created_at guard where this is used). */
+const INTRO_WINDOW_SECONDS = 20;
+const INTRO_HALF_SECONDS = 10;
+const INTRO_GREETING_LINE = "\u{1F44B} meanwhile is here, in case you wanted to know.";
+const INTRO_ADS_NOTICE_LINE = "\u{1F44B} meanwhile: sponsor lines will start showing up soon.";
+
 /** Before real advertisers exist, pickLine used to fall back to a house
  * line labeled "(sponsored)" -- and handleLine's billing block counted
  * it exactly like a real paid impression, no different check at all.
@@ -292,6 +302,7 @@ async function logError(env, category, message, details) {
 
 function defaultState() {
   return {
+    install_created_at: Date.now() / 1000,
     total_calls: 0,
     sponsor_calls: 0,
     bonus_calls: 0,
@@ -894,8 +905,24 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
     }
   }
 
-  // Every real invocation picks a fresh line -- no artificial hold timer.
-  const picked = await pickLine(env, state, installId);
+  // Brand-new installs get a short, one-time intro instead of jumping
+  // straight into the tip/sponsor rotation -- a person who just installed
+  // this has no idea what's showing up in their terminal or why. Guarded
+  // on install_created_at actually being set (only true for installs
+  // created after this field existed) so an existing real install never
+  // retroactively re-triggers "new user" onboarding the moment it deploys
+  // -- state.install_created_at is undefined for those, so this whole
+  // branch is skipped and they go straight to the normal rotation below,
+  // exactly like before this feature existed.
+  const sinceInstall = state.install_created_at ? now - state.install_created_at : Infinity;
+  let picked;
+  if (sinceInstall < INTRO_WINDOW_SECONDS) {
+    const line = sinceInstall < INTRO_HALF_SECONDS ? INTRO_GREETING_LINE : INTRO_ADS_NOTICE_LINE;
+    picked = { kind: "tip", line };
+  } else {
+    // Every real invocation picks a fresh line -- no artificial hold timer.
+    picked = await pickLine(env, state, installId);
+  }
   state.current_kind = picked.kind;
   state.current_line = picked.line;
   state.current_campaign_id = picked.campaign_id || null;
