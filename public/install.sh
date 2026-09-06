@@ -48,7 +48,7 @@ settings_path = Path.home() / ".claude" / "settings.json"
 settings_path.parent.mkdir(exist_ok=True)
 
 settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-settings["statusLine"] = {"type": "command", "command": f"python3 {script_path}"}
+settings["statusLine"] = {"type": "command", "command": f"python3 {script_path}", "refreshInterval": 10}
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
 
 print(f"deadtime: wired into {settings_path}")

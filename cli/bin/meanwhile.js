@@ -49,10 +49,10 @@ async function downloadTo(remoteName, localPath) {
   fs.writeFileSync(localPath, await res.text());
 }
 
-function wireSettings(settingsPath, runtime, scriptPath) {
+function wireSettings(settingsPath, runtime, scriptPath, extra = {}) {
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, "utf8") || "{}") : {};
-  settings.statusLine = { type: "command", command: `"${runtime}" "${scriptPath}"` };
+  settings.statusLine = { type: "command", command: `"${runtime}" "${scriptPath}"`, ...extra };
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
   vlog(`wired into ${settingsPath}`);
 }
@@ -176,7 +176,7 @@ async function main() {
 
   const claudeScript = path.join(INSTALL_DIR, "statusline.js");
   await downloadTo("statusline.js", claudeScript);
-  wireSettings(path.join(os.homedir(), ".claude", "settings.json"), node, claudeScript);
+  wireSettings(path.join(os.homedir(), ".claude", "settings.json"), node, claudeScript, { refreshInterval: 10 });
 
   if (wireCopilot) {
     const copilotScript = path.join(INSTALL_DIR, "copilot_statusline.js");
