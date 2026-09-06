@@ -621,8 +621,8 @@ async function pickLine(env, state, installId) {
     if (witty) return { kind: "tip", line: witty };
   }
   // No real paying campaign right now -- an unpaid affiliate line is a
-  // separate, honestly-labeled thing shown at low, fixed odds, never in
-  // place of real sponsor inventory (the branch above already claimed
+  // separate, honestly-labeled thing shown at a fixed rotation odds, never
+  // in place of real sponsor inventory (the branch above already claimed
   // that case). Bypasses the whole campaign/ledger path on purpose: no
   // captured payment exists yet to split with anyone.
   if (installId && AFFILIATE_LINES.length > 0 && Math.random() < AFFILIATE_CHANCE) {
