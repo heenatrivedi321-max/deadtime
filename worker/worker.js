@@ -470,8 +470,17 @@ const ANSI_BOLD = "\x1b[1m";
 const ANSI_GOLD = "\x1b[33m";
 const ANSI_RESET = "\x1b[0m";
 
+/** OSC 8 terminal hyperlink: wraps visible text with an invisible link
+ * target instead of printing the raw URL inline. Terminals that support
+ * it (iTerm2, Kitty, WezTerm, VS Code's integrated terminal, etc.) render
+ * only the text, clickable; terminals that don't just ignore the escape
+ * codes and show the plain text -- never a broken or garbled fallback. */
+function osc8Link(text, url) {
+  return `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
+}
+
 function formatCampaignLine(campaign) {
-  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${campaign.line} -> ${campaign.url}`;
+  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(campaign.line, campaign.url)}`;
 }
 
 /** Affiliate lines: no upfront payment exists, so unlike a real campaign
@@ -490,7 +499,7 @@ const AFFILIATE_LINES = [
 
 function formatAffiliateLine(affiliate, installId) {
   const url = `${affiliate.url}&clickref=${encodeURIComponent(installId)}`;
-  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${affiliate.line} -> ${url}`;
+  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${osc8Link(affiliate.line, url)}`;
 }
 
 /** Active campaigns are the real, paid-and-activated ad pool. When it's
