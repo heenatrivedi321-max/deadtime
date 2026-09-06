@@ -510,6 +510,7 @@ function formatCampaignLine(campaign) {
  * principle be traced back -- but no automatic payout pipeline exists for
  * that yet. Railway's own referral link has no per-click id slot of its
  * own (it attributes by the shared referral code only), so it's used as-is.
+ * Same story for Vultr's referral link.
  * Deliberately a high, product-level decision -- 3 in 5 -- rather than the
  * original low, cautious 2% -- more visible than a first cautious rollout,
  * at the cost of Meanwhile looking more ad-heavy than "mostly tips" implies. */
@@ -523,6 +524,11 @@ const AFFILIATE_LINES = [
   {
     line: "Deploy real apps on Railway, free",
     url: "https://railway.com?referralCode=AOY5na",
+    supportsClickref: false,
+  },
+  {
+    line: "Spin up a cheap VPS on Vultr",
+    url: "https://www.vultr.com/?ref=9921656",
     supportsClickref: false,
   },
 ];
