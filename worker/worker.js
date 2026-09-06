@@ -474,6 +474,25 @@ function formatCampaignLine(campaign) {
   return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${campaign.line} -> ${campaign.url}`;
 }
 
+/** Affiliate lines: no upfront payment exists, so unlike a real campaign
+ * these never touch impressions_total, the ledger, or the 50/50 developer
+ * split -- there's no captured payment to split. Still honestly disclosed
+ * as sponsored, shown for free, at low odds, with the install's own id as
+ * the click reference so a later commission could in principle be traced
+ * back -- but no automatic payout pipeline exists for that yet. */
+const AFFILIATE_CHANCE = 0.02;
+const AFFILIATE_LINES = [
+  {
+    line: "Cheap VPS hosting, no contracts",
+    url: "https://www.awin1.com/cread.php?awinmid=116629&awinaffid=3077075&ued=https%3A%2F%2Fwww.databasemart.com%2F",
+  },
+];
+
+function formatAffiliateLine(affiliate, installId) {
+  const url = `${affiliate.url}&clickref=${encodeURIComponent(installId)}`;
+  return `${ANSI_BOLD}${ANSI_GOLD}(sponsored)${ANSI_RESET} ${affiliate.line} -> ${url}`;
+}
+
 /** Active campaigns are the real, paid-and-activated ad pool. When it's
  * empty, pickLine falls through to the promo bonus (capped, honestly
  * labeled) or a plain tip -- never a fake ad standing in for a real one. */
@@ -516,7 +535,7 @@ function computeEffectiveCeiling(activeCampaigns) {
   return MIN_CEILING + (FILL_CEILING - MIN_CEILING) * pressure;
 }
 
-async function pickLine(env, state) {
+async function pickLine(env, state, installId) {
   // A jackpot win takes priority over everything else and is shown
   // exactly once -- consumed and cleared right here, the same object
   // the caller persists right after.
@@ -577,6 +596,15 @@ async function pickLine(env, state) {
   if (Math.random() < WITTY_CHANCE) {
     const witty = await generateWittyLine(env, state);
     if (witty) return { kind: "tip", line: witty };
+  }
+  // No real paying campaign right now -- an unpaid affiliate line is a
+  // separate, honestly-labeled thing shown at low, fixed odds, never in
+  // place of real sponsor inventory (the branch above already claimed
+  // that case). Bypasses the whole campaign/ledger path on purpose: no
+  // captured payment exists yet to split with anyone.
+  if (installId && AFFILIATE_LINES.length > 0 && Math.random() < AFFILIATE_CHANCE) {
+    const affiliate = AFFILIATE_LINES[Math.floor(Math.random() * AFFILIATE_LINES.length)];
+    return { kind: "tip", line: formatAffiliateLine(affiliate, installId) };
   }
   return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
 }
@@ -837,7 +865,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
   }
 
   // Every real invocation picks a fresh line -- no artificial hold timer.
-  const picked = await pickLine(env, state);
+  const picked = await pickLine(env, state, installId);
   state.current_kind = picked.kind;
   state.current_line = picked.line;
   state.current_campaign_id = picked.campaign_id || null;
