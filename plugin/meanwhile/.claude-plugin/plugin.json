@@ -1,0 +1,11 @@
+{
+  "name": "meanwhile",
+  "description": "Adds a disclosed, revenue-sharing status line: while Claude Code is thinking, it shows an occasional clearly labeled sponsor line and pays you a real cut. Free to install, one command to remove.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Nirmeet Trivedi"
+  },
+  "homepage": "https://trymeanwhile.online",
+  "repository": "https://github.com/heenatrivedi321-max/deadtime",
+  "license": "MIT"
+}
