@@ -225,6 +225,19 @@ const PROMO_BONUS_DAILY_CAP = 20;
 const CPM = 15.0;
 const USER_SHARE = 0.5;
 
+/** Affiliate lines (Railway, Vultr, ElevenLabs, Kit, ...) carry no real
+ * per-impression revenue -- none of those programs pay on a click, only
+ * on a conversion we have no way to attribute back to a specific install.
+ * Rather than show $0 for something that visibly took up screen time, or
+ * invent an uncapped flat rate that could owe users far more than the
+ * affiliate programs ever pay Meanwhile, this pays the same real CPM
+ * math as everything else, at a small, hard-capped daily volume -- so
+ * total exposure per user per day is bounded and known in advance. An
+ * admitted subsidy, same honesty rule as PROMO_BONUS_DAILY_CAP: tracked
+ * in its own counter, never inflating sponsor_calls or the "X% sponsored"
+ * stat, since no real advertiser is paying for these impressions. */
+const AFFILIATE_BONUS_DAILY_CAP = 10;
+
 /** Early-adopter deal, replacing the old permanent "first 100 keep 60%
  * forever" founder scheme entirely -- deliberately chosen instead of
  * layering a second forever-perk on top of it, since a permanent
@@ -307,6 +320,8 @@ function defaultState() {
     sponsor_calls: 0,
     bonus_calls: 0,
     bonus_today: 0,
+    affiliate_bonus_calls: 0,
+    affiliate_bonus_today: 0,
     current_kind: null,
     current_line: null,
     line_started: 0,
@@ -506,34 +521,38 @@ function formatCampaignLine(campaign) {
  * split -- there's no captured payment to split. Still honestly disclosed
  * as sponsored, shown for free, at a fixed rotation odds, with the
  * install's own id passed through as a click reference where the network
- * supports it (Awin's clickref param) so a later commission could in
- * principle be traced back -- but no automatic payout pipeline exists for
- * that yet. Railway's own referral link has no per-click id slot of its
- * own (it attributes by the shared referral code only), so it's used as-is.
- * Same story for Vultr's referral link.
+ * supports it so a later commission could in principle be traced back --
+ * but no automatic payout pipeline exists for that yet. Railway's own
+ * referral link has no per-click id slot of its own (it attributes by the
+ * shared referral code only), so it's used as-is. Same story for Vultr's
+ * referral link. Awin-network programs (Database Mart, DigitalOcean,
+ * NordVPN) are deliberately excluded here: Awin only pays out via bank
+ * transfer or Payoneer, neither workable for a minor with no bank account
+ * of his own -- so nothing Awin-sourced gets wired into the product until
+ * that changes.
  * Deliberately a high, product-level decision -- 3 in 5 -- rather than the
  * original low, cautious 2% -- more visible than a first cautious rollout,
  * at the cost of Meanwhile looking more ad-heavy than "mostly tips" implies. */
 const AFFILIATE_CHANCE = 0.6;
 const AFFILIATE_LINES = [
   {
-    line: "Cheap VPS hosting, no contracts",
-    url: "https://www.awin1.com/cread.php?awinmid=116629&awinaffid=3077075&ued=https%3A%2F%2Fwww.databasemart.com%2F",
-    supportsClickref: true,
-  },
-  {
-    line: "Deploy real apps on Railway, free",
+    line: "\"Works on my machine\" isn't a deploy strategy",
     url: "https://railway.com?referralCode=AOY5na",
     supportsClickref: false,
   },
   {
-    line: "Spin up a cheap VPS on Vultr",
+    line: "Localhost was never going to scale",
     url: "https://www.vultr.com/?ref=9921656",
     supportsClickref: false,
   },
   {
-    line: "Real AI voices, try ElevenLabs free",
+    line: "Let something else read your error logs aloud",
     url: "https://try.elevenlabs.io/1hq6d2v6vyj0",
+    supportsClickref: false,
+  },
+  {
+    line: "Your changelog deserves better than a group chat",
+    url: "https://partners.kit.com/twbzzxp5nufz",
     supportsClickref: false,
   },
 ];
@@ -656,7 +675,7 @@ async function pickLine(env, state, installId) {
   // captured payment exists yet to split with anyone.
   if (installId && AFFILIATE_LINES.length > 0 && Math.random() < AFFILIATE_CHANCE) {
     const affiliate = AFFILIATE_LINES[Math.floor(Math.random() * AFFILIATE_LINES.length)];
-    return { kind: "tip", line: formatAffiliateLine(affiliate, installId) };
+    return { kind: "affiliate", line: formatAffiliateLine(affiliate, installId) };
   }
   return { kind: "tip", line: TIPS[Math.floor(Math.random() * TIPS.length)] };
 }
@@ -851,6 +870,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
     state.billing_day = today;
     state.billed_today = 0;
     state.bonus_today = 0;
+    state.affiliate_bonus_today = 0;
   }
 
   if (state.current_line !== null && !state.billed_current) {
@@ -896,6 +916,18 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
           // call: there's no real campaign budget to decrement.
           state.bonus_calls = (state.bonus_calls || 0) + 1;
           state.bonus_today = (state.bonus_today || 0) + 1;
+          if (!state.daily_earnings) state.daily_earnings = {};
+          const earnedThisCall = userShareFor(state) * (CPM / 1000);
+          state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
+        } else if (state.current_kind === "affiliate" && (state.affiliate_bonus_today || 0) < AFFILIATE_BONUS_DAILY_CAP) {
+          // Same admitted-subsidy pattern as the promo bonus above, for the
+          // same reason: no real advertiser is paying for this impression
+          // (see AFFILIATE_LINES' own comment), so this is Meanwhile's own
+          // money, tracked in its own counter with its own small daily cap
+          // -- never sponsor_calls, never bonus_calls, never inflating
+          // either stat this state feeds elsewhere.
+          state.affiliate_bonus_calls = (state.affiliate_bonus_calls || 0) + 1;
+          state.affiliate_bonus_today = (state.affiliate_bonus_today || 0) + 1;
           if (!state.daily_earnings) state.daily_earnings = {};
           const earnedThisCall = userShareFor(state) * (CPM / 1000);
           state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
@@ -968,7 +1000,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
 async function handleEarnings(env, installId) {
   const raw = await env.INSTALLS.get(`install:${installId}`);
   const state = raw ? JSON.parse(raw) : defaultState();
-  const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+  const revenue = (state.sponsor_calls + (state.bonus_calls || 0) + (state.affiliate_bonus_calls || 0)) * (CPM / 1000);
   const inPromo = isInPromoWindow(state);
   const promoDaysLeft = inPromo
     ? Math.max(0, Math.ceil((PROMO_WINDOW_SECONDS - (Date.now() / 1000 - state.promo_started_at)) / 86400))
@@ -976,6 +1008,7 @@ async function handleEarnings(env, installId) {
   return json({
     total_calls: state.total_calls,
     sponsor_calls: state.sponsor_calls,
+    affiliate_calls: state.affiliate_bonus_calls || 0,
     sponsor_ratio: sponsorRatio(state),
     gross_revenue: revenue,
     user_earnings: revenue * userShareFor(state),
@@ -1090,7 +1123,7 @@ async function handleBadge(env, request) {
     const raw = await env.INSTALLS.get(`install:${id}`);
     if (raw) {
       const state = JSON.parse(raw);
-      const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+      const revenue = (state.sponsor_calls + (state.bonus_calls || 0) + (state.affiliate_bonus_calls || 0)) * (CPM / 1000);
       const earnings = revenue * userShareFor(state);
       value = `$${earnings.toFixed(2)}`;
       color = "#e8c896";
@@ -1207,7 +1240,7 @@ async function handleRegisterPayout(request, env) {
     return json({ error: "couldn't save this right now -- try again in a few minutes" }, 503);
   }
 
-  const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+  const revenue = (state.sponsor_calls + (state.bonus_calls || 0) + (state.affiliate_bonus_calls || 0)) * (CPM / 1000);
   const earnings = revenue * userShareFor(state);
   return json({
     ok: true,
@@ -1360,7 +1393,7 @@ async function runPayoutsLocked(env) {
       const state = JSON.parse(raw);
       if (!state.payout_email) continue;
 
-      const revenue = (state.sponsor_calls + (state.bonus_calls || 0)) * (CPM / 1000);
+      const revenue = (state.sponsor_calls + (state.bonus_calls || 0) + (state.affiliate_bonus_calls || 0)) * (CPM / 1000);
       const earnings = revenue * userShareFor(state);
       const unpaid = earnings - (state.paid_out_usd || 0);
       if (unpaid < PAYOUT_THRESHOLD_USD) continue;
@@ -1678,21 +1711,36 @@ async function checkLeadRateLimit(env, ip) {
 const LINE_RATE_LIMIT_PER_INSTALL = 40;
 const LINE_RATE_WINDOW_PER_INSTALL_SECONDS = 60;
 
+// Every /line call used to cost a KV read here on top of the state read in
+// handleLine -- on the account's free plan that's a second draw against the
+// same 100k-reads/day quota that's shared with every other KV consumer in
+// the whole Worker. The Cache API is unlimited and free on every plan
+// because it isn't KV at all -- it's per-colo edge cache, so this becomes
+// "up to N per edge location" rather than one true global count. That's a
+// real accuracy trade, but this check was always a fail-open abuse
+// safety-net, never the billing signal itself (handleLine's own dwell-time
+// + session-evidence checks are what actually gate billing) -- a slightly
+// leakier net across colos is a fine trade for not spending KV quota on
+// every single request just to maybe reject it.
 async function checkLineRateLimit(env, installId) {
-  const installKey = `ratelimit:line:install:${installId}`;
-  // This check runs before handleLine even starts, so an unguarded
-  // failure here would crash /line entirely -- worse than the thing
-  // it's meant to protect against. If KV itself can't be read or
-  // written to right now (quota exhaustion, a transient outage), fail
-  // open: let the real line through uncounted rather than block every
-  // real user because the rate limiter's own bookkeeping broke.
+  const cache = caches.default;
+  const cacheKey = new Request(`https://ratelimit.internal/line/install/${encodeURIComponent(installId)}`);
+  // This check runs before handleLine even starts, so an unguarded failure
+  // here would crash /line entirely -- worse than the thing it's meant to
+  // protect against. If the cache itself can't be read or written right
+  // now, fail open: let the real line through uncounted rather than block
+  // every real user because the rate limiter's own bookkeeping broke.
   try {
-    const installRaw = await env.LEADS.get(installKey);
-    const installCount = installRaw ? parseInt(installRaw, 10) : 0;
+    const cached = await cache.match(cacheKey);
+    const installCount = cached ? parseInt(await cached.text(), 10) : 0;
     if (installCount >= LINE_RATE_LIMIT_PER_INSTALL) {
       return { ok: false };
     }
-    await env.LEADS.put(installKey, String(installCount + 1), { expirationTtl: LINE_RATE_WINDOW_PER_INSTALL_SECONDS });
+    const body = String(installCount + 1);
+    await cache.put(
+      cacheKey,
+      new Response(body, { headers: { "cache-control": `max-age=${LINE_RATE_WINDOW_PER_INSTALL_SECONDS}` } })
+    );
   } catch (e) {
     await logError(env, "line_rate_limit_check_failed", `rate limit check for install ${installId} failed open`, e.message);
   }
@@ -2555,16 +2603,16 @@ export default {
    * used to surface as Cloudflare's opaque "error code: 1101" with
    * nothing logged. Now it's caught, logged durably, and returned as a
    * real JSON error instead. */
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     try {
-      return await this._route(request, env);
+      return await this._route(request, env, ctx);
     } catch (e) {
       await logError(env, "unhandled_exception", `${request.method} ${new URL(request.url).pathname}`, e.stack || e.message);
       return json({ error: "internal error", detail: e.message }, 500);
     }
   },
 
-  async _route(request, env) {
+  async _route(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -2599,6 +2647,26 @@ export default {
         tokens: Number.isFinite(parsedTokens) ? parsedTokens : null,
         cwdHash: url.searchParams.get("cwd") || "",
       };
+      // The VS Code client reports this on the first call that succeeds
+      // after a run of silent network failures -- it's the only signal we
+      // have that a real, otherwise-invisible install is failing to reach
+      // us intermittently (flaky VPN, proxy timeouts). Not billing-critical,
+      // so a KV hiccup here must never break the actual line response.
+      const priorFailures = parseInt(url.searchParams.get("prior_failures"), 10);
+      if (Number.isFinite(priorFailures) && priorFailures > 0) {
+        ctx.waitUntil(
+          (async () => {
+            try {
+              const key = "meta:client_reported_failures";
+              const raw = await env.INSTALLS.get(key);
+              const total = (raw ? parseInt(raw, 10) : 0) + priorFailures;
+              await env.INSTALLS.put(key, String(total));
+            } catch (e) {
+              await logError(env, "prior_failures_write_failed", `install ${id} reported ${priorFailures} prior failures but the counter didn't persist`, e.message);
+            }
+          })()
+        );
+      }
       return handleLine(env, id, eventName, sessionEvidence);
     }
 
