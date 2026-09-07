@@ -31,9 +31,17 @@ binding = "AI"
 name = "CAMPAIGN_COUNTER"
 class_name = "CampaignCounter"
 
+[[durable_objects.bindings]]
+name = "INSTALL_STATE"
+class_name = "InstallState"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["CampaignCounter"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["InstallState"]
 
 [[routes]]
 pattern = "trymeanwhile.online"

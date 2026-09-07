@@ -350,9 +350,8 @@ function defaultState() {
  * reassigned or revoked -- but unlike the old founder scheme, the RATE
  * it unlocks still expires after PROMO_WINDOW_DAYS regardless. */
 async function getOrCreateState(env, installId) {
-  const key = `install:${installId}`;
-  const raw = await env.INSTALLS.get(key);
-  if (raw) return JSON.parse(raw);
+  const existing = await readInstallState(env, installId);
+  if (existing) return existing;
 
   const state = defaultState();
   // meta:promo_count is one shared key across every brand-new install --
@@ -385,7 +384,7 @@ async function getOrCreateState(env, installId) {
   // "no raw record yet" path and tries again, rather than the install
   // being stuck erroring forever.
   try {
-    await env.INSTALLS.put(key, JSON.stringify(state));
+    await writeInstallState(env, installId, state);
   } catch (e) {
     await logError(env, "install_state_write_failed", `new install ${installId} couldn't be persisted this call`, e.message);
   }
@@ -799,6 +798,91 @@ export class CampaignCounter {
   }
 }
 
+/** Every active session polls /line every 10-20s, and until now each of
+ * those calls cost a real Workers KV read just to load that install's own
+ * state -- on the free plan, the account-wide 100k-reads/day cap is shared
+ * across every install, every call, so this one hot path was the dominant
+ * source of read volume. One DO instance per install (same idFromName
+ * pattern as CampaignCounter) fixes this differently than the campaign
+ * case: instead of reading KV every call, this DO's own durable storage
+ * is authoritative once anything exists there, and KV is only ever
+ * touched (a) once, on true cold start, to pick up an install's real
+ * history if this is the first time this DO instance has ever handled it,
+ * and (b) as an async mirror on every write, so every other consumer that
+ * reads `install:<id>` straight out of Workers KV -- /earnings, the admin
+ * dashboard, the daily payout-eligibility cron, network-stats -- keeps
+ * seeing real, current data without needing to know this DO exists.
+ * Writes aren't the problem here; only KV get() has the daily cap. */
+export class InstallState {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const key = url.searchParams.get("key");
+    if (!key) return new Response(JSON.stringify({ error: "missing key" }), { status: 400 });
+
+    if (request.method === "GET") {
+      let raw = await this.state.storage.get("raw");
+      if (raw === undefined) {
+        // Cold start for this DO instance -- fall back to whatever's
+        // already in KV (a pre-existing install, or nothing for a
+        // genuinely new one) exactly once. Every call after this is
+        // served from this DO's own storage and never touches KV again.
+        raw = (await this.env.INSTALLS.get(key)) || null;
+        await this.state.storage.put("raw", raw);
+      }
+      return new Response(JSON.stringify({ raw }));
+    }
+
+    if (request.method === "PUT") {
+      const body = await request.json();
+      await this.state.storage.put("raw", body.raw);
+      // Mirror to KV so every consumer that reads install state directly
+      // (outside the /line hot path this DO exists to protect) still sees
+      // it. A write failure here must not fail the call that's actually
+      // updating this install's live state -- the DO's own storage is
+      // already durable and authoritative regardless of whether this
+      // particular KV mirror succeeds.
+      try {
+        await this.env.INSTALLS.put(key, body.raw);
+      } catch (e) {
+        await logError(this.env, "install_state_kv_mirror_failed", `install DO for ${key} couldn't mirror its write to KV`, e.message);
+      }
+      return new Response(JSON.stringify({ ok: true }));
+    }
+
+    return new Response("method not allowed", { status: 405 });
+  }
+}
+
+/** Read an install's state through its dedicated Durable Object instead
+ * of Workers KV directly -- see InstallState above for why. Returns the
+ * parsed state object, or null if this install has never been seen. */
+async function readInstallState(env, installId) {
+  const key = `install:${installId}`;
+  const id = env.INSTALL_STATE.idFromName(installId);
+  const stub = env.INSTALL_STATE.get(id);
+  const res = await stub.fetch(`https://install-state.internal/?key=${encodeURIComponent(key)}`);
+  const { raw } = await res.json();
+  return raw ? JSON.parse(raw) : null;
+}
+
+/** Write an install's state through its Durable Object -- see
+ * InstallState above. The DO mirrors this to KV itself, so callers don't
+ * need to touch env.INSTALLS for install state directly anymore. */
+async function writeInstallState(env, installId, state) {
+  const key = `install:${installId}`;
+  const id = env.INSTALL_STATE.idFromName(installId);
+  const stub = env.INSTALL_STATE.get(id);
+  await stub.fetch(`https://install-state.internal/?key=${encodeURIComponent(key)}`, {
+    method: "PUT",
+    body: JSON.stringify({ raw: JSON.stringify(state) }),
+  });
+}
+
 /** Does this call carry ANY real session telemetry at all? A script just
  * pinging /line on a timer, with no genuine Claude Code/Copilot process
  * behind it, has nothing to put in these fields -- they only exist
@@ -984,7 +1068,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
   // down." Found live: a KV daily-write-quota exhaustion turned this one
   // unguarded put() into a 500 for every single /line call account-wide.
   try {
-    await env.INSTALLS.put(key, JSON.stringify(state));
+    await writeInstallState(env, installId, state);
   } catch (e) {
     await logError(env, "install_state_write_failed", `install ${installId}'s state didn't persist this call`, e.message);
   }
@@ -998,8 +1082,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
 }
 
 async function handleEarnings(env, installId) {
-  const raw = await env.INSTALLS.get(`install:${installId}`);
-  const state = raw ? JSON.parse(raw) : defaultState();
+  const state = (await readInstallState(env, installId)) || defaultState();
   const revenue = (state.sponsor_calls + (state.bonus_calls || 0) + (state.affiliate_bonus_calls || 0)) * (CPM / 1000);
   const inPromo = isInPromoWindow(state);
   const promoDaysLeft = inPromo
@@ -1050,7 +1133,7 @@ async function handleSetName(request, env) {
   // case the name doesn't stick and they're asked again next visit,
   // which is recoverable. A 500 here is not.
   try {
-    await env.INSTALLS.put(key, JSON.stringify(state));
+    await writeInstallState(env, id, state);
   } catch (e) {
     await logError(env, "install_state_write_failed", `set-name for install ${id} didn't persist`, e.message);
   }
@@ -1234,7 +1317,7 @@ async function handleRegisterPayout(request, env) {
   // hard failure, just an accurate one instead of a raw KV error leaking
   // through the generic 500 handler.
   try {
-    await env.INSTALLS.put(key, JSON.stringify(state));
+    await writeInstallState(env, id, state);
   } catch (e) {
     await logError(env, "install_state_write_failed", `register-payout for install ${id} couldn't persist the email`, e.message);
     return json({ error: "couldn't save this right now -- try again in a few minutes" }, 503);
