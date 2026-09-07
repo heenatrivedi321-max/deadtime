@@ -134,6 +134,35 @@ async function claimCommand() {
   console.log(`  register a payout email: ${claimUrl}`);
 }
 
+// `npx trymeanwhile segment` -- built for embedding inside another tool's
+// own status line, e.g. ccstatusline's Custom Command widget (the same
+// pattern claude-carbon uses for its own --segment mode). One fetch, one
+// line of raw output, nothing else: no logging, no browser-opening, no
+// install-wizard side effects. Must already be installed (has an
+// install_id) since a segment call doesn't wire statusLine itself -- it's
+// a value to embed inside someone else's line, not a full status line on
+// its own.
+async function segmentCommand() {
+  const idPath = path.join(STATE_DIR, "install_id");
+  if (!fs.existsSync(idPath)) {
+    process.stdout.write("meanwhile: run `npx trymeanwhile` first");
+    return;
+  }
+  const installId = fs.readFileSync(idPath, "utf8").trim();
+  try {
+    const params = new URLSearchParams({ id: installId, event: "segment", sid: "", cost: "", tok: "", cwd: "" });
+    const res = await fetch(`${SERVER}/line?${params}`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.line) {
+        process.stdout.write(data.line);
+        return;
+      }
+    }
+  } catch {}
+  process.stdout.write("meanwhile: unreachable");
+}
+
 async function main() {
   if (process.argv[2] === "wrap") {
     await wrapCommand(process.argv.slice(3));
@@ -141,6 +170,10 @@ async function main() {
   }
   if (process.argv[2] === "claim") {
     await claimCommand();
+    return;
+  }
+  if (process.argv[2] === "segment") {
+    await segmentCommand();
     return;
   }
 
@@ -207,6 +240,9 @@ async function main() {
   // (restart your tool) read no differently than housekeeping. Blank
   // lines and indentation do the hierarchy work no --verbose flag can.
   console.log("meanwhile: installed. congratulations, you now get paid to wait.");
+  console.log();
+  console.log("  privacy: this never reads your code or your prompts -- only that a");
+  console.log("  line was shown, and for how long. that's the whole billing signal.");
   console.log();
   if (sampleLine) {
     console.log(`  just tested the connection -- here's a real line: "${sampleLine}"`);
