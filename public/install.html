@@ -1960,14 +1960,32 @@ document.querySelectorAll('.magnetic').forEach((el) => {
    and it's also just wasted GPU/battery for anyone who's said they
    don't want animation. */
 window.__prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Every WebGL effect keeps rendering forever once started, including in a
+   backgrounded/hidden tab -- pure wasted GPU nobody is looking at. Each
+   init() already returns a destroy() that cleanly cancels its rAF loop and
+   frees the GL context, so on tab-hide we destroy, and on tab-show we just
+   re-run the same init -- same pattern already used for the IntersectionObserver
+   case below, just gated on visibility instead of scroll position. */
+window.__webglEffects = [];
 window.__safeInitWebGL = function (label, fn) {
   if (window.__prefersReducedMotion) return;
   try {
-    fn();
+    const destroy = fn();
+    if (typeof destroy === 'function') window.__webglEffects.push({ label, fn, destroy });
   } catch (e) {
     console.warn('[meanwhile] ' + label + ' effect failed to initialize, skipping:', e);
   }
 };
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    window.__webglEffects.forEach((e) => { try { e.destroy(); } catch (err) {} });
+  } else {
+    window.__webglEffects.forEach((e) => {
+      try { e.destroy = e.fn(); } catch (err) { console.warn('[meanwhile] ' + e.label + ' failed to resume:', err); }
+    });
+  }
+});
 
 /* ---------- returning-visitor banner ---------- */
 function showWelcomeBack(id) {

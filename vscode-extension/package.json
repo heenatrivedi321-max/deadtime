@@ -2,7 +2,7 @@
   "name": "meanwhile",
   "displayName": "Meanwhile",
   "description": "A quiet line in your status bar while you code. Occasionally a disclosed sponsor line -- half the revenue is yours.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "meanwhile-dev",
   "license": "MIT",
   "icon": "images/icon.png",

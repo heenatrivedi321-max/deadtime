@@ -335,7 +335,41 @@ function defaultState() {
     promo_number: null,
     promo_started_at: null,
     daily_earnings: {},
+    referred_by: null,
+    referral_count: 0,
+    referral_earnings_total: 0,
   };
+}
+
+/** Referral bonus: paid ONLY out of the house's own share (the half
+ * Meanwhile keeps), never reducing the referred user's own USER_SHARE --
+ * so referring someone costs the referrer nothing and costs the referred
+ * person nothing either. Kept deliberately modest and separate from
+ * every existing "admitted subsidy" counter (bonus_calls, affiliate_bonus_calls)
+ * for the same honesty reason those exist: a referral credit is real
+ * money Meanwhile is choosing to give away, tracked in its own field so
+ * it never gets confused with sponsor_calls or inflates the "X% sponsored"
+ * stat. */
+const REFERRAL_BONUS_RATE = 0.2;
+
+/** Called right after a referred install's own earning event is recorded
+ * (see handleLine). Reads and updates the REFERRER's state, not the
+ * referred install's -- two separate Durable Object instances, so this
+ * never races with the referred install's own write. Fire-and-forget via
+ * ctx.waitUntil at the call site: a missed referral credit due to a
+ * transient error is a real but survivable loss, not worth blocking or
+ * failing the referred install's own /line response over. */
+async function creditReferralBonus(env, referrerId, referredEarning) {
+  if (!referrerId || !isValidId(referrerId) || referredEarning <= 0) return;
+  try {
+    const referrerState = await readInstallState(env, referrerId);
+    if (!referrerState) return; // referrer install no longer exists -- nothing to credit
+    const bonus = Math.round(referredEarning * REFERRAL_BONUS_RATE * 10000) / 10000;
+    referrerState.referral_earnings_total = Math.round(((referrerState.referral_earnings_total || 0) + bonus) * 10000) / 10000;
+    await writeInstallState(env, referrerId, referrerState);
+  } catch (e) {
+    await logError(env, "referral_credit_failed", `crediting referrer ${referrerId}`, e.message);
+  }
 }
 
 /** Assigns a promo number exactly once, at true first contact with the
@@ -349,11 +383,30 @@ function defaultState() {
  * worth a Durable Object for. Once a number is written it is never
  * reassigned or revoked -- but unlike the old founder scheme, the RATE
  * it unlocks still expires after PROMO_WINDOW_DAYS regardless. */
-async function getOrCreateState(env, installId) {
+async function getOrCreateState(env, installId, referrerId) {
   const existing = await readInstallState(env, installId);
   if (existing) return existing;
 
   const state = defaultState();
+  // Attribution only happens once, at true first contact -- same moment
+  // the promo number is assigned below. A referrer can't be added or
+  // changed later by replaying a ref link against an install that
+  // already exists (that write is skipped entirely by the `existing`
+  // return above), and self-referral is rejected outright.
+  if (referrerId && isValidId(referrerId) && referrerId !== installId) {
+    state.referred_by = referrerId;
+    // Non-blocking, best-effort -- a lost increment here just means the
+    // referrer's dashboard undercounts by one, not a broken install.
+    try {
+      const referrerState = await readInstallState(env, referrerId);
+      if (referrerState) {
+        referrerState.referral_count = (referrerState.referral_count || 0) + 1;
+        await writeInstallState(env, referrerId, referrerState);
+      }
+    } catch (e) {
+      await logError(env, "referral_count_write_failed", `crediting referrer ${referrerId} for new install ${installId}`, e.message);
+    }
+  }
   // meta:promo_count is one shared key across every brand-new install --
   // fine at low signup volume, but a real burst of concurrent new
   // installs (a launch spike is exactly this) all try to read-then-write
@@ -939,9 +992,9 @@ function sessionProgressed(baseline, current) {
   return false;
 }
 
-async function handleLine(env, installId, eventName, sessionEvidence) {
+async function handleLine(env, ctx, installId, eventName, sessionEvidence, referrerId) {
   const key = `install:${installId}`;
-  const state = await getOrCreateState(env, installId);
+  const state = await getOrCreateState(env, installId, referrerId);
   const now = Date.now() / 1000;
 
   // Claude Code only calls us on real events (new message, session start,
@@ -982,6 +1035,11 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
         state.billed_current = true;
         state.total_calls += 1;
         state.billed_today += 1;
+        // Tracked here, once, regardless of which of the three branches
+        // below actually earns money -- referral credit rides on any of
+        // them, not just sponsor calls, since bonus/affiliate calls pay
+        // the same real userShareFor() money to the referred user.
+        let referralCreditEarning = 0;
         if (state.current_kind === "sponsor") {
           state.sponsor_calls += 1;
           // Same reasoning as campaigns' daily_impressions: a running
@@ -990,6 +1048,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
           if (!state.daily_earnings) state.daily_earnings = {};
           const earnedThisCall = userShareFor(state) * (CPM / 1000);
           state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
+          referralCreditEarning = earnedThisCall;
           await deliverImpression(env, state.current_campaign_id);
         } else if (state.current_kind === "bonus" && (state.bonus_today || 0) < PROMO_BONUS_DAILY_CAP) {
           // Real money, same as a sponsor call, but tracked completely
@@ -1003,6 +1062,7 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
           if (!state.daily_earnings) state.daily_earnings = {};
           const earnedThisCall = userShareFor(state) * (CPM / 1000);
           state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
+          referralCreditEarning = earnedThisCall;
         } else if (state.current_kind === "affiliate" && (state.affiliate_bonus_today || 0) < AFFILIATE_BONUS_DAILY_CAP) {
           // Same admitted-subsidy pattern as the promo bonus above, for the
           // same reason: no real advertiser is paying for this impression
@@ -1015,6 +1075,13 @@ async function handleLine(env, installId, eventName, sessionEvidence) {
           if (!state.daily_earnings) state.daily_earnings = {};
           const earnedThisCall = userShareFor(state) * (CPM / 1000);
           state.daily_earnings[today] = Math.round(((state.daily_earnings[today] || 0) + earnedThisCall) * 10000) / 10000;
+          referralCreditEarning = earnedThisCall;
+        }
+        if (referralCreditEarning > 0 && state.referred_by) {
+          // Fire-and-forget -- crediting the referrer touches a different
+          // install's Durable Object and must never delay or fail this
+          // install's own /line response.
+          ctx.waitUntil(creditReferralBonus(env, state.referred_by, referralCreditEarning));
         }
       } else if (state.billed_today === DAILY_BILLABLE_CAP) {
         // Log once, not on every call past the cap -- a real signal
@@ -1094,7 +1161,7 @@ async function handleEarnings(env, installId) {
     affiliate_calls: state.affiliate_bonus_calls || 0,
     sponsor_ratio: sponsorRatio(state),
     gross_revenue: revenue,
-    user_earnings: revenue * userShareFor(state),
+    user_earnings: revenue * userShareFor(state) + (state.referral_earnings_total || 0),
     payout_email: state.payout_email || null,
     jackpot_won_total: state.jackpot_won_total || 0,
     name: state.name || null,
@@ -1102,6 +1169,8 @@ async function handleEarnings(env, installId) {
     promo_active: inPromo,
     promo_days_left: promoDaysLeft,
     daily_earnings: state.daily_earnings || {},
+    referral_count: state.referral_count || 0,
+    referral_earnings: state.referral_earnings_total || 0,
   });
 }
 
@@ -2750,7 +2819,24 @@ export default {
           })()
         );
       }
-      return handleLine(env, id, eventName, sessionEvidence);
+      const refParam = url.searchParams.get("ref");
+      const referrerId = refParam && isValidId(refParam) ? refParam : null;
+      return handleLine(env, ctx, id, eventName, sessionEvidence, referrerId);
+    }
+
+    // A referral link, meant to be shared by an existing install --
+    // `trymeanwhile.online/r/<their-install-id>`. Doesn't attribute
+    // anything itself (an install_id alone in a URL is public and
+    // unauthenticated on purpose, same as /claim); it just redirects to
+    // the homepage with ?ref= attached so the copy-paste install command
+    // shown there can include it. Actual attribution happens once, at
+    // getOrCreateState, the first time that ref reaches /line.
+    if (request.method === "GET" && url.pathname.startsWith("/r/")) {
+      const refId = url.pathname.slice(3);
+      if (isValidId(refId)) {
+        return Response.redirect(`${url.origin}/?ref=${encodeURIComponent(refId)}`, 302);
+      }
+      return Response.redirect(url.origin, 302);
     }
 
     if (request.method === "GET" && url.pathname === "/earnings") {

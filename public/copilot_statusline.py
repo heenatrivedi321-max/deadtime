@@ -42,22 +42,36 @@ def get_install_id() -> str:
     return new_id
 
 
-def read_event_name() -> str:
-    """Copilot CLI pipes a session-state JSON payload on stdin after each
-    model response (no equivalent to Claude Code's hook_event_name) --
-    we forward the session_id if present so the server's last-seen-event
-    field is at least informative, but nothing billing-relevant depends
-    on this value."""
+def read_session_state() -> dict:
+    """Copilot CLI's stdin payload is experimental and thin -- no cost or
+    token fields the way Claude Code's is, just a session_id most of the
+    time. That's still real evidence worth forwarding: a session_id that
+    keeps changing means a live CLI session is actually cycling through
+    real turns, which a bare polling script wouldn't have at all."""
     try:
         payload = json.loads(sys.stdin.read())
-        session_id = payload.get("session_id")
-        return f"copilot:{session_id}" if session_id else "copilot:response"
+        session_id = str(payload.get("session_id", "") or "")
     except Exception:
-        return "copilot:unknown"
+        session_id = ""
+    return {
+        "event": f"copilot:{session_id}" if session_id else "copilot:response",
+        "session_id": session_id,
+        "cost": "",
+        "tokens": "",
+        "cwd_hash": "",
+    }
 
 
-def fetch_line(install_id: str, event_name: str) -> str:
-    url = f"{SERVER_URL}/line?id={install_id}&event={urllib.parse.quote(event_name)}"
+def fetch_line(install_id: str, session: dict) -> str:
+    params = urllib.parse.urlencode({
+        "id": install_id,
+        "event": session["event"],
+        "sid": session["session_id"],
+        "cost": session["cost"],
+        "tok": session["tokens"],
+        "cwd": session["cwd_hash"],
+    })
+    url = f"{SERVER_URL}/line?{params}"
     req = urllib.request.Request(url, headers={"User-Agent": "deadtime-client/1.0"})
     try:
         # 6s, not 3s: cold-starting a fresh python3 process and loading the
@@ -102,9 +116,9 @@ def main():
         print_claim_info()
         return
     try:
-        event_name = read_event_name()
+        session = read_session_state()
         install_id = get_install_id()
-        print(fetch_line(install_id, event_name))
+        print(fetch_line(install_id, session))
     except Exception:
         print(FALLBACK_LINE)
 

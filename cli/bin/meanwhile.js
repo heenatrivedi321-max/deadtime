@@ -124,6 +124,9 @@ async function claimCommand() {
       const earnings = await res.json();
       console.log(`  earned:  $${Number(earnings.user_earnings).toFixed(2)}`);
       console.log(`  shown:   ${earnings.total_calls} lines (${earnings.sponsor_calls} sponsored)`);
+      if (earnings.referral_count) {
+        console.log(`  referred: ${earnings.referral_count} people, +$${Number(earnings.referral_earnings).toFixed(2)} from that`);
+      }
     } else {
       console.log("  earned:  (couldn't reach server -- check your connection)");
     }
@@ -132,6 +135,9 @@ async function claimCommand() {
   }
   console.log();
   console.log(`  register a payout email: ${claimUrl}`);
+  console.log();
+  console.log("  share this and earn a cut of what they make too:");
+  console.log(`  ${SERVER}/r/${installId}`);
 }
 
 // `npx trymeanwhile segment` -- built for embedding inside another tool's
@@ -225,9 +231,18 @@ async function main() {
   // client makes, just fired once, synchronously, during install.
   // Non-fatal if it fails (slow network, offline install) -- the real
   // client will pick it up fine once the tool actually restarts.
+  // --ref=<install_id> attributes this brand-new install to whoever
+  // shared the link (trymeanwhile.online/r/<their-id>). Only matters on
+  // a genuinely new install -- the server only ever reads this on first
+  // contact (see getOrCreateState), so passing it on a re-run of an
+  // already-installed machine is a harmless no-op.
+  const refArg = process.argv.find((a) => a.startsWith("--ref="));
+  const refId = refArg ? refArg.slice("--ref=".length).trim() : null;
+
   let sampleLine = null;
   try {
     const params = new URLSearchParams({ id: installId, event: "install_check", sid: "", cost: "", tok: "", cwd: "" });
+    if (refId) params.set("ref", refId);
     const res = await fetch(`${SERVER}/line?${params}`, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();

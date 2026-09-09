@@ -90,13 +90,35 @@ function generateLocalTip(evidence: SessionEvidence): string {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-function fetchLine(installId: string, eventName: string, evidence: SessionEvidence): Promise<string> {
+/** Whether the call actually reached and got a real answer from the server,
+ * distinct from whatever line ends up on screen. A silently-swallowed
+ * network error used to be indistinguishable from a normal tip line here --
+ * this is the one signal that lets the caller tell the difference, so
+ * consecutive real failures can be surfaced instead of hidden. */
+interface FetchResult {
+  line: string;
+  ok: boolean;
+}
+
+function fetchLine(
+  installId: string,
+  eventName: string,
+  evidence: SessionEvidence,
+  priorFailures: number
+): Promise<FetchResult> {
   return new Promise((resolve) => {
     const query =
       `id=${encodeURIComponent(installId)}&event=${encodeURIComponent(eventName)}` +
       `&sid=${encodeURIComponent(evidence.sessionId)}` +
       `&tok=${evidence.editCount}` +
-      `&cwd=${encodeURIComponent(evidence.cwdHash)}`;
+      `&cwd=${encodeURIComponent(evidence.cwdHash)}` +
+      // Reported only once a call actually succeeds -- a client stuck fully
+      // offline can't self-report anything (nothing gets through), but this
+      // catches the more common case of intermittent failures (flaky VPN,
+      // a proxy timing out occasionally) by piggybacking the count on the
+      // next call that does get through, rather than needing a second
+      // working channel that wouldn't exist if the first one is down.
+      (priorFailures > 0 ? `&prior_failures=${priorFailures}` : "");
     const req = https.get(
       { host: SERVER_URL, path: `/line?${query}`, timeout: 6000, headers: { "User-Agent": "deadtime-client/1.0" } },
       (res) => {
@@ -106,18 +128,26 @@ function fetchLine(installId: string, eventName: string, evidence: SessionEviden
           try {
             const data = JSON.parse(body);
             if (data.kind === "tip" && Math.random() < LOCAL_TIP_CHANCE) {
-              resolve(generateLocalTip(evidence));
+              resolve({ line: generateLocalTip(evidence), ok: true });
               return;
             }
-            resolve(typeof data.line === "string" ? data.line : FALLBACK_LINE);
-          } catch {
-            resolve(FALLBACK_LINE);
+            resolve({ line: typeof data.line === "string" ? data.line : FALLBACK_LINE, ok: true });
+          } catch (e) {
+            console.error("[meanwhile] couldn't parse server response:", e);
+            resolve({ line: FALLBACK_LINE, ok: false });
           }
         });
       }
     );
-    req.on("timeout", () => req.destroy());
-    req.on("error", () => resolve(FALLBACK_LINE));
+    req.on("timeout", () => {
+      console.error("[meanwhile] request to server timed out");
+      req.destroy();
+      resolve({ line: FALLBACK_LINE, ok: false });
+    });
+    req.on("error", (e) => {
+      console.error("[meanwhile] request to server failed:", e.message);
+      resolve({ line: FALLBACK_LINE, ok: false });
+    });
   });
 }
 
@@ -158,14 +188,33 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Consecutive real failures (network error, timeout, bad response) --
+  // reset to 0 the moment a call actually succeeds. Distinct from any
+  // particular line shown: a fallback line used to look identical to a
+  // real tip, so nobody (not the user, not us) could tell the difference
+  // between "quiet tip" and "this has been silently broken for an hour."
+  let consecutiveFailures = 0;
+
   const poll = async () => {
     const windowFocused = vscode.window.state.focused;
     const recentlyActive = Date.now() - lastActivityAt < ACTIVITY_FRESHNESS_MS;
     if (!windowFocused || !recentlyActive) return;
 
-    const line = await fetchLine(installId, "vscode:activity", { sessionId, editCount, cwdHash });
-    statusBarItem.text = line.length > 80 ? line.slice(0, 77) + "..." : line;
-    statusBarItem.tooltip = line;
+    const result = await fetchLine(installId, "vscode:activity", { sessionId, editCount, cwdHash }, consecutiveFailures);
+    if (result.ok) {
+      consecutiveFailures = 0;
+      statusBarItem.text = result.line.length > 80 ? result.line.slice(0, 77) + "..." : result.line;
+      statusBarItem.tooltip = result.line;
+    } else {
+      consecutiveFailures += 1;
+      // After a handful of misses in a row, stop pretending everything's
+      // fine -- a generic tip line in that state would look identical to
+      // normal operation and nobody would ever know to report it.
+      if (consecutiveFailures >= 3) {
+        statusBarItem.text = "meanwhile: can't reach server";
+        statusBarItem.tooltip = `Meanwhile has failed to reach ${SERVER_URL} ${consecutiveFailures} times in a row -- check your network or firewall. Click to open your account page anyway.`;
+      }
+    }
   };
 
   const interval = setInterval(poll, POLL_INTERVAL_MS);
